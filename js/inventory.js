@@ -1,0 +1,6028 @@
+// inventory.js — gestión avanzada de inventario (min/max, expiraciones, notas, compras, import CSV)
+
+/** Iconos SVG de barra de inventario (mismos que en index.html). */
+/** Formato oficial G-NEEX: misma 1.ª fila en plantilla, exportación e importación (hoja recomendada «Datos»). */
+const BOX_STOCK_SHEET_HEADERS = Object.freeze([
+  "Codigo",
+  "Caja",
+  "UbicacionCaja",
+  "CantidadCaja",
+  "CantidadCajas",
+  "Vacia"
+]);
+
+/** Selectores especiales en transferencias (no son IDs de caja). */
+const BOX_TRANSFER_PROD_ID = "__PROD_STOCK__";
+const BOX_TRANSFER_TRANS_ID = "__TRANS_STOCK__";
+const BOX_TRANSFER_LOCATION_ID = "__ITEM_LOCATION__";
+
+function _boxXferKind(id) {
+  if (!id) return "";
+  if (id === BOX_TRANSFER_PROD_ID) return "prod";
+  if (id === BOX_TRANSFER_TRANS_ID) return "trans";
+  if (id === BOX_TRANSFER_LOCATION_ID) return "loc";
+  return "box";
+}
+
+function _boxXferIsSpecial(id) {
+  return id === BOX_TRANSFER_PROD_ID || id === BOX_TRANSFER_TRANS_ID || id === BOX_TRANSFER_LOCATION_ID;
+}
+
+const INV_ICONS = {
+  calendar:
+    '<svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  close:
+    '<svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  download:
+    '<svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>',
+  print:
+    '<svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>'
+};
+
+const InventoryManager = {
+
+  items: [],
+  purchaseList: [],   // productos a comprar
+  expAlertDays: 30,   // umbral para aviso de vencimiento (días)
+  /** Última lista mostrada en la tabla (completa o filtrada por buscador). */
+  _inventoryViewList: [],
+  _inventorySearchQuery: "",
+  /** Artículo cuyas notas están en el modal (id). */
+  _invNotesItemId: null,
+  /** Si está definido (YYYY-MM-DD), la tabla muestra stock reconstruido al final de ese día. */
+  _asOfDate: null,
+  /** Solo artículos con texto en «Problemas con el artículo» (campo itemProblemsNote). */
+  _inventoryFilterProblemsOnly: false,
+  /** Solo artículos con alerta de stock bajo desactivada (ignoreLowStockAlert). */
+  _inventoryFilterLowStockIgnoredOnly: false,
+  /** Lista del modal de alertas abierto (exportar / imprimir). */
+  _insightExportItems: [],
+  /** En insight "stock bajo": false=mostrar bajos, true=mostrar artículos ignorados. */
+  _insightLowShowIgnored: false,
+  _invRowActionsCloseTimers: {},
+  PRICE_CURRENCIES: Object.freeze(["USD", "CAD"]),
+
+  _isValidBoxNumber(n) {
+    return Number.isFinite(n) && n >= 1;
+  },
+
+  _canManageBoxMutations() {
+    return typeof Auth !== "undefined" && Auth.isAdmin();
+  },
+
+  // =========================================================
+  // INICIALIZACIÓN
+  // =========================================================
+  init() {
+    try {
+      this.items = JSON.parse(localStorage.getItem(STORAGE_KEYS.INVENTORY) || "[]");
+      this._normalizeBoxStocksForAllItems();
+      this.purchaseList = JSON.parse(localStorage.getItem(STORAGE_KEYS.PURCHASES) || "[]");
+      const expSaved = localStorage.getItem(STORAGE_KEYS.EXP_ALERT);
+      if (expSaved) this.expAlertDays = parseInt(expSaved, 10) || 30;
+      this.render();
+      this.setupEventListeners();
+      console.log("✅ InventoryManager iniciado con", this.items.length, "artículos");
+    } catch (err) {
+      console.error("❌ Error inicializando InventoryManager:", err);
+    }
+  },
+
+  save() {
+    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(this.items));
+    localStorage.setItem(STORAGE_KEYS.PURCHASES, JSON.stringify(this.purchaseList));
+  },
+
+  _normalizePriceCurrency(rawCurrency) {
+    const c = String(rawCurrency || "").trim().toUpperCase();
+    return this.PRICE_CURRENCIES.includes(c) ? c : "CAD";
+  },
+
+  _formatPriceDisplay(value, currency) {
+    const amount = Utils.roundDecimal(value, 2);
+    const iso = this._normalizePriceCurrency(currency);
+    const sign = iso === "CAD" ? "C$" : "US$";
+    return `${sign} ${Utils.formatDecimalDisplay(amount, 2)}`;
+  },
+
+  _computeNumBoxesFromMainStock(mainStock, qtyPerBox) {
+    const perBox = Utils.roundDecimal(qtyPerBox);
+    if (!Number.isFinite(perBox) || perBox <= 0) return 0;
+    const stock = Utils.roundDecimal(mainStock);
+    if (!Number.isFinite(stock)) return 0;
+    return Utils.roundDecimal(stock / perBox, 4);
+  },
+
+  _normalizeItemCoreFields(item, options = {}) {
+    const out = { ...(item || {}) };
+    out.mainStock = Utils.roundDecimal(parseFloat(out.mainStock) || 0);
+    out.prodStock = Utils.roundDecimal(parseFloat(out.prodStock) || 0);
+    out.transStock = Utils.roundDecimal(parseFloat(out.transStock) || 0);
+    out.qtyPerBox = Utils.roundDecimal(parseFloat(out.qtyPerBox) || 0);
+    out.numBoxes = options.recomputeNumBoxes
+      ? this._computeNumBoxesFromMainStock(out.mainStock, out.qtyPerBox)
+      : Utils.roundDecimal(parseFloat(out.numBoxes) || 0, 4);
+    out.minStock = Utils.roundDecimal(parseFloat(out.minStock) || 0);
+    out.maxStock = Utils.roundDecimal(parseFloat(out.maxStock) || 0);
+    out.defaultPrice = Utils.roundDecimal(parseFloat(out.defaultPrice) || 0, 2);
+    out.priceCurrency = this._normalizePriceCurrency(out.priceCurrency);
+    out.ignoreLowStockAlert = !!out.ignoreLowStockAlert;
+    return out;
+  },
+
+  _normalizeBoxStocksForAllItems() {
+    let changed = false;
+    this.items = (this.items || []).map(it => {
+      const before = it && typeof it === "object" ? JSON.stringify(it) : "";
+      const normalized = this._normalizeItemForStorage(it);
+      normalized.location = this._stripOrphanBoxTokensFromLocation(normalized);
+      if (!changed && before !== JSON.stringify(normalized)) changed = true;
+      return normalized;
+    });
+    if (changed) this.save();
+  },
+
+  _normalizeItemForStorage(itemLike) {
+    const withLegacyBoxes = this._ensureBoxStocksFromLocationText(itemLike);
+    const normalized = this._normalizeItemCoreFields(this._normalizeItemBoxStocks(withLegacyBoxes), { recomputeNumBoxes: true });
+    const fromBoxes = this._composeLocationHierarchyFromBoxStocks(normalized);
+    normalized.location = fromBoxes
+      ? this._mergeLegacyLocationWithBoxHierarchy(normalized.location || "", fromBoxes)
+      : this._coerceLocationOrRelocate(normalized.location || "", normalized);
+    normalized.location = this._stripOrphanBoxTokensFromLocation(normalized);
+    return normalized;
+  },
+
+  _stripOrphanBoxTokensFromLocation(itemLike) {
+    const item = itemLike || {};
+    const valid = new Set(
+      (Array.isArray(item.boxStocks) ? item.boxStocks : [])
+        .map(b => parseInt(b?.boxNumber, 10))
+        .filter(n => this._isValidBoxNumber(n))
+    );
+    const parts = String(item.location || "")
+      .split(/\s*,\s*/)
+      .map(s => String(s || "").trim())
+      .filter(Boolean);
+    const kept = parts.filter(p => {
+      const nums = Utils.parseWarehouseBoxesFromLocation(p);
+      if (!nums.length) return true;
+      // Mantener solo segmentos cuyas cajas todavía existen en boxStocks.
+      return nums.some(n => valid.has(n));
+    });
+    return kept.join(", ");
+  },
+
+  _ensureBoxStocksFromLocationText(itemLike) {
+    const item = { ...(itemLike || {}) };
+    const srcRows = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+    const rows = srcRows.map(r => ({ ...(r || {}) }));
+    const byNumber = new Map();
+    for (const r of rows) {
+      const n = parseInt(r?.boxNumber, 10);
+      if (!this._isValidBoxNumber(n)) continue;
+      if (!byNumber.has(n)) byNumber.set(n, r);
+    }
+
+    const rawLocation = String(item.location || "").trim();
+    if (!rawLocation) {
+      item.boxStocks = rows;
+      return item;
+    }
+    const parts = rawLocation
+      .split(/\s*,\s*/)
+      .map(s => String(s || "").trim())
+      .filter(Boolean);
+    const inferredAdded = [];
+    for (const p of parts) {
+      const nums = Utils.parseWarehouseBoxesFromLocation(p);
+      if (!nums.length) continue;
+      const strict = Utils.strictEffectiveWarehouseLocationText(p);
+      for (const n of nums) {
+        if (byNumber.has(n)) {
+          const hit = byNumber.get(n);
+          if (!String(hit.locationLabel || "").trim() && strict) hit.locationLabel = strict;
+          continue;
+        }
+        const inferred = {
+          boxId: `box-${n}-${Utils.generateId().slice(0, 8)}`,
+          boxNumber: n,
+          locationLabel: strict || "",
+          qty: 0,
+          qtyBoxes: 0,
+          empty: false,
+          notes: "",
+          updatedAt: new Date().toISOString()
+        };
+        rows.push(inferred);
+        byNumber.set(n, inferred);
+        inferredAdded.push(inferred);
+      }
+    }
+    item.boxStocks = rows;
+    return item;
+  },
+
+  /**
+   * Ranuras reconocidas en `item.location` y en cada línea de `locationStocks` (stock por ubicación).
+   */
+  _collectWarehouseSlotsFromItem(it) {
+    const ordered = [];
+    const add = arr => {
+      for (const s of arr || []) {
+        if (s && !ordered.includes(s)) ordered.push(s);
+      }
+    };
+    add(Utils.parseWarehouseSlotsFromLocation(it.location || ""));
+    for (const ls of this._normalizeItemLocationStocks(it)) {
+      add(Utils.parseWarehouseSlotsFromLocation(ls.location || ""));
+    }
+    return ordered;
+  },
+
+  /**
+   * Números de caja en texto de ubicación y en `boxStocks`.
+   */
+  _collectWarehouseBoxesFromItem(it) {
+    const ordered = [];
+    const addNum = n => {
+      const x = parseInt(n, 10);
+      if (!Number.isFinite(x) || x < 1) return;
+      if (!ordered.includes(x)) ordered.push(x);
+    };
+    for (const n of Utils.parseWarehouseBoxesFromLocation(it.location || "")) addNum(n);
+    if (Array.isArray(it.boxStocks)) {
+      for (const b of it.boxStocks) addNum(b.boxNumber);
+    }
+    return ordered;
+  },
+
+  _coerceLocationOrRelocate(rawLocation, item) {
+    const rawText = String(rawLocation || "").trim();
+    const boxNums = Utils.parseWarehouseBoxesFromLocation(rawText);
+    if (boxNums.length > 0) {
+      // Si hay caja(s), preservar la jerarquía "ubicación > BOXn" y no degradarla a solo ubicación.
+      const parts = rawText
+        .split(/\s*,\s*/)
+        .map(s => String(s || "").trim())
+        .filter(Boolean);
+      const out = [];
+      const seen = new Set();
+      const push = val => {
+        const v = String(val || "").trim();
+        if (!v) return;
+        const k = v.toUpperCase();
+        if (seen.has(k)) return;
+        seen.add(k);
+        out.push(v);
+      };
+      for (const p of parts) {
+        const nums = Utils.parseWarehouseBoxesFromLocation(p);
+        if (nums.length) {
+          const base = Utils.strictEffectiveWarehouseLocationText(p);
+          for (const n of nums) push(base ? `${base} > BOX${n}` : `BOX${n}`);
+          continue;
+        }
+        const strictPart = Utils.strictEffectiveWarehouseLocationText(p);
+        push(strictPart || Utils.normalizeWarehouseLocationText(p) || p);
+      }
+      if (out.length) return out.join(", ");
+    }
+    const normalized = Utils.normalizeWarehouseLocationText(rawLocation || "");
+    const strict = Utils.strictEffectiveWarehouseLocationText(rawLocation || "");
+    if (strict) {
+      return strict;
+    }
+
+    if (item && Array.isArray(item.locationStocks)) {
+      const chunks = [];
+      for (const ls of item.locationStocks) {
+        const q = parseFloat(ls?.qty) || 0;
+        if (q <= 0) continue;
+        const lab = String(ls?.location || "").trim();
+        const piece = Utils.strictEffectiveWarehouseLocationText(lab);
+        if (piece) chunks.push(piece);
+      }
+      if (chunks.length) {
+        const synth = Utils.strictEffectiveWarehouseLocationText(chunks.join(", "));
+        if (synth) return synth;
+      }
+    }
+
+    return normalized || String(rawLocation || "").trim();
+  },
+
+  _composeLocationHierarchyFromBoxStocks(item) {
+    const rows = Array.isArray(item?.boxStocks) ? item.boxStocks : [];
+    const out = [];
+    const seen = new Set();
+    for (const b of rows) {
+      const n = parseInt(b?.boxNumber, 10);
+      if (!this._isValidBoxNumber(n)) continue;
+      const rawLab = String(b?.locationLabel || "").trim();
+      const strict = Utils.strictEffectiveWarehouseLocationText(rawLab);
+      const base = strict || rawLab;
+      const entry = base ? `${base} > BOX${n}` : `BOX${n}`;
+      const key = entry.toUpperCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(entry);
+    }
+    return out.join(", ");
+  },
+
+  _mergeLegacyLocationWithBoxHierarchy(rawLocation, boxHierarchyText) {
+    const baseParts = String(rawLocation || "")
+      .split(/\s*,\s*/)
+      .map(s => String(s || "").trim())
+      .filter(Boolean);
+    const boxParts = String(boxHierarchyText || "")
+      .split(/\s*,\s*/)
+      .map(s => String(s || "").trim())
+      .filter(Boolean);
+    const out = [];
+    const seen = new Set();
+    const push = part => {
+      const p = String(part || "").trim();
+      if (!p) return;
+      const k = p.toUpperCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(p);
+    };
+    // Conserva ubicaciones antiguas que no sean referencias de caja.
+    for (const p of baseParts) {
+      if (Utils.parseWarehouseBoxesFromLocation(p).length > 0) continue;
+      const strict = Utils.strictEffectiveWarehouseLocationText(p);
+      push(strict || Utils.normalizeWarehouseLocationText(p) || p);
+    }
+    // Agrega ubicaciones jerárquicas de cajas.
+    for (const p of boxParts) push(p);
+    return out.join(", ");
+  },
+
+  /**
+   * Cantidad numérica desde JSON/plantilla (coma decimal, miles, espacios).
+   * Evita filas con qty aparentemente vacío por formato regional.
+   */
+  _parseBoxStockQtyValue(raw) {
+    if (raw == null || raw === "") return 0;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    let s = String(raw).trim().replace(/\s/g, "");
+    if (!s) return 0;
+    const hasComma = s.includes(",");
+    const hasDot = s.includes(".");
+    if (hasComma && !hasDot) s = s.replace(",", ".");
+    else if (hasComma && hasDot) {
+      const lastComma = s.lastIndexOf(",");
+      const lastDot = s.lastIndexOf(".");
+      if (lastComma > lastDot) s = s.replace(/\./g, "").replace(",", ".");
+      else s = s.replace(/,/g, "");
+    }
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : 0;
+  },
+
+  _parseBoxStockQtyBoxesValue(raw) {
+    const q = this._parseBoxStockQtyValue(raw);
+    if (!Number.isFinite(q)) return 0;
+    return Math.max(0, Math.round(q));
+  },
+
+  _normalizeItemBoxStocks(item) {
+    const src = Array.isArray(item?.boxStocks) ? item.boxStocks : [];
+    const map = {};
+    for (const raw of src) {
+      const n = parseInt(raw?.boxNumber, 10);
+      if (!this._isValidBoxNumber(n)) continue;
+      /* Una sola fila lógica por número de caja: importaciones generan boxIds distintos por fila;
+         si no se fusiona aquí, las cantidades quedan repartidas en varias filas o no suman bien. */
+      const mergeKey = `bn:${n}`;
+      if (!map[mergeKey]) {
+        const bid = String(raw?.boxId || "").trim();
+        map[mergeKey] = {
+          boxId: bid || `box-${n}-${Utils.generateId().slice(0, 8)}`,
+          boxNumber: n,
+          locationLabel: Utils.resolveImportLocationLabel(String(raw?.locationLabel || "").trim()),
+          qty: 0,
+          qtyBoxes: 0,
+          empty: false,
+          notes: String(raw?.notes || "").trim(),
+          updatedAt: raw?.updatedAt || new Date().toISOString()
+        };
+      }
+      map[mergeKey].qty = Utils.roundDecimal((map[mergeKey].qty || 0) + this._parseBoxStockQtyValue(raw?.qty));
+      map[mergeKey].qtyBoxes = Math.max(
+        0,
+        (map[mergeKey].qtyBoxes || 0) + this._parseBoxStockQtyBoxesValue(raw?.qtyBoxes)
+      );
+      if (raw?.empty) map[mergeKey].empty = true;
+      if (!map[mergeKey].locationLabel && raw?.locationLabel) {
+        map[mergeKey].locationLabel = Utils.resolveImportLocationLabel(String(raw.locationLabel).trim());
+      }
+      if (!map[mergeKey].notes && raw?.notes) map[mergeKey].notes = String(raw.notes).trim();
+    }
+    for (const b of Object.values(map)) {
+      if (b.empty) {
+        b.qty = 0;
+        b.qtyBoxes = 0;
+      }
+    }
+    const boxStocks = Object.values(map).sort((a, b) => a.boxNumber - b.boxNumber);
+    const locationStocks = this._normalizeItemLocationStocks(item);
+    return { ...(item || {}), boxStocks, locationStocks };
+  },
+
+  _canonicalLocationLabel(label) {
+    return Utils.strictCatalogLocationToken(label);
+  },
+
+  _normalizeItemLocationStocks(item) {
+    const src = item?.locationStocks;
+    const entries = Array.isArray(src)
+      ? src
+      : src && typeof src === "object"
+        ? Object.entries(src).map(([location, qty]) => ({ location, qty }))
+        : [];
+    const map = {};
+    for (const entry of entries) {
+      const location =
+        typeof Utils.resolveImportLocationLabel === "function"
+          ? Utils.resolveImportLocationLabel(entry?.location || "")
+          : Utils.strictEffectiveWarehouseLocationText(entry?.location || "");
+      if (!location) continue;
+      const q = parseFloat(entry?.qty) || 0;
+      if (!Number.isFinite(q) || q <= 0) continue;
+      if (!map[location]) {
+        map[location] = {
+          location,
+          qty: 0,
+          updatedAt: entry?.updatedAt || new Date().toISOString()
+        };
+      }
+      map[location].qty = Utils.roundDecimal((map[location].qty || 0) + q);
+      if (entry?.updatedAt) map[location].updatedAt = String(entry.updatedAt);
+    }
+    return Object.values(map).sort((a, b) => String(a.location).localeCompare(String(b.location)));
+  },
+
+  _incrementItemLocationStock(item, locationLabel, qty) {
+    if (!item) return;
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return;
+    item.locationStocks = this._normalizeItemLocationStocks(item);
+    let idx = this._findLocationStockRowIndex(item, locationLabel);
+    if (idx < 0) {
+      const raw = String(locationLabel ?? "").trim();
+      const loc =
+        Utils.resolveImportLocationLabel(raw) ||
+        Utils.strictCatalogLocationToken(raw) ||
+        raw;
+      if (!loc) return;
+      item.locationStocks.push({
+        location: loc,
+        qty: q,
+        updatedAt: new Date().toISOString()
+      });
+      item.locationStocks = this._normalizeItemLocationStocks(item);
+      return;
+    }
+    item.locationStocks[idx].qty = Utils.roundDecimal((parseFloat(item.locationStocks[idx].qty) || 0) + q);
+    item.locationStocks[idx].updatedAt = new Date().toISOString();
+  },
+
+  getItemById(itemId) {
+    return (this.items || []).find(i => String(i.id) === String(itemId)) || null;
+  },
+
+  getItemBoxStocks(itemId) {
+    const it = this.getItemById(itemId);
+    if (!it) return [];
+    return Array.isArray(it.boxStocks) ? it.boxStocks.slice() : [];
+  },
+
+  getItemAvailableBoxes(itemId) {
+    return this.getItemBoxStocks(itemId).filter(b => !b.empty && (parseFloat(b.qty) || 0) > 0);
+  },
+
+  _findBoxIndex(item, boxId) {
+    if (!item || !Array.isArray(item.boxStocks)) return -1;
+    return item.boxStocks.findIndex(b => String(b.boxId) === String(boxId));
+  },
+
+  /** Comparación insensible a mayúsculas / acentos para etiquetas de ubicación. */
+  _locationLabelEquals(a, b) {
+    const norm = s =>
+      String(s ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toUpperCase();
+    return norm(a) === norm(b);
+  },
+
+  /**
+   * Índice en `item.locationStocks` que corresponde a la clave del movimiento (catálogo o texto libre).
+   */
+  _findLocationStockRowIndex(item, rawKey) {
+    if (!item || !Array.isArray(item.locationStocks)) return -1;
+    const raw = String(rawKey ?? "").trim();
+    if (!raw) return -1;
+    const candidates = [
+      raw,
+      Utils.resolveImportLocationLabel(raw),
+      Utils.strictEffectiveWarehouseLocationText(raw),
+      Utils.strictCatalogLocationToken(raw)
+    ].filter(Boolean);
+    const rows = item.locationStocks;
+    for (let i = 0; i < rows.length; i++) {
+      const stored = rows[i]?.location;
+      if (stored == null) continue;
+      for (const c of candidates) {
+        if (this._locationLabelEquals(stored, c)) return i;
+      }
+    }
+    return -1;
+  },
+
+  /**
+   * Índice de fila de caja por id; si falla (p. ej. tras reimportar), por número de caja.
+   */
+  _findBoxRowIndexForMovement(item, boxId, boxNumberHint) {
+    if (!item || !Array.isArray(item.boxStocks)) return -1;
+    let idx = this._findBoxIndex(item, boxId);
+    if (idx >= 0) return idx;
+    const n = parseInt(boxNumberHint, 10);
+    if (!this._isValidBoxNumber(n)) return -1;
+    return item.boxStocks.findIndex(b => Number(b.boxNumber) === n);
+  },
+
+  /** Cantidad disponible en una caja para validar movimientos (tras importación / normalización). */
+  getBoxStockQtyForMovement(itemId, boxId, boxNumberHint) {
+    const item = this.getItemById(itemId);
+    if (!item) return 0;
+    const idx = this._findBoxRowIndexForMovement(item, boxId, boxNumberHint);
+    if (idx < 0) return 0;
+    return Math.max(0, this._parseBoxStockQtyValue(item.boxStocks[idx].qty));
+  },
+
+  /** True si existe fila JSON de stock por ubicación que case con la clave del movimiento (no solo ranura sintética). */
+  hasLocationStockRowForMovement(itemId, rawLocationKey) {
+    const item = this.getItemById(itemId);
+    if (!item) return false;
+    const locRows = this._normalizeItemLocationStocks(item);
+    return this._findLocationStockRowIndex({ locationStocks: locRows }, rawLocationKey) >= 0;
+  },
+
+  upsertItemBoxStock(itemId, payload, options = {}) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    item.boxStocks = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+    const n = parseInt(payload?.boxNumber, 10);
+    if (!this._isValidBoxNumber(n)) return { ok: false, reason: "invalid-box-number" };
+    const rawLab = String(payload?.locationLabel || "").trim();
+    const resolvedLocLab = Utils.resolveImportLocationLabel(rawLab);
+    const locLab = String(resolvedLocLab || "").trim() || rawLab;
+    const boxId = String(payload?.boxId || `box-${n}-${Utils.generateId().slice(0, 8)}`);
+    const idx = this._findBoxIndex(item, boxId);
+    const markEmpty = !!payload?.empty;
+    const next = {
+      boxId,
+      boxNumber: n,
+      locationLabel: locLab,
+      qty: markEmpty ? 0 : Utils.roundDecimal(this._parseBoxStockQtyValue(payload?.qty)),
+      qtyBoxes: markEmpty ? 0 : Math.max(0, this._parseBoxStockQtyBoxesValue(payload?.qtyBoxes)),
+      empty: markEmpty,
+      notes: String(payload?.notes || "").trim(),
+      updatedAt: new Date().toISOString()
+    };
+    if (idx >= 0) item.boxStocks[idx] = next;
+    else item.boxStocks.push(next);
+    item.boxStocks = this._normalizeItemBoxStocks(item).boxStocks;
+    this._syncItemLocationFromBox(item, boxId, locLab);
+    this.save();
+    if (!options?.silent) this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return { ok: true, box: next };
+  },
+
+  deleteItemBoxStock(itemId, boxId, force = false) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    item.boxStocks = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+    const idx = this._findBoxIndex(item, boxId);
+    if (idx < 0) return { ok: false, reason: "box-not-found" };
+    const b = item.boxStocks[idx];
+    if (!force && this._parseBoxStockQtyValue(b.qty) > 0) return { ok: false, reason: "box-has-stock" };
+    const boxNumber = parseInt(b?.boxNumber, 10);
+    item.boxStocks.splice(idx, 1);
+    this._removeItemLocationForBox(item, boxNumber);
+    this.save();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return { ok: true };
+  },
+
+  consumeFromBoxAndMain(itemId, boxId, qty, options = {}) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const idx = this._findBoxRowIndexForMovement(item, boxId, options.boxNumber);
+    if (idx < 0) return { ok: false, reason: "box-not-found" };
+    const cur = this._parseBoxStockQtyValue(item.boxStocks[idx].qty);
+    if (cur < q) return { ok: false, reason: "box-overdraft" };
+    item.boxStocks[idx].qty = Utils.roundDecimal(cur - q);
+    item.boxStocks[idx].updatedAt = new Date().toISOString();
+    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - q);
+    this.save();
+    return { ok: true };
+  },
+
+  /** Igual que retirar de caja: descuenta la fila de stock por ubicación y el principal (mismo criterio que caja). */
+  consumeFromLocationStockAndMain(itemId, locationKey, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    item.locationStocks = this._normalizeItemLocationStocks(item);
+    const idx = this._findLocationStockRowIndex(item, locationKey);
+    if (idx < 0) return { ok: false, reason: "location-not-found" };
+    const cur = parseFloat(item.locationStocks[idx].qty) || 0;
+    if (cur < q) return { ok: false, reason: "location-overdraft" };
+    const next = Utils.roundDecimal(cur - q);
+    if (next <= 0) item.locationStocks.splice(idx, 1);
+    else {
+      item.locationStocks[idx].qty = next;
+      item.locationStocks[idx].updatedAt = new Date().toISOString();
+    }
+    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - q);
+    this.save();
+    return { ok: true };
+  },
+
+  restoreToBoxAndMain(itemId, boxId, qty, options = {}) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    item.boxStocks = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+    const idx = this._findBoxRowIndexForMovement(item, boxId, options.boxNumber);
+    if (idx < 0) return { ok: false, reason: "box-not-found" };
+    item.boxStocks[idx].qty = Utils.roundDecimal(this._parseBoxStockQtyValue(item.boxStocks[idx].qty) + q);
+    item.boxStocks[idx].updatedAt = new Date().toISOString();
+    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  restoreToLocationStockAndMain(itemId, locationKey, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    this._incrementItemLocationStock(item, locationKey, q);
+    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  /**
+   * Ingreso COMPRA_STOCK: stock principal (total) o reparto a caja / fila de ubicación (criterio coherente con restore*).
+   * @param {object} [place] { kind: 'main'|'box'|'location', boxNumber?, boxId?, locationKey? }
+   */
+  applyCompraStockPlacement(itemId, quantity, place) {
+    const inv0 = this.getItemById(itemId);
+    if (inv0 && inv0.inventoryConsumable) return { ok: false, reason: "inventory-consumable" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(quantity) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const p = place && typeof place === "object" ? place : { kind: "main" };
+    const kind = p.kind || "main";
+    if (kind === "main") {
+      this.updateStock(itemId, "main", q);
+      return { ok: true, kind: "main" };
+    }
+    if (kind === "box") {
+      const n = parseInt(p.boxNumber, 10);
+      if (!this._isValidBoxNumber(n)) return { ok: false, reason: "invalid-box" };
+      const rUp = this.upsertItemBoxStock(
+        itemId,
+        { boxNumber: n, qty: 0, boxId: p.boxId || "", locationLabel: p.locationLabel || "" },
+        { silent: true }
+      );
+      if (!rUp || !rUp.ok) return { ok: false, reason: "box-upsert" };
+      const bid = rUp.box && rUp.box.boxId ? rUp.box.boxId : p.boxId;
+      return this.restoreToBoxAndMain(itemId, bid, q, { boxNumber: n });
+    }
+    if (kind === "location") {
+      const locKey = String(p.locationKey || "").trim();
+      if (!locKey) return { ok: false, reason: "invalid-location" };
+      const canon = Utils.strictEffectiveWarehouseLocationText(locKey) || locKey;
+      return this.restoreToLocationStockAndMain(itemId, canon, q);
+    }
+    this.updateStock(itemId, "main", q);
+    return { ok: true };
+  },
+
+  /** Revierte applyCompraStockPlacement (p. ej. anular movimiento). */
+  revertCompraStockPlacement(itemId, quantity, place) {
+    const inv0 = this.getItemById(itemId);
+    if (inv0 && inv0.inventoryConsumable) return { ok: true };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(quantity) || 0));
+    if (q <= 0) return { ok: true };
+    const p = place && typeof place === "object" ? place : { kind: "main" };
+    const kind = p.kind || "main";
+    if (kind === "main") {
+      this.updateStock(itemId, "main", -q);
+      return { ok: true };
+    }
+    if (kind === "box" && p.boxId) {
+      return this.consumeFromBoxAndMain(itemId, p.boxId, q, { boxNumber: p.boxNumber });
+    }
+    if (kind === "box") {
+      const it = this.getItemById(itemId);
+      const n = parseInt(p.boxNumber, 10);
+      if (it && this._isValidBoxNumber(n)) {
+        const idx = it.boxStocks ? it.boxStocks.findIndex(b => Number(b.boxNumber) === n) : -1;
+        if (idx >= 0) {
+          return this.consumeFromBoxAndMain(itemId, it.boxStocks[idx].boxId, q, { boxNumber: n });
+        }
+      }
+      this.updateStock(itemId, "main", -q);
+      return { ok: true };
+    }
+    if (kind === "location" && p.locationKey) {
+      const canon = Utils.strictEffectiveWarehouseLocationText(p.locationKey) || String(p.locationKey).trim();
+      if (canon) return this.consumeFromLocationStockAndMain(itemId, canon, q);
+    }
+    this.updateStock(itemId, "main", -q);
+    return { ok: true };
+  },
+
+  getItemLocationStocksNormalized(itemId) {
+    const it = this.getItemById(itemId);
+    if (!it) return [];
+    return this._normalizeItemLocationStocks(it);
+  },
+
+  /** Suma del stock declarado en cajas del depósito principal (CajasJson). */
+  _sumBoxStockQtyForItem(item) {
+    if (!item || !item.id) return 0;
+    let s = 0;
+    for (const b of this.getItemBoxStocks(item.id)) {
+      s += this._parseBoxStockQtyValue(b.qty);
+    }
+    return Utils.roundDecimal(s);
+  },
+
+  /**
+   * Cantidad atribuible a «ubicación» en principal: stock principal total − stock en cajas.
+   * Es la base para las opciones loc: en movimientos de salida (sin duplicar el total del principal).
+   */
+  _getMainLocationPoolQty(item) {
+    if (!item) return 0;
+    const main = parseFloat(item.mainStock) || 0;
+    return Math.max(0, Utils.roundDecimal(main - this._sumBoxStockQtyForItem(item)));
+  },
+
+  /**
+   * Filas de ubicación para el desplegable de origen con cantidades **coherentes** con el pool (principal − cajas):
+   * reparte ese pool entre las mismas ranuras que `getMovementLocationOptions`, proporcionalmente a sus pesos.
+   */
+  getMovementLocationSourceOptions(item) {
+    if (!item) return [];
+    const pool = this._getMainLocationPoolQty(item);
+    if (pool <= 0) return [];
+    const base = this.getMovementLocationOptions(item);
+    if (!base.length) return [];
+    const weights = base.map(r => Math.max(0, parseFloat(r.qty) || 0));
+    const sumW = weights.reduce((a, b) => a + b, 0);
+    const n = base.length;
+    let distributed;
+    if (sumW < 1e-9) {
+      const each = Utils.roundDecimal(pool / n);
+      distributed = base.map((r, i) => ({
+        ...r,
+        qty: i === n - 1 ? Utils.roundDecimal(pool - each * (n - 1)) : each
+      }));
+    } else {
+      const rawParts = weights.map(w => pool * (w / sumW));
+      distributed = base.map((r, i) => ({
+        ...r,
+        qty: Utils.roundDecimal(rawParts[i])
+      }));
+      let drift = Utils.roundDecimal(pool - distributed.reduce((s, r) => s + (parseFloat(r.qty) || 0), 0));
+      if (Math.abs(drift) > 1e-9 && distributed.length) {
+        const last = distributed[distributed.length - 1];
+        last.qty = Utils.roundDecimal((parseFloat(last.qty) || 0) + drift);
+      }
+    }
+    return distributed;
+  },
+
+  /**
+   * Ubicaciones de almacén para el desplegable de movimientos: filas JSON + a lo sumo una ranura del texto
+   * «Ubicación» sin fila JSON (resto = principal − suma JSON). Con varias ranuras en texto y sin detalle JSON
+   * no se reparte el principal por igual entre ellas.
+   */
+  getMovementLocationOptions(item) {
+    if (!item) return [];
+    const seen = new Set();
+    const out = [];
+    const add = (loc, qty, synthetic) => {
+      const L = String(loc || "").trim();
+      if (!L) return;
+      const k = L.toUpperCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      const q = Utils.roundDecimal(Math.max(0, parseFloat(qty) || 0));
+      out.push({ location: L, qty: q, synthetic: !!synthetic });
+    };
+    const structured = this._normalizeItemLocationStocks(item);
+    let sumStructured = 0;
+    for (const ls of structured) {
+      const q = parseFloat(ls.qty) || 0;
+      sumStructured += q;
+      add(ls.location, q, false);
+    }
+    const textSlots = [
+      ...new Set(
+        Utils.parseWarehouseSlotsFromLocation(item.location || "").map(s => Utils.strictCatalogLocationToken(s) || s).filter(Boolean)
+      )
+    ];
+    const main = parseFloat(item.mainStock) || 0;
+    const orphans = textSlots.filter(s => !seen.has(String(s).toUpperCase()));
+    if (orphans.length) {
+      const remainder = Math.max(0, Utils.roundDecimal(main - sumStructured));
+      /* Una sola ranura en texto sin fila JSON: el resto no asignado va ahí. Varias ranuras: no repartir el principal por igual; hay que detallar stock por ubicación en JSON. */
+      if (orphans.length === 1) add(orphans[0], remainder, true);
+    }
+    return out.sort((a, b) => String(a.location).localeCompare(String(b.location)));
+  },
+
+  /** Cantidad disponible para una línea de movimiento `loc:` (JSON o inferida del texto). */
+  getMovementLocationAvailableQty(itemId, rawLocationKey) {
+    const item = this.getItemById(itemId);
+    if (!item) return 0;
+    const raw = String(rawLocationKey ?? "").trim();
+    if (!raw) return 0;
+    const needle = Utils.strictEffectiveWarehouseLocationText(raw) || raw;
+    const token = needle.split(/\s*,\s*/)[0]?.trim();
+    if (!token) return 0;
+    const nu = token.toUpperCase();
+    const opts = this.getMovementLocationSourceOptions(item);
+    const hit = opts.find(l => String(l.location).toUpperCase() === nu);
+    if (hit) return Math.max(0, parseFloat(hit.qty) || 0);
+    const locRows = this._normalizeItemLocationStocks(item);
+    const idx = this._findLocationStockRowIndex({ locationStocks: locRows }, raw);
+    if (idx >= 0) return Math.max(0, parseFloat(locRows[idx].qty) || 0);
+    return 0;
+  },
+
+  /**
+   * Cantidad máxima para una línea con origen `ibox:` (caja citada en texto pero sin opción `box:`).
+   * - Si existe fila CajasJson con cantidad &gt; 0 para esa caja → 0 aquí (se usa solo `box:id`; stock propio por caja, sin reparto).
+   * - Si solo está en el texto (o la fila tiene 0 unidades) → el movimiento sigue descontando del **principal**; el tope es el **stock principal entero**, no main/N entre varias cajas.
+   */
+  getMovementInferredBoxAvailableQty(itemId, boxNumber) {
+    const item = this.getItemById(itemId);
+    if (!item) return 0;
+    const n = parseInt(boxNumber, 10);
+    if (!this._isValidBoxNumber(n)) return 0;
+    const nums = Utils.parseWarehouseBoxesFromLocation(item.location || "");
+    if (!nums.includes(n)) return 0;
+    const rows = this.getItemBoxStocks(itemId);
+    const row = rows.find(b => Number(b.boxNumber) === n);
+    const rowQty = row ? this._parseBoxStockQtyValue(row.qty) : 0;
+    if (row && rowQty > 0) return 0;
+    return Math.max(0, Utils.roundDecimal(parseFloat(item.mainStock) || 0));
+  },
+
+  /** Fragmento(s) del texto Ubicación del artículo que mencionan esta caja (p. ej. «BOX3, E1R»). */
+  _snippetFromItemLocationForBox(item, boxNumber) {
+    const raw = String(item?.location || "").trim();
+    if (!raw) return "";
+    const n = parseInt(boxNumber, 10);
+    if (!Number.isFinite(n) || n < 1) return "";
+    const parts = raw.split(/\s*,\s*/).map(p => p.trim()).filter(Boolean);
+    const hits = [];
+    for (const p of parts) {
+      const nums = Utils.parseWarehouseBoxesFromLocation(p);
+      if (nums.includes(n)) hits.push(p);
+    }
+    return hits.length ? hits.join(", ") : "";
+  },
+
+  transferBetweenBoxes(itemId, fromBoxId, toBoxId, qty, toLocationLabel = "") {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const fromIdx = this._findBoxIndex(item, fromBoxId);
+    const toIdx = this._findBoxIndex(item, toBoxId);
+    if (fromIdx < 0 || toIdx < 0) return { ok: false, reason: "box-not-found" };
+    const fromCur = this._parseBoxStockQtyValue(item.boxStocks[fromIdx].qty);
+    if (fromCur < q) return { ok: false, reason: "box-overdraft" };
+    item.boxStocks[fromIdx].qty = Utils.roundDecimal(fromCur - q);
+    item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
+    item.boxStocks[toIdx].qty = Utils.roundDecimal((this._parseBoxStockQtyValue(item.boxStocks[toIdx].qty)) + q);
+    const rawLab = String(toLocationLabel || "").trim();
+    const locLab = Utils.strictEffectiveWarehouseLocationText(rawLab);
+    if (rawLab && !locLab) return { ok: false, reason: "invalid-location-catalog" };
+    item.boxStocks[toIdx].locationLabel = locLab;
+    item.boxStocks[toIdx].updatedAt = new Date().toISOString();
+    this._syncItemLocationFromBox(item, item.boxStocks[toIdx].boxId, locLab);
+    this.save();
+    return { ok: true };
+  },
+
+  /** Tras una transferencia, refleja en `item.location` la ubicación de la caja destino. */
+  _syncItemLocationFromBox(item, boxId, locationOverride = "") {
+    if (!item) return;
+    const b = (item.boxStocks || []).find(x => String(x.boxId) === String(boxId));
+    if (!b) return;
+    const boxNumber = parseInt(b.boxNumber, 10);
+    if (!this._isValidBoxNumber(boxNumber)) return;
+    const explicit = String(locationOverride || "").trim();
+    if (explicit) {
+      const strict = Utils.strictEffectiveWarehouseLocationText(explicit);
+      this._upsertItemLocationForBox(item, boxNumber, strict || explicit);
+      return;
+    }
+    const label = String(b.locationLabel || "").trim();
+    const labelStrict = Utils.strictEffectiveWarehouseLocationText(label);
+    this._upsertItemLocationForBox(item, boxNumber, labelStrict || label || "");
+  },
+
+  /**
+   * Modelo unificado ubicación/caja:
+   * elimina menciones previas de esa caja y agrega una ruta jerárquica
+   * `ubicación > BOXn` (una sola ubicación con sububicación).
+   */
+  _upsertItemLocationForBox(item, boxNumber, strictLocationLabel = "") {
+    if (!item) return;
+    const n = parseInt(boxNumber, 10);
+    if (!this._isValidBoxNumber(n)) return;
+    const boxToken = `BOX${n}`;
+    const normalizedCurrent = Utils.normalizeWarehouseLocationText(item.location || "");
+    const parts = normalizedCurrent
+      .split(/\s*,\s*/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    const kept = parts.filter(p => !Utils.parseWarehouseBoxesFromLocation(p).includes(n));
+    const nextParts = [];
+    const nestedLocation = strictLocationLabel ? `${strictLocationLabel} > ${boxToken}` : boxToken;
+    nextParts.push(nestedLocation);
+    const merged = [...kept, ...nextParts]
+      .map(s => String(s || "").trim())
+      .filter(Boolean)
+      .join(", ");
+    item.location = merged;
+  },
+
+  _removeItemLocationForBox(item, boxNumber) {
+    if (!item) return;
+    const n = parseInt(boxNumber, 10);
+    if (!this._isValidBoxNumber(n)) return;
+    const parts = String(item.location || "")
+      .split(/\s*,\s*/)
+      .map(s => String(s || "").trim())
+      .filter(Boolean);
+    const kept = parts.filter(p => !Utils.parseWarehouseBoxesFromLocation(p).includes(n));
+    item.location = kept.join(", ");
+  },
+
+  /** Añade una ubicación al texto del artículo sin sobrescribir ni duplicar. */
+  _appendItemLocation(item, locationText = "") {
+    if (!item) return;
+    const incoming = Utils.strictEffectiveWarehouseLocationText(locationText);
+    if (!incoming) return;
+    const current = this._coerceLocationOrRelocate(item.location || "", item);
+    if (!current) {
+      item.location = this._coerceLocationOrRelocate(incoming, item);
+      return;
+    }
+    const incomingNorm = incoming.toUpperCase();
+    const existingParts = current
+      .split(/[;,|]+/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(s => s.toUpperCase());
+    if (existingParts.includes(incomingNorm)) return;
+    item.location = this._coerceLocationOrRelocate(`${current}, ${incoming}`, item);
+  },
+
+  transferBoxToProdStock(itemId, fromBoxId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const fromIdx = this._findBoxIndex(item, fromBoxId);
+    if (fromIdx < 0) return { ok: false, reason: "box-not-found" };
+    if (item.boxStocks[fromIdx].empty) return { ok: false, reason: "box-empty" };
+    const fromCur = this._parseBoxStockQtyValue(item.boxStocks[fromIdx].qty);
+    if (fromCur < q) return { ok: false, reason: "box-overdraft" };
+    item.boxStocks[fromIdx].qty = Utils.roundDecimal(fromCur - q);
+    item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
+    item.prodStock = Utils.roundDecimal((parseFloat(item.prodStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  transferBoxToLocation(itemId, fromBoxId, qty, toLocationLabel = "") {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const dest = String(toLocationLabel || "").trim();
+    if (!dest) return { ok: false, reason: "location-required" };
+    const destStrict = Utils.strictEffectiveWarehouseLocationText(dest);
+    if (!destStrict) return { ok: false, reason: "invalid-location-catalog" };
+    const destParts = destStrict.split(/\s*,\s*/).filter(Boolean);
+    if (destParts.length !== 1) return { ok: false, reason: "invalid-location-catalog" };
+    const token = destParts[0];
+    const fromIdx = this._findBoxIndex(item, fromBoxId);
+    if (fromIdx < 0) return { ok: false, reason: "box-not-found" };
+    if (item.boxStocks[fromIdx].empty) return { ok: false, reason: "box-empty" };
+    const fromCur = this._parseBoxStockQtyValue(item.boxStocks[fromIdx].qty);
+    if (fromCur < q) return { ok: false, reason: "box-overdraft" };
+    item.boxStocks[fromIdx].qty = Utils.roundDecimal(fromCur - q);
+    item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
+    this._incrementItemLocationStock(item, token, q);
+    this._appendItemLocation(item, token);
+    this.save();
+    return { ok: true };
+  },
+
+  transferProdStockToBox(itemId, toBoxId, qty, toLocationLabel = "") {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const rawLab = String(toLocationLabel || "").trim();
+    const locLab = Utils.strictEffectiveWarehouseLocationText(rawLab);
+    if (rawLab && !locLab) return { ok: false, reason: "invalid-location-catalog" };
+    const pq = parseFloat(item.prodStock) || 0;
+    if (pq < q) return { ok: false, reason: "prod-overdraft" };
+    const toIdx = this._findBoxIndex(item, toBoxId);
+    if (toIdx < 0) return { ok: false, reason: "box-not-found" };
+    item.prodStock = Utils.roundDecimal(pq - q);
+    item.boxStocks[toIdx].qty = Utils.roundDecimal((this._parseBoxStockQtyValue(item.boxStocks[toIdx].qty)) + q);
+    item.boxStocks[toIdx].empty = false;
+    item.boxStocks[toIdx].locationLabel = locLab;
+    item.boxStocks[toIdx].updatedAt = new Date().toISOString();
+    this._syncItemLocationFromBox(item, item.boxStocks[toIdx].boxId, locLab);
+    this.save();
+    return { ok: true };
+  },
+
+  transferBoxToTransStock(itemId, fromBoxId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const fromIdx = this._findBoxIndex(item, fromBoxId);
+    if (fromIdx < 0) return { ok: false, reason: "box-not-found" };
+    if (item.boxStocks[fromIdx].empty) return { ok: false, reason: "box-empty" };
+    const fromCur = this._parseBoxStockQtyValue(item.boxStocks[fromIdx].qty);
+    if (fromCur < q) return { ok: false, reason: "box-overdraft" };
+    item.boxStocks[fromIdx].qty = Utils.roundDecimal(fromCur - q);
+    item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
+    item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  transferTransStockToBox(itemId, toBoxId, qty, toLocationLabel = "") {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const rawLab = String(toLocationLabel || "").trim();
+    const locLab = Utils.strictEffectiveWarehouseLocationText(rawLab);
+    if (rawLab && !locLab) return { ok: false, reason: "invalid-location-catalog" };
+    const tq = parseFloat(item.transStock) || 0;
+    if (tq < q) return { ok: false, reason: "trans-overdraft" };
+    const toIdx = this._findBoxIndex(item, toBoxId);
+    if (toIdx < 0) return { ok: false, reason: "box-not-found" };
+    item.transStock = Utils.roundDecimal(tq - q);
+    item.boxStocks[toIdx].qty = Utils.roundDecimal((this._parseBoxStockQtyValue(item.boxStocks[toIdx].qty)) + q);
+    item.boxStocks[toIdx].empty = false;
+    item.boxStocks[toIdx].locationLabel = locLab;
+    item.boxStocks[toIdx].updatedAt = new Date().toISOString();
+    this._syncItemLocationFromBox(item, item.boxStocks[toIdx].boxId, locLab);
+    this.save();
+    return { ok: true };
+  },
+
+  transferProdToTransStock(itemId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const pq = parseFloat(item.prodStock) || 0;
+    if (pq < q) return { ok: false, reason: "prod-overdraft" };
+    item.prodStock = Utils.roundDecimal(pq - q);
+    item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  transferTransToProdStock(itemId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const tq = parseFloat(item.transStock) || 0;
+    if (tq < q) return { ok: false, reason: "trans-overdraft" };
+    item.transStock = Utils.roundDecimal(tq - q);
+    item.prodStock = Utils.roundDecimal((parseFloat(item.prodStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  // =========================================================
+  // LECTURA / ACTUALIZACIÓN DE STOCK
+  // =========================================================
+  getStock(id, target="main") {
+    const i = this.items.find(x => x.id === id);
+    if (!i) return 0;
+    switch(target){
+      case "production": return i.prodStock||0;
+      case "transformation": return i.transStock||0;
+      default: return i.mainStock||0;
+    }
+  },
+
+  updateStock(id, target, qty, opts = {}) {
+    const i = this.items.find(x => x.id === id);
+    if(!i) return false;
+    if (i.inventoryConsumable && !opts.bypassInventoryConsumable) return false;
+    const dq = Utils.roundDecimal(qty);
+    switch(target){
+      case "production": i.prodStock = Utils.roundDecimal((i.prodStock||0)+dq); break;
+      case "transformation": i.transStock = Utils.roundDecimal((i.transStock||0)+dq); break;
+      default: i.mainStock = Utils.roundDecimal((i.mainStock||0)+dq);
+    }
+    this.save(); this.render();
+    return true;
+  },
+
+  // =========================================================
+  // CRUD DE ARTÍCULOS
+  // =========================================================
+  addItem(data) {
+    const item = this._normalizeItemCoreFields({
+      id: Utils.generateId(),
+      code: data.code || "",
+      description: data.description || "",
+      category: data.category || "",
+      mainStock: parseFloat(data.mainStock)||0,
+      prodStock: parseFloat(data.prodStock)||0,
+      transStock: parseFloat(data.transStock)||0,
+      location: this._coerceLocationOrRelocate(data.location || "", {
+        locationStocks: Array.isArray(data.locationStocks) ? data.locationStocks : []
+      }),
+      qtyPerBox: parseFloat(data.qtyPerBox)||0,
+      numBoxes: parseFloat(data.numBoxes)||0,
+      expDate: data.expDate || "",
+      daysToExpire: parseInt(data.daysToExpire)||0,
+      shelfLifeMonths: Math.max(0, parseInt(data.shelfLifeMonths, 10) || 0),
+      expirationDate: data.expirationDate || "",
+      supplier: data.supplier || "",
+      lastOrder: data.lastOrder || "",
+      details: data.details || "",
+      minStock: parseFloat(data.minStock)||0,
+      maxStock: parseFloat(data.maxStock)||0,
+      defaultPrice: Utils.roundDecimal(parseFloat(data.defaultPrice), 2) || 0,
+      priceCurrency: this._normalizePriceCurrency(data.priceCurrency),
+      expirations: data.expirations || [],     // [{date,qty}]
+      notes: data.notes || "",
+      itemProblemsNote: String(data.itemProblemsNote || "").trim(),
+      boxStocks: Array.isArray(data.boxStocks) ? data.boxStocks : [],
+      locationStocks: Array.isArray(data.locationStocks) ? data.locationStocks : [],
+      inventoryConsumable: !!data.inventoryConsumable,
+    }, { recomputeNumBoxes: true });
+    this.items.push(this._normalizeItemBoxStocks(item));
+    this.save();
+    if (
+      typeof MovementManager !== "undefined" &&
+      MovementManager.recordAjusteNewItemInitialStock &&
+      typeof I18n !== "undefined"
+    ) {
+      MovementManager.recordAjusteNewItemInitialStock(item, I18n.t("movements.newItemInitialStockNote"));
+    }
+    this.render();
+    return item;
+  },
+
+  updateItem(id, upd){
+    const i = this.items.findIndex(x=>x.id===id);
+    if(i===-1) return;
+    const next = { ...upd };
+    if (Object.prototype.hasOwnProperty.call(next, "location")) {
+      const ctx = { ...this.items[i], ...next };
+      next.location = this._coerceLocationOrRelocate(next.location || "", ctx);
+    }
+    const shouldRecomputeBoxes =
+      Object.prototype.hasOwnProperty.call(next, "mainStock") ||
+      Object.prototype.hasOwnProperty.call(next, "qtyPerBox") ||
+      Object.prototype.hasOwnProperty.call(next, "numBoxes");
+    next.priceCurrency = this._normalizePriceCurrency(
+      Object.prototype.hasOwnProperty.call(next, "priceCurrency") ? next.priceCurrency : this.items[i].priceCurrency
+    );
+    const merged = this._normalizeItemCoreFields({ ...this.items[i], ...next }, { recomputeNumBoxes: shouldRecomputeBoxes });
+    this.items[i] = merged;
+    this.save(); this.render();
+  },
+
+  deleteItem(id){
+    this.items=this.items.filter(i=>i.id!==id);
+    this.save(); this.render();
+  },
+
+  search(q){
+    if(!q) return this.items;
+    const s=q.toLowerCase();
+    return this.items.filter(i=>
+      [i.code,i.description,i.category,i.location,i.notes,i.itemProblemsNote]
+        .some(f=>f&&f.toLowerCase().includes(s))
+    );
+  },
+
+  _hasItemProblemsNote(item) {
+    return !!(item && String(item.itemProblemsNote || "").trim());
+  },
+
+  // =========================================================
+  // SISTEMA DE MIN / MAX / ALERTAS
+  // =========================================================
+  getStockClass(item){
+    if (item && item.inventoryConsumable) return "stock-ok";
+    const total = this.itemTotalStock(item);
+    const exp = this.getExpirationInsight(item);
+    if (exp.has && (exp.expired || exp.soon)) return "stock-expiring";
+    if (total < 0) return "stock-negative";
+    if (item.minStock && total < item.minStock) return "stock-below-min";
+    if (item.maxStock && total > item.maxStock) return "stock-over-max";
+    if (this.isItemLowStock(item)) return "stock-low";
+    return "stock-ok";
+  },
+
+  daysTo(date){
+    const d1=new Date(), d2=new Date(date);
+    return Math.round((d2-d1)/(1000*60*60*24));
+  },
+
+  addMonthsToIsoDate(isoDateStr, months) {
+    const m = Math.max(0, parseInt(months, 10) || 0);
+    if (!isoDateStr || !m) return "";
+    const d = new Date(isoDateStr + "T12:00:00");
+    if (Number.isNaN(d.getTime())) return "";
+    d.setMonth(d.getMonth() + m);
+    return d.toISOString().split("T")[0];
+  },
+
+  /**
+   * Fecha de caducidad efectiva: prioridad fecha expedición + vida útil (meses),
+   * luego fecha expiración manual, luego el lote más próximo en expirations[].
+   */
+  getEffectiveExpirationDate(item) {
+    if (!item) return null;
+    const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
+    if (item.expDate && months > 0) {
+      const end = this.addMonthsToIsoDate(item.expDate, months);
+      return end || null;
+    }
+    if (item.expirationDate && /^\d{4}-\d{2}-\d{2}/.test(String(item.expirationDate).trim())) {
+      return String(item.expirationDate).trim().slice(0, 10);
+    }
+    const near = this.getNearestExpiration(item);
+    return near && near.date ? near.date : null;
+  },
+
+  getExpirationInsight(item) {
+    const eff = this.getEffectiveExpirationDate(item);
+    if (!eff) return { has: false, days: null, expired: false, soon: false };
+    const days = this.daysTo(eff);
+    const parsed = {
+      has: true,
+      days,
+      expired: days < 0,
+      soon: days >= 0 && days <= (this.expAlertDays || 30)
+    };
+  },
+
+  minEffective(item) {
+    const m = parseFloat(item.minStock);
+    return m > 0 ? m : 5;
+  },
+
+  /**
+   * Stock «principal» para totales/alertas: solo almacén principal (mainStock).
+   * Producción y transformación son depósitos separados y no se suman al principal.
+   */
+  itemTotalStock(item) {
+    return parseFloat(item && item.mainStock) || 0;
+  },
+
+  /**
+   * Cantidad disponible en un extremo de transferencia (depósito o caja del artículo).
+   * @param {string} depot 'main' | 'production' | 'transformation'
+   * @param {string} [boxId] si depot==='main' y hay caja, stock de esa fila
+   */
+  getTransferenciaEndpointQty(itemId, depot, boxId) {
+    const item = this.getItemById(itemId);
+    if (!item) return 0;
+    const d = String(depot || "main");
+    if (d === "production") return parseFloat(item.prodStock) || 0;
+    if (d === "transformation") return parseFloat(item.transStock) || 0;
+    const bid = String(boxId || "").trim();
+    if (bid) {
+      const idx = this._findBoxIndex(item, bid);
+      if (idx < 0) return 0;
+      return this._parseBoxStockQtyValue(item.boxStocks[idx].qty);
+    }
+    return parseFloat(item.mainStock) || 0;
+  },
+
+  /**
+   * Aplica una línea de movimiento TRANSFERENCIA (incl. cajas del artículo cuando aplica).
+   * @returns {{ ok: boolean, reason?: string }}
+   */
+  applyTransferenciaLine(line) {
+    const itemId = line && line.itemId;
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(line.quantity) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const from = String(line.transferFrom || "main");
+    const to = String(line.transferTo || "main");
+    const fromBox = String(line.transferFromBoxId || "").trim();
+    const toBox = String(line.transferToBoxId || "").trim();
+
+    if (from === "main" && fromBox && to === "production" && !toBox) {
+      const r = this.transferBoxToProdStock(itemId, fromBox, q);
+      return r && r.ok ? { ok: true } : { ok: false, reason: "box-to-prod" };
+    }
+    if (from === "production" && !fromBox && to === "main" && toBox) {
+      const r = this.transferProdStockToBox(itemId, toBox, q, "");
+      return r && r.ok ? { ok: true } : { ok: false, reason: "prod-to-box" };
+    }
+    if (from === "main" && fromBox && to === "transformation" && !toBox) {
+      const r = this.transferBoxToTransStock(itemId, fromBox, q);
+      return r && r.ok ? { ok: true } : { ok: false, reason: "box-to-trans" };
+    }
+    if (from === "transformation" && !fromBox && to === "main" && toBox) {
+      const r = this.transferTransStockToBox(itemId, toBox, q, "");
+      return r && r.ok ? { ok: true } : { ok: false, reason: "trans-to-box" };
+    }
+    if (from === "main" && fromBox && to === "main" && toBox && fromBox !== toBox) {
+      const r = this.transferBetweenBoxes(itemId, fromBox, toBox, q, "");
+      return r && r.ok ? { ok: true } : { ok: false, reason: "box-to-box" };
+    }
+
+    if (fromBox || toBox) {
+      return { ok: false, reason: "unsupported-box-endpoint" };
+    }
+    this.updateStock(itemId, from, -q);
+    this.updateStock(itemId, to, q);
+    return { ok: true };
+  },
+
+  /** Anula el efecto de `applyTransferenciaLine` (mismas convenciones de línea). */
+  revertTransferenciaLine(line) {
+    const itemId = line && line.itemId;
+    const item = this.getItemById(itemId);
+    if (!item) return false;
+    const q = Utils.roundDecimal(Math.abs(parseFloat(line.quantity) || 0));
+    if (q <= 0) return true;
+    const from = String(line.transferFrom || "main");
+    const to = String(line.transferTo || "main");
+    const fromBox = String(line.transferFromBoxId || "").trim();
+    const toBox = String(line.transferToBoxId || "").trim();
+
+    if (from === "main" && fromBox && to === "production" && !toBox) {
+      const idx = this._findBoxIndex(item, fromBox);
+      if (idx < 0) return false;
+      item.prodStock = Utils.roundDecimal(Math.max(0, (parseFloat(item.prodStock) || 0) - q));
+      item.boxStocks[idx].qty = Utils.roundDecimal(this._parseBoxStockQtyValue(item.boxStocks[idx].qty) + q);
+      item.boxStocks[idx].updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+    if (from === "production" && !fromBox && to === "main" && toBox) {
+      const idx = this._findBoxIndex(item, toBox);
+      if (idx < 0) return false;
+      item.prodStock = Utils.roundDecimal((parseFloat(item.prodStock) || 0) + q);
+      const cur = this._parseBoxStockQtyValue(item.boxStocks[idx].qty);
+      item.boxStocks[idx].qty = Utils.roundDecimal(Math.max(0, cur - q));
+      item.boxStocks[idx].updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+    if (from === "main" && fromBox && to === "transformation" && !toBox) {
+      const idx = this._findBoxIndex(item, fromBox);
+      if (idx < 0) return false;
+      item.transStock = Utils.roundDecimal(Math.max(0, (parseFloat(item.transStock) || 0) - q));
+      item.boxStocks[idx].qty = Utils.roundDecimal(this._parseBoxStockQtyValue(item.boxStocks[idx].qty) + q);
+      item.boxStocks[idx].updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+    if (from === "transformation" && !fromBox && to === "main" && toBox) {
+      const idx = this._findBoxIndex(item, toBox);
+      if (idx < 0) return false;
+      item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
+      const cur = this._parseBoxStockQtyValue(item.boxStocks[idx].qty);
+      item.boxStocks[idx].qty = Utils.roundDecimal(Math.max(0, cur - q));
+      item.boxStocks[idx].updatedAt = new Date().toISOString();
+      this.save();
+      return true;
+    }
+    if (from === "main" && fromBox && to === "main" && toBox && fromBox !== toBox) {
+      return this.transferBetweenBoxes(itemId, toBox, fromBox, q, "") ? true : false;
+    }
+    if (!fromBox && !toBox) {
+      this.updateStock(itemId, from, q);
+      this.updateStock(itemId, to, -q);
+      return true;
+    }
+    return false;
+  },
+
+  /** Combina un artículo con un mapa de stock (salida de MovementManager.computeStockMapAsOfDate). */
+  mergeItemStockFromMap(item, stockMap) {
+    if (!item || !stockMap || !stockMap.get) return item;
+    const row = stockMap.get(item.id);
+    if (!row) {
+      return { ...item, mainStock: 0, prodStock: 0, transStock: 0 };
+    }
+    return {
+      ...item,
+      mainStock: row.main,
+      prodStock: row.prod,
+      transStock: row.trans
+    };
+  },
+
+  /** Lista de artículos con stock real o reconstruido si hay consulta «al». */
+  getItemsWithOptionalAsOfStock() {
+    if (!this._asOfDate || typeof MovementManager === "undefined" || !MovementManager.computeStockMapAsOfDate) {
+      return this.items;
+    }
+    const sm = MovementManager.computeStockMapAsOfDate(this._asOfDate);
+    return this.items.map(it => this.mergeItemStockFromMap(it, sm));
+  },
+
+  _updateAsOfUi() {
+    const clearBtn = document.getElementById("inventory-asof-clear");
+    const activeEl = document.getElementById("inventory-asof-active");
+    const dateInp = document.getElementById("inventory-asof-date");
+    if (clearBtn) clearBtn.style.display = this._asOfDate ? "inline-flex" : "none";
+    if (activeEl) {
+      if (this._asOfDate) {
+        activeEl.style.display = "inline-block";
+        activeEl.textContent = Utils.formatDate(this._asOfDate);
+        activeEl.title = I18n.t("inventory.asOfActive").replace("{date}", Utils.formatDate(this._asOfDate));
+      } else {
+        activeEl.style.display = "none";
+        activeEl.textContent = "";
+        activeEl.removeAttribute("title");
+      }
+    }
+    if (dateInp && !this._asOfDate) dateInp.value = "";
+    else if (dateInp && this._asOfDate) dateInp.value = this._asOfDate;
+  },
+
+  /** Abre selección de fecha para inventario histórico (prompt robusto, sin depender del datepicker oculto). */
+  async _openInventoryAsOfPicker() {
+    const inp = document.getElementById("inventory-asof-date");
+    if (!inp) return;
+    const defaultDate = this._asOfDate || new Date().toISOString().slice(0, 10);
+    inp.value = defaultDate;
+    try {
+      if (typeof App !== "undefined" && App.showPrompt) {
+        const picked = await App.showPrompt({
+          message: I18n.t("inventory.asOfOpenTitle"),
+          defaultValue: defaultDate,
+          inputType: "date"
+        });
+        const v = picked != null ? String(picked).trim() : "";
+        if (!v) return;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+          Utils.showToast(I18n.t("inventory.asOfPickerFail"), "warning");
+          return;
+        }
+        inp.value = v;
+        this._asOfDate = v;
+        this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+        return;
+      }
+    } catch (e) {
+      /* fallback native below */
+    }
+
+    // Fallback final (por si App.showPrompt no existe): datepicker nativo.
+    try {
+      if (typeof inp.showPicker === "function") {
+        inp.showPicker();
+        return;
+      }
+      inp.focus();
+      inp.click();
+      return;
+    } catch (e) {
+      /* toast below */
+    }
+    Utils.showToast(I18n.t("inventory.asOfPickerFail"), "warning");
+  },
+
+  isLowStockIgnored(item) {
+    return !!(item && item.ignoreLowStockAlert);
+  },
+
+  isItemLowStock(item) {
+    if (item && item.inventoryConsumable) return false;
+    if (this.isLowStockIgnored(item)) return false;
+    const total = this.itemTotalStock(item);
+    const minEff = this.minEffective(item);
+    return total > 0 && total <= minEff;
+  },
+
+  setIgnoreLowStockDetection(itemId, enabled) {
+    const idx = (this.items || []).findIndex(it => String(it.id) === String(itemId));
+    if (idx < 0) return false;
+    this.items[idx] = this._normalizeItemCoreFields({
+      ...this.items[idx],
+      ignoreLowStockAlert: !!enabled
+    });
+    this.save();
+    if (typeof Dashboard !== "undefined" && Dashboard.refresh) Dashboard.refresh();
+    return true;
+  },
+
+  isItemOverstock(item) {
+    if (item && item.inventoryConsumable) return false;
+    const total = this.itemTotalStock(item);
+    return (item.maxStock || 0) > 0 && total > item.maxStock;
+  },
+
+  getItemsLowStock() {
+    return (this.items || []).filter(i => this.isItemLowStock(i));
+  },
+
+  getItemsNegative() {
+    return (this.items || []).filter(i => !i.inventoryConsumable && this.itemTotalStock(i) < 0);
+  },
+
+  getItemsOverstock() {
+    return (this.items || []).filter(i => this.isItemOverstock(i));
+  },
+
+  getItemsZeroStock() {
+    return (this.items || []).filter(i => this.itemTotalStock(i) === 0);
+  },
+
+  /** Vencidos o dentro del umbral de aviso (días), según fecha efectiva basada en expedición + vida útil. */
+  getItemsExpirationAlert() {
+    return (this.items || []).filter(i => {
+      const x = this.getExpirationInsight(i);
+      return x.has && (x.expired || x.soon);
+    });
+  },
+
+  /** Clase de color solo para la celda de stock principal. */
+  getMainStockDisplayClass(item) {
+    if (item && item.inventoryConsumable) return "inv-main-good";
+    const total = this.itemTotalStock(item);
+    const minEff = this.minEffective(item);
+    const maxS = item.maxStock > 0 ? item.maxStock : 0;
+
+    if (total < 0) return "inv-main-negative";
+    if (maxS && total > maxS) return "inv-main-overstock";
+
+    const exp = this.getExpirationInsight(item);
+    if (exp.has) {
+      if (exp.expired) return "inv-main-expired";
+      if (exp.soon) return "inv-main-expiring";
+    }
+
+    if (total === 0) return "inv-main-zero";
+
+    if (total > 0 && total <= minEff) return "inv-main-low";
+
+    const midMax = maxS ? Math.max(minEff + 1, Math.floor(maxS * 0.5)) : minEff * 3;
+    if (total > minEff && total <= midMax) return "inv-main-mid";
+
+    return "inv-main-good";
+  },
+
+  // =========================================================
+  // EXPIRACIONES
+  // =========================================================
+  getNearestExpiration(item){
+    if(!item.expirations?.length) return null;
+    const sorted=item.expirations
+        .filter(e=>e.date)
+        .sort((a,b)=>new Date(a.date)-new Date(b.date));
+    return sorted[0];
+  },
+
+  // =========================================================
+  // NOTAS Y LISTA DE COMPRAS
+  // =========================================================
+  markForPurchase(code){
+    const it=this.items.find(i=>i.code===code);
+    if(!it)return;
+    const exists=this.purchaseList.some(p=>p.code===code);
+    if(!exists) this.purchaseList.push({code,description:it.description,date:new Date().toISOString(),status:"pendiente"});
+    this.save();
+    if (typeof OrderLinesManager !== "undefined" && OrderLinesManager.renderPurchaseSuggestionsPanel) {
+      OrderLinesManager.renderPurchaseSuggestionsPanel();
+    }
+    Utils.showToast(I18n.t("msg.addedToPurchaseList"),"info");
+  },
+
+  // =========================================================
+  // RENDER
+  // =========================================================
+  render(list=null){
+    const tb=document.getElementById("inventory-body");
+    if(!tb) return;
+    this.populateInventoryBoxFilter();
+    let arr = list != null ? list : this.items;
+    if (this._asOfDate && typeof MovementManager !== "undefined" && MovementManager.computeStockMapAsOfDate) {
+      const sm = MovementManager.computeStockMapAsOfDate(this._asOfDate);
+      arr = arr.map(it => this.mergeItemStockFromMap(it, sm));
+    }
+    arr = this._filterInventoryByBoxSelect(arr);
+    arr = this._filterInventoryDepotPreset(arr);
+    arr = this._filterInventoryConsumablePreset(arr);
+    const probOn = !!this._inventoryFilterProblemsOnly;
+    const lowIgOn = !!this._inventoryFilterLowStockIgnoredOnly;
+    if (probOn && lowIgOn) {
+      arr = arr.filter(it => this._hasItemProblemsNote(it) || !!it.ignoreLowStockAlert);
+    } else if (probOn) {
+      arr = arr.filter(it => this._hasItemProblemsNote(it));
+    } else if (lowIgOn) {
+      arr = arr.filter(it => !!it.ignoreLowStockAlert);
+    }
+    this._inventoryViewList = Array.isArray(arr) ? arr.slice() : [];
+    this._inventorySearchQuery =
+      list != null ? (document.getElementById("inventory-search")?.value || "").trim() : "";
+    this._updateAsOfUi();
+
+    if(!arr.length){
+      const boxF = (document.getElementById("inventory-box-filter")?.value || "all") !== "all";
+      const depF = (document.getElementById("inventory-depot-preset")?.value || "all") !== "all";
+      const consF = (document.getElementById("inventory-consumable-filter")?.value || "all") !== "all";
+      const probF = !!this._inventoryFilterProblemsOnly;
+      const lowIgF = !!this._inventoryFilterLowStockIgnoredOnly;
+      const emptyMsg =
+        boxF || depF || consF || probF || lowIgF ? I18n.t("msg.noResults") : I18n.t("msg.inventoryEmpty");
+      tb.innerHTML=`<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">${this.esc(emptyMsg)}</td></tr>`;
+      this._syncInventoryBoxFilterToggleUi();
+      this._syncInventoryDepotFilterToggleUi();
+      this._syncInventoryConsumableFilterToggleUi();
+      this._syncInventoryProblemsFilterToggleUi();
+      this._syncInventoryLowStockIgnoredFilterToggleUi();
+      this._syncInventoryProblemsMenuItemUi();
+      this._syncInventoryLowStockIgnoredMenuItemUi();
+      this._syncInventoryHeaderFiltersCollapseBtn();
+      this._syncZeroBoxesToolbarBtn();
+      this._syncZeroTotalBoxToolbarBtn();
+      return;
+    }
+
+    tb.innerHTML=arr.map(it=>{
+      const cls=this.getStockClass(it);
+      const mainCls = this.getMainStockDisplayClass(it);
+      const hasProbNote = this._hasItemProblemsNote(it);
+      const probSpanCls = hasProbNote ? "inv-desc-text inv-problem-pill inv-problem-pill--pulse" : "inv-desc-text";
+      const canEditNotes = typeof Auth !== "undefined" && Auth.hasPerm("editItems");
+      const hasNotes = (it.notes || "").trim().length > 0;
+      let descTd;
+      const quickAria = I18n.t("inventory.quickViewAria").replace(
+        "{desc}",
+        (it.description || it.code || "").trim().slice(0, 120)
+      );
+      const quickBtn = `<button type="button" class="inv-quick-hit" data-item-id="${Utils.escapeAttr(
+        it.id
+      )}" aria-label="${Utils.escapeAttr(quickAria)}" title="${Utils.escapeAttr(I18n.t("inventory.quickViewTitle"))}"><span aria-hidden="true">👁</span></button>`;
+      const addPurchaseAria = I18n.t("inventory.addPurchaseFromRow")
+        .replace("{code}", String(it.code || "").trim());
+      const addPurchaseBtn = `<button type="button" class="inv-add-purchase-hit" data-item-code="${Utils.escapeAttr(
+        it.code || ""
+      )}" aria-label="${Utils.escapeAttr(addPurchaseAria)}" title="${Utils.escapeAttr(
+        I18n.t("inventory.addPurchaseTitle")
+      )}"><span aria-hidden="true">🛒</span></button>`;
+      const notesBtn =
+        canEditNotes || hasNotes
+          ? `<button type="button" class="inv-notes-hit" data-item-id="${Utils.escapeAttr(
+              it.id
+            )}" aria-label="${Utils.escapeAttr(
+              I18n.t("inventory.notesHitAria").replace("{desc}", (it.description || it.code || "").trim().slice(0, 120))
+            )}"><span class="${hasNotes ? "inv-notes-icon" : "inv-notes-icon inv-notes-icon--muted"}" aria-hidden="true">📝</span></button>`
+          : "";
+      const rowActions = `<div class="inv-row-actions" data-item-id="${Utils.escapeAttr(it.id)}">
+        <button type="button" class="inv-row-actions-toggle" data-item-id="${Utils.escapeAttr(
+          it.id
+        )}" title="${Utils.escapeAttr(I18n.t("inventory.rowActionsToggleTitle"))}" aria-label="${Utils.escapeAttr(
+          I18n.t("inventory.rowActionsToggleTitle")
+        )}">+</button>
+        <div class="inv-row-actions-pop" data-item-id="${Utils.escapeAttr(it.id)}">
+          ${quickBtn}${addPurchaseBtn}${notesBtn}
+        </div>
+      </div>`;
+      if (canEditNotes || hasNotes) {
+        descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}">${this.esc(
+          it.description
+        )}</span></td>`;
+      } else {
+        descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}">${this.esc(it.description)}</span></td>`;
+      }
+      const eff = this.getEffectiveExpirationDate(it);
+      const lot = this.getNearestExpiration(it);
+      const fmt = v => Utils.formatDecimalDisplay(v);
+      const isAdmin = typeof Auth !== "undefined" && Auth.isAdmin();
+      const codeCellClass = isAdmin ? "inv-code-cell inv-code-cell--admin" : "inv-code-cell";
+      const consumableBadge = this._inventoryConsumableBadgeHtml(it);
+      const lowIgnoredBadge = this._lowStockIgnoredBadgeHtml(it);
+      const codeInner = hasProbNote
+        ? `<span class="inv-problem-pill inv-problem-pill--pulse"><strong>${this.esc(it.code)}</strong></span>`
+        : `<strong>${this.esc(it.code)}</strong>`;
+      const codeTitle =
+        isAdmin && typeof I18n !== "undefined" && I18n.t
+          ? ` title="${Utils.escapeAttr(I18n.t("inventory.codeDblClickAdminHint"))}"`
+          : "";
+      const expTxt = eff ? Utils.formatDate(eff) : lot ? `${Utils.formatDate(lot.date)} (${fmt(lot.qty)})` : "-";
+      const boxNums = this._collectWarehouseBoxesFromItem(it);
+      const slotIds = this._collectWarehouseSlotsFromItem(it);
+      const tipFor = n => I18n.t("inventory.boxInferredTooltip").replace("{n}", String(n));
+      const tipSlot = id => I18n.t("inventory.slotInferredTooltip").replace("{id}", String(id));
+      const chipsHtml = boxNums
+        .map(
+          n =>
+            `<span class="inv-box-chip" title="${Utils.escapeAttr(tipFor(n))}" data-jump-kind="box" data-item-id="${Utils.escapeAttr(
+              String(it.id)
+            )}" data-box-number="${Utils.escapeAttr(String(n))}">📦${n}</span>`
+        )
+        .join("");
+      const slotChipsHtml = slotIds
+        .map(
+          id =>
+            `<span class="inv-slot-chip" title="${Utils.escapeAttr(tipSlot(id))}" data-jump-kind="slot" data-slot-id="${Utils.escapeAttr(
+              String(id)
+            )}" data-item-id="${Utils.escapeAttr(String(it.id))}" data-location-key="${Utils.escapeAttr(
+              String(id)
+            )}">📍${this.esc(id)}</span>`
+        )
+        .join("");
+      const locationStocks = this._normalizeItemLocationStocks(it);
+      const locQtyChipsHtml = locationStocks
+        .map(
+          ls =>
+            `<span class="inv-loc-qty-chip" title="${Utils.escapeAttr(`${ls.location}: ${fmt(ls.qty)}`)}" data-jump-kind="locqty" data-item-id="${Utils.escapeAttr(
+              String(it.id)
+            )}" data-location-key="${Utils.escapeAttr(String(ls.location || ""))}">📍${this.esc(ls.location)}: ${this.esc(
+              fmt(ls.qty)
+            )}</span>`
+        )
+        .join("");
+      const chipParts = [];
+      if (boxNums.length) chipParts.push(...boxNums.map(n => tipFor(n)));
+      if (slotIds.length) chipParts.push(...slotIds.map(id => tipSlot(id)));
+      if (locationStocks.length) chipParts.push(...locationStocks.map(ls => `${ls.location}: ${fmt(ls.qty)}`));
+      const tdTitle = chipParts.length ? Utils.escapeAttr(chipParts.join(" · ")) : "";
+      const hasChips = boxNums.length > 0 || slotIds.length > 0;
+      const hasLocationQty = locQtyChipsHtml.length > 0;
+      const locHtml = hasChips || hasLocationQty
+        ? `<span class="inv-location-text">${this.esc(it.location || "-")}</span><span class="inv-box-chips">${chipsHtml}${slotChipsHtml}${locQtyChipsHtml}</span>`
+        : this.esc(it.location || "-");
+      const rowCons = it.inventoryConsumable ? " inv-row--inventory-consumable" : "";
+      return `
+        <tr data-id="${Utils.escapeAttr(it.id)}" class="inv-row inv-row--${cls}${rowCons}">
+          <td class="${codeCellClass}"${codeTitle}>${lowIgnoredBadge}${codeInner}${consumableBadge}</td>
+          ${descTd}
+          <td>${this.esc(it.category||'-')}</td>
+          <td>${this._formatPriceDisplay(it.defaultPrice ?? 0, it.priceCurrency)}</td>
+          <td class="inv-main-cell"><span class="inv-main-qty ${mainCls}">${fmt(it.mainStock||0)}</span></td>
+          <td>${fmt(it.prodStock||0)}</td>
+          <td>${fmt(it.transStock||0)}</td>
+          <td title="${tdTitle}">${locHtml}</td>
+          <td>${this.esc(expTxt)}</td>
+        </tr>`;
+    }).join('');
+    this.updateStats();
+    this._syncInventoryBoxFilterToggleUi();
+    this._syncInventoryDepotFilterToggleUi();
+    this._syncInventoryConsumableFilterToggleUi();
+    this._syncInventoryProblemsFilterToggleUi();
+    this._syncInventoryLowStockIgnoredFilterToggleUi();
+    this._syncInventoryProblemsMenuItemUi();
+    this._syncInventoryLowStockIgnoredMenuItemUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+    this._syncZeroBoxesToolbarBtn();
+    this._syncZeroTotalBoxToolbarBtn();
+  },
+
+  toggleInventoryProblemsFilter() {
+    this._inventoryFilterProblemsOnly = !this._inventoryFilterProblemsOnly;
+    this._syncInventoryProblemsFilterToggleUi();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+  },
+
+  _syncInventoryProblemsFilterToggleUi() {
+    const btn = document.getElementById("inventory-problems-filter-toggle-btn");
+    if (!btn) return;
+    const on = !!this._inventoryFilterProblemsOnly;
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    const showKey = on ? "inventory.problemsFilterToggleHide" : "inventory.problemsFilterToggleShow";
+    const txt = typeof I18n !== "undefined" && I18n.t ? I18n.t(showKey) : showKey;
+    btn.setAttribute("title", txt);
+    btn.setAttribute("aria-label", txt);
+  },
+
+  _syncInventoryProblemsMenuItemUi() {
+    const item = document.querySelector("#inventory-header-tools-menu [data-inv-toggle-problems]");
+    if (!item) return;
+    const on = !!this._inventoryFilterProblemsOnly;
+    item.setAttribute("aria-checked", on ? "true" : "false");
+    item.classList.toggle("inventory-header-tools-menu-item--checked", on);
+  },
+
+  toggleInventoryLowStockIgnoredFilter() {
+    this._inventoryFilterLowStockIgnoredOnly = !this._inventoryFilterLowStockIgnoredOnly;
+    this._syncInventoryLowStockIgnoredFilterToggleUi();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+  },
+
+  _syncInventoryLowStockIgnoredFilterToggleUi() {
+    const btn = document.getElementById("inventory-lowstock-ignored-filter-toggle-btn");
+    if (!btn) return;
+    const on = !!this._inventoryFilterLowStockIgnoredOnly;
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    const showKey = on ? "inventory.lowStockIgnoredFilterToggleHide" : "inventory.lowStockIgnoredFilterToggleShow";
+    const txt = typeof I18n !== "undefined" && I18n.t ? I18n.t(showKey) : showKey;
+    btn.setAttribute("title", txt);
+    btn.setAttribute("aria-label", txt);
+  },
+
+  _syncInventoryLowStockIgnoredMenuItemUi() {
+    const item = document.querySelector("#inventory-header-tools-menu [data-inv-toggle-lowstock-ignored]");
+    if (!item) return;
+    const on = !!this._inventoryFilterLowStockIgnoredOnly;
+    item.setAttribute("aria-checked", on ? "true" : "false");
+    item.classList.toggle("inventory-header-tools-menu-item--checked", on);
+  },
+
+  updateStats(){
+    const total=document.getElementById("total-items");
+    const low=document.getElementById("low-stock");
+    const negative=document.getElementById("negative-stock");
+    const expEl = document.getElementById("expiration-alert");
+    const overEl = document.getElementById("overstock-count");
+    const zeroEl = document.getElementById("zero-stock");
+
+    const itemsForStats = this.getItemsWithOptionalAsOfStock();
+
+    if(total) total.textContent=this.items.length;
+    if(low) {
+      low.textContent = itemsForStats.filter(i => this.isItemLowStock(i)).length;
+    }
+    if (expEl) {
+      expEl.textContent = itemsForStats.filter(i => {
+        const x = this.getExpirationInsight(i);
+        return x.has && (x.expired || x.soon);
+      }).length;
+    }
+    if (overEl) {
+      overEl.textContent = itemsForStats.filter(i => this.isItemOverstock(i)).length;
+    }
+    if (zeroEl) {
+      zeroEl.textContent = itemsForStats.filter(i => this.itemTotalStock(i) === 0).length;
+    }
+    if(negative) {
+      negative.textContent = itemsForStats.filter(i => this.itemTotalStock(i) < 0).length;
+    }
+  },
+
+  esc(s) {
+    return Utils.escapeHtml(s);
+  },
+
+  async _copyTextToClipboard(text) {
+    if (typeof Utils !== "undefined" && Utils.copyTextToClipboard) {
+      return Utils.copyTextToClipboard(text);
+    }
+    const raw = String(text || "").trim();
+    if (!raw) return false;
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = raw;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  /** Pastilla visual para artículos en modo consumible de inventario (lista e impresión). */
+  _inventoryConsumableBadgeHtml(it) {
+    if (!it || !it.inventoryConsumable || typeof I18n === "undefined" || !I18n.t) return "";
+    return ` <span class="inv-inventory-consumable-badge" title="${Utils.escapeAttr(
+      I18n.t("inventory.inventoryConsumableBadgeTitle")
+    )}">${this.esc(I18n.t("inventory.inventoryConsumableBadge"))}</span>`;
+  },
+
+  /** Insignia para artículos excluidos de alerta de stock bajo. */
+  _lowStockIgnoredBadgeHtml(it) {
+    if (!it || !it.ignoreLowStockAlert || typeof I18n === "undefined" || !I18n.t) {
+      return `<span class="inv-low-stock-ignored-slot" aria-hidden="true"></span>`;
+    }
+    return ` <span class="inv-low-stock-ignored-badge" title="${Utils.escapeAttr(
+      I18n.t("inventory.lowStockIgnoredBadgeTitle")
+    )}">${this.esc(I18n.t("inventory.lowStockIgnoredBadge"))}</span>`;
+  },
+
+  openItemNotesModal(itemId) {
+    const id = itemId != null ? String(itemId) : "";
+    const item = this.items.find(i => String(i.id) === id);
+    if (!item) return;
+    const modal = document.getElementById("inventory-item-notes-modal");
+    const sub = document.getElementById("inv-notes-modal-sub");
+    const ta = document.getElementById("inv-notes-textarea");
+    const saveBtn = document.getElementById("inv-notes-save");
+    if (!modal || !ta) return;
+
+    this._invNotesItemId = item.id;
+    if (sub) sub.textContent = `${item.code || "—"} — ${item.description || ""}`;
+    ta.value = item.notes || "";
+
+    const canEdit = typeof Auth !== "undefined" && Auth.hasPerm("editItems");
+    ta.readOnly = !canEdit;
+    if (saveBtn) saveBtn.style.display = canEdit ? "" : "none";
+
+    modal.classList.add("active");
+    if (canEdit) {
+      setTimeout(() => {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }, 50);
+    }
+  },
+
+  openItemQuickViewModal(itemId) {
+    const id = itemId != null ? String(itemId) : "";
+    const item = this.items.find(i => String(i.id) === id);
+    if (!item) return;
+    const modal = document.getElementById("inventory-item-quick-modal");
+    const sub = document.getElementById("inv-quick-modal-sub");
+    const body = document.getElementById("inventory-item-quick-body");
+    if (!modal || !body) return;
+
+    if (sub) sub.textContent = `${item.code || "—"} — ${item.description || ""}`;
+    const fmtQty = v => Utils.formatDecimalDisplay(v, 4);
+    const showDate = d => (d ? Utils.formatDate(d) : "—");
+    const fmtPrice = this._formatPriceDisplay(item.defaultPrice ?? 0, item.priceCurrency);
+    const boxStocks = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+    const boxTxt = boxStocks.length
+      ? boxStocks.map(b => `BOX${parseInt(b.boxNumber, 10) || 0}: ${fmtQty(b.qty || 0)}`).join(" · ")
+      : "—";
+    const rows = [
+      [I18n.t("table.code"), item.code || "—"],
+      [I18n.t("table.description"), item.description || "—"],
+      [I18n.t("table.category"), item.category || "—"],
+      [I18n.t("table.defaultPrice"), fmtPrice],
+      [I18n.t("table.mainStock"), fmtQty(item.mainStock || 0)],
+      [I18n.t("table.prodStock"), fmtQty(item.prodStock || 0)],
+      [I18n.t("table.transStock"), fmtQty(item.transStock || 0)],
+      [I18n.t("table.qtyPerBox"), fmtQty(item.qtyPerBox || 0)],
+      [I18n.t("table.numBoxes"), fmtQty(item.numBoxes || 0)],
+      [I18n.t("table.location"), item.location || "—"],
+      [I18n.t("inventory.boxSummaryTitle"), boxTxt],
+      [I18n.t("table.expDate"), showDate(item.expDate)],
+      [I18n.t("table.expirationDate"), showDate(item.expirationDate)],
+      [I18n.t("table.daysToExpire"), String(item.daysToExpire ?? "—")],
+      [I18n.t("table.supplier"), item.supplier || "—"],
+      [I18n.t("table.lastOrder"), item.lastOrder || "—"],
+      [I18n.t("table.details"), item.details || "—"],
+      [I18n.t("table.notes"), item.notes || "—"]
+    ];
+    body.innerHTML = `<div class="inventory-table-container inventory-table-container--nested"><table class="inventory-table"><tbody>${rows
+      .map(([k, v]) => `<tr><th style="width:34%">${this.esc(k)}</th><td>${this.esc(v)}</td></tr>`)
+      .join("")}</tbody></table></div>`;
+    modal.classList.add("active");
+  },
+
+  closeItemQuickViewModal() {
+    document.getElementById("inventory-item-quick-modal")?.classList.remove("active");
+    const body = document.getElementById("inventory-item-quick-body");
+    if (body) body.innerHTML = "";
+  },
+
+  closeItemNotesModal() {
+    document.getElementById("inventory-item-notes-modal")?.classList.remove("active");
+    this._invNotesItemId = null;
+    const ta = document.getElementById("inv-notes-textarea");
+    if (ta) {
+      ta.value = "";
+      ta.readOnly = false;
+    }
+  },
+
+  saveItemNotesFromModal() {
+    if (typeof Auth !== "undefined" && !Auth.guardPerm("editItems")) return;
+    const id = this._invNotesItemId;
+    if (id == null) return;
+    const ta = document.getElementById("inv-notes-textarea");
+    if (!ta) return;
+    const sid = String(id);
+    const item = this.items.find(i => String(i.id) === sid);
+    if (!item) {
+      this.closeItemNotesModal();
+      return;
+    }
+    const notes = ta.value.trim();
+    this.updateItem(item.id, { notes });
+    if (typeof Auth !== "undefined") Auth.logAudit("inventory.item.notes", String(item.code || id));
+    Utils.showToast(I18n.t("inventory.notesSaved"), "success");
+    this.closeItemNotesModal();
+  },
+
+  _fileStamp() {
+    return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  },
+
+  /**
+   * Encabezados y orden idénticos al CSV de importación inicial (importInitialCSV).
+   * Columnas finales: id, mín/máx, vida útil, notas y lotes para ida y vuelta sin pérdida.
+   */
+  INVENTORY_IMPORT_CSV_HEADERS: [
+    "Codigo",
+    "Descripcion",
+    "Categoria",
+    "StockPrincipal",
+    "StockProduccion",
+    "StockTransformacion",
+    "CantidadPorCaja",
+    "NumeroCajas",
+    "Ubicacion",
+    "FechaExpedicion",
+    "DiasParaExpirar",
+    "FechaExpiracion",
+    "Proveedor",
+    "UltimaOrden",
+    "Detalles",
+    "PrecioDefecto",
+    "MonedaPrecio",
+    "Id",
+    "StockMinimo",
+    "StockMaximo",
+    "VidaUtilMeses",
+    "Notas",
+    "LotesJson",
+    "CajasJson",
+    "UbicacionesJson"
+  ],
+
+  /** Parsea el JSON de lotes del CSV; [] si falta o es inválido. */
+  _parseLotesJsonFromCsv(raw) {
+    if (raw === undefined || raw === null) return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    try {
+      const a = JSON.parse(s);
+      if (!Array.isArray(a)) return [];
+      return a
+        .map(entry => ({
+          date: entry && entry.date != null ? String(entry.date).trim() : "",
+          qty: entry && entry.qty != null ? parseFloat(entry.qty) || 0 : 0
+        }))
+        .filter(e => e.date);
+    } catch {
+      return [];
+    }
+  },
+
+  _parseBoxStocksJsonFromCsv(raw) {
+    if (raw === undefined || raw === null) return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    try {
+      const a = JSON.parse(s);
+      if (!Array.isArray(a)) return [];
+      return a
+        .map(entry => {
+          const e = entry && typeof entry === "object" ? entry : {};
+          const boxNumber = parseInt(
+            e.boxNumber ??
+              e.BoxNumber ??
+              e.Caja ??
+              e.CAJA ??
+              e.CAJAnum ??
+              e.box ??
+              e.Box ??
+              e.BOX ??
+              e.n ??
+              e.NumeroCaja ??
+              e.NCaja ??
+              0,
+            10
+          );
+          const qtyRaw =
+            e.qty ??
+            e.Qty ??
+            e.Quantity ??
+            e.Cantidad ??
+            e.CantidadCaja ??
+            e.quantity ??
+            e.Units ??
+            e.UNITS ??
+            0;
+          const qbRaw =
+            e.qtyBoxes ??
+            e.QtyBoxes ??
+            e.CantidadCajas ??
+            e.NbCaisse ??
+            e.QTY_BOXES ??
+            e.NumerodeCajas ??
+            0;
+          const locRaw =
+            e.locationLabel ??
+            e.LocationLabel ??
+            e.UbicacionCaja ??
+            e.ubicacion ??
+            e.Location ??
+            "";
+          return {
+            boxId: e.boxId != null && String(e.boxId).trim() ? String(e.boxId).trim() : Utils.generateId(),
+            boxNumber,
+            locationLabel:
+              typeof Utils.resolveImportLocationLabel === "function"
+                ? Utils.resolveImportLocationLabel(locRaw)
+                : Utils.strictEffectiveWarehouseLocationText(String(locRaw || "").trim()),
+            qty: this._parseBoxStockQtyValue(qtyRaw),
+            qtyBoxes: Math.max(0, this._parseBoxStockQtyBoxesValue(qbRaw)),
+            empty: !!(e.empty ?? e.Empty ?? e.Vacia),
+            notes: e.notes != null ? String(e.notes).trim() : "",
+            updatedAt: e.updatedAt ? String(e.updatedAt) : new Date().toISOString()
+          };
+        })
+        .filter(e => this._isValidBoxNumber(e.boxNumber));
+    } catch {
+      return [];
+    }
+  },
+
+  _parseLocationStocksJsonFromCsv(raw) {
+    if (raw === undefined || raw === null) return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    try {
+      const a = JSON.parse(s);
+      if (!Array.isArray(a)) return [];
+      return a
+        .map(entry => ({
+          location:
+            typeof Utils.resolveImportLocationLabel === "function"
+              ? Utils.resolveImportLocationLabel(entry && entry.location != null ? entry.location : "")
+              : Utils.strictEffectiveWarehouseLocationText(
+                  entry && entry.location != null ? String(entry.location).trim() : ""
+                ),
+          qty: parseFloat(entry && entry.qty) || 0,
+          updatedAt: entry && entry.updatedAt ? String(entry.updatedAt) : new Date().toISOString()
+        }))
+        .filter(e => e.location && e.qty > 0);
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Filas de detalle por caja en la misma hoja que el artículo (columnas Caja + CantidadCaja sin JSON).
+   * No sustituye a CajasJson ni a hojas aparte; se fusiona en normalize.
+   */
+  _inlineBoxStocksFromInventoryRow(r) {
+    if (!r || typeof r !== "object") return [];
+    const cajaRaw =
+      this._firstCsvField(r, [
+        "CODE BOX",
+        "Code Box",
+        "Caja",
+        "Box",
+        "BOX",
+        "NumeroCaja",
+        "NúmeroCaja",
+        "NroCaja",
+        "CAJA",
+        "No Caja",
+        "N° Caja"
+      ]) || "";
+    const n = this._parseImportBoxNumber(cajaRaw);
+    if (!this._isValidBoxNumber(n)) return [];
+    const qtyRaw = this._firstCsvField(r, [
+      "CantidadCaja",
+      "Cantidad Caja",
+      "Cantidad_Unidades",
+      "LAST COUNT",
+      "Last Count",
+      "LastCount",
+      "QUANTITY",
+      "Quantity",
+      "QtyCaja",
+      "StockCaja",
+      "UnidadesCaja"
+    ]);
+    const qs = qtyRaw != null ? String(qtyRaw).trim() : "";
+    if (qs === "" || qs === "?" || qs === "-") return [];
+    const qty = this._parseBoxStockQtyValue(qtyRaw);
+    if (!Number.isFinite(qty) || qty < 0) return [];
+    const loc = this._firstCsvField(r, [
+      "UbicacionCaja",
+      "UbicaciónCaja",
+      "Ubicacion Caja",
+      "Bin",
+      "BIN",
+      "BoxLocation"
+    ]);
+    const qb = this._firstCsvField(r, ["CantidadCajas", "Qty Boxes", "QTY BOXES", "Número de cajas", "NumCajas"]);
+    const notesPick = this._firstCsvField(r, [
+      "DERNIER PROJECT",
+      "Dernier Project",
+      "Dernier projet",
+      "Ultimo Proyecto",
+      "Último Proyecto",
+      "Last Pick Project"
+    ]);
+    return [
+      {
+        boxId: Utils.generateId(),
+        boxNumber: n,
+        locationLabel:
+          typeof Utils.resolveImportLocationLabel === "function"
+            ? Utils.resolveImportLocationLabel(loc)
+            : Utils.strictEffectiveWarehouseLocationText(String(loc || "").trim()) || "",
+        qty: Utils.roundDecimal(qty),
+        qtyBoxes: Math.max(0, this._parseBoxStockQtyBoxesValue(qb)),
+        empty: false,
+        notes: String(notesPick || "").trim(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+  },
+
+  /**
+   * Varias filas con el mismo código (p. ej. una por caja) → un artículo con `boxStocks` reunidos.
+   */
+  _mergeInventoryImportRowsByCode(rawRows) {
+    const merged = new Map();
+    const noCode = [];
+    for (const r of rawRows || []) {
+      const it = this._itemFromInventoryCsvRow(r);
+      const k = this._normalizeImportCodeValue(it.code);
+      if (!k) {
+        noCode.push(it);
+        continue;
+      }
+      if (!merged.has(k)) {
+        merged.set(k, it);
+        continue;
+      }
+      const base = merged.get(k);
+      base.boxStocks = [...(Array.isArray(base.boxStocks) ? base.boxStocks : []), ...(Array.isArray(it.boxStocks) ? it.boxStocks : [])];
+      base.locationStocks = [
+        ...(Array.isArray(base.locationStocks) ? base.locationStocks : []),
+        ...(Array.isArray(it.locationStocks) ? it.locationStocks : [])
+      ];
+      const mNew = parseFloat(it.mainStock) || 0;
+      const mOld = parseFloat(base.mainStock) || 0;
+      if (mNew > 0 && mOld <= 0) base.mainStock = it.mainStock;
+      if (!String(base.description || "").trim() && String(it.description || "").trim()) base.description = it.description;
+      if (!String(base.category || "").trim() && String(it.category || "").trim()) base.category = it.category;
+      if (!String(base.location || "").trim() && String(it.location || "").trim()) base.location = it.location;
+    }
+    return [...merged.values(), ...noCode];
+  },
+
+  /** Busca valor en fila importada por varios nombres posibles de columna (Excel cambia espacios/mayúsculas). */
+  _firstCsvField(r, aliases) {
+    if (!r || typeof r !== "object") return "";
+    const norm = s =>
+      String(s || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    for (const a of aliases) {
+      if (r[a] !== undefined && r[a] !== null && String(r[a]).trim() !== "") return r[a];
+    }
+    const keys = Object.keys(r);
+    for (const a of aliases) {
+      const na = norm(a);
+      const hit = keys.find(k => norm(k) === na);
+      if (hit != null && String(r[hit]).trim() !== "") return r[hit];
+    }
+    return "";
+  },
+
+  /**
+   * Convierte una fila CSV al objeto ítem (misma forma que addItem / almacenamiento).
+   * CSV antiguo sin StockMinimo/StockMaximo: se mantienen min 5 y max 100 como antes.
+   */
+  _itemFromInventoryCsvRow(r) {
+    const minRaw = this._firstCsvField(r, [
+      "StockMinimo",
+      "Stock Mínimo",
+      "Stock mínimo",
+      "MinimumStock",
+      "Minimum stock",
+      "MinStock",
+      "Stock minimum"
+    ]);
+    const maxRaw = this._firstCsvField(r, [
+      "StockMaximo",
+      "Stock Máximo",
+      "Stock máximo",
+      "MaximumStock",
+      "Maximum stock",
+      "MaxStock",
+      "Stock maximum"
+    ]);
+    const legacyStock = String(minRaw || "").trim() === "" && String(maxRaw || "").trim() === "";
+    let minStock;
+    let maxStock;
+    if (legacyStock) {
+      minStock = 5;
+      maxStock = 100;
+    } else {
+      const mn = parseFloat(minRaw);
+      const mx = parseFloat(maxRaw);
+      minStock = Number.isFinite(mn) ? mn : 0;
+      maxStock = Number.isFinite(mx) ? mx : 0;
+    }
+
+    const idRaw = String(
+      this._firstCsvField(r, ["Id", "ID", "id", "Identifiant"]) ?? r.Id ?? r.id ?? ""
+    ).trim();
+    const id = idRaw || Utils.generateId();
+
+    const mainRaw =
+      this._firstCsvField(r, [
+        "StockPrincipal",
+        "Stock Principal",
+        "STOCK PRINCIPAL",
+        "Stock principal",
+        "MainStock",
+        "Main Stock",
+        "Stock Main",
+        "Principal",
+        "TotalStock",
+        "Stock Total"
+      ]) ?? r.StockPrincipal;
+    const codeRaw =
+      this._firstCsvField(r, [
+        "Codigo",
+        "Código",
+        "CODE",
+        "Code",
+        "CODIGO",
+        "SKU",
+        "Articulo",
+        "Artículo",
+        "Item",
+        "Article",
+        "Référence",
+        "Reference",
+        "Referencia",
+        "Ref",
+        "Producto"
+      ]) ||
+      r.Codigo ||
+      r.code ||
+      "";
+    const descRaw =
+      this._firstCsvField(r, [
+        "Descripcion",
+        "Descripción",
+        "Description",
+        "DECRIPTION",
+        "Desc",
+        "Libelle",
+        "Nombre"
+      ]) ||
+      r.Descripcion ||
+      r.description ||
+      "";
+    const catRaw = this._firstCsvField(r, ["Categoria", "Categoría", "Category", "Familia"]) || r.Categoria || "";
+    const ubicRaw = this._firstCsvField(r, ["Ubicacion", "Ubicación", "Location", "Emplacement"]) || r.Ubicacion || "";
+
+    const jsonBoxRaw =
+      this._firstCsvField(r, [
+        "CajasJson",
+        "CajasJSON",
+        "cajasJson",
+        "Cajas JSON",
+        "Cajas (JSON)",
+        "CAJAS JSON",
+        "BoxStocksJson",
+        "BoxesJson",
+        "Boxes (JSON)",
+        "BoitesJson",
+        "BoîtesJson",
+        "Boites (JSON)",
+        "Boîtes (JSON)",
+        "boxStocksJson",
+        "Stock por caja",
+        "StockPorCaja",
+        "JSON_Cajas",
+        "DetalleCajas"
+      ]) ||
+      r.CajasJson ||
+      r.CajasJSON ||
+      "";
+    let boxStocks = this._parseBoxStocksJsonFromCsv(jsonBoxRaw || "[]");
+    const inlineBoxes = this._inlineBoxStocksFromInventoryRow(r);
+    if (inlineBoxes.length) boxStocks = [...boxStocks, ...inlineBoxes];
+
+    const parsed = {
+      id,
+      code: String(codeRaw).trim(),
+      description: String(descRaw).trim(),
+      category: String(catRaw).trim(),
+      mainStock: Utils.roundDecimal(this._parseBoxStockQtyValue(mainRaw !== undefined && mainRaw !== null ? mainRaw : 0)),
+      prodStock: Utils.roundDecimal(
+        this._parseBoxStockQtyValue(
+          this._firstCsvField(r, [
+            "StockProduccion",
+            "Stock Produccion",
+            "StockProduction",
+            "ProductionStock",
+            "Production Stock",
+            "Stock production"
+          ]) ||
+            r.StockProduccion ||
+            0
+        )
+      ),
+      transStock: Utils.roundDecimal(
+        this._parseBoxStockQtyValue(
+          this._firstCsvField(r, [
+            "StockTransformacion",
+            "Stock Transformacion",
+            "TransformationStock",
+            "StockTransformation",
+            "Stock Transformation",
+            "Stock transformation"
+          ]) ||
+            r.StockTransformacion ||
+            0
+        )
+      ),
+      qtyPerBox:
+        parseFloat(
+          this._firstCsvField(r, [
+            "CantidadPorCaja",
+            "Cantidad Por Caja",
+            "QtyPerBox",
+            "Qty per Box",
+            "QuantityPerBox",
+            "Quantity per Box",
+            "Qté par Boîte",
+            "Qte par Boite"
+          ]) || r.CantidadPorCaja
+        ) || 0,
+      numBoxes:
+        parseFloat(
+          this._firstCsvField(r, [
+            "NumeroCajas",
+            "Numero Cajas",
+            "NúmeroCajas",
+            "NumberOfBoxes",
+            "Number of Boxes",
+            "BoxCount",
+            "Nombre de Boîtes",
+            "Nombre de Boites"
+          ]) || r.NumeroCajas
+        ) || 0,
+      location: String(ubicRaw).trim(),
+      expDate:
+        this._firstCsvField(r, [
+          "FechaExpedicion",
+          "Fecha Expedición",
+          "IssueDate",
+          "Issue Date",
+          "Date d'Émission",
+          "Date d'Emission"
+        ]) ||
+        r.FechaExpedicion ||
+        "",
+      daysToExpire:
+        parseInt(
+          this._firstCsvField(r, [
+            "DiasParaExpirar",
+            "Días Para Expirar",
+            "DaysToExpire",
+            "Days to Expire",
+            "Jours avant Expiration"
+          ]) || r.DiasParaExpirar,
+          10
+        ) || 0,
+      expirationDate:
+        this._firstCsvField(r, [
+          "FechaExpiracion",
+          "Fecha Expiración",
+          "ExpirationDate",
+          "Expiration Date",
+          "Date d'Expiration",
+          "Date d’Expiration"
+        ]) ||
+        r.FechaExpiracion ||
+        "",
+      supplier: this._firstCsvField(r, ["Proveedor", "Supplier", "Fournisseur"]) || r.Proveedor || "",
+      lastOrder:
+        this._firstCsvField(r, ["UltimaOrden", "Última Orden", "LastOrder", "Last Order", "Dernière Commande", "Derniere Commande"]) ||
+        r.UltimaOrden ||
+        "",
+      details: this._firstCsvField(r, ["Detalles", "Details", "Détails", "DetailsText"]) || r.Detalles || "",
+      defaultPrice: Utils.roundDecimal(
+        parseFloat(
+          this._firstCsvField(r, [
+            "PrecioDefecto",
+            "Precio Defecto",
+            "Precio por defecto",
+            "Precio",
+            "DefaultPrice",
+            "Default Price",
+            "Prix par défaut",
+            "Prix par defaut"
+          ]) || r.PrecioDefecto
+        ),
+        2
+      ) || 0,
+      priceCurrency:
+        this._firstCsvField(r, [
+          "MonedaPrecio",
+          "Moneda Precio",
+          "Moneda del precio",
+          "PriceCurrency",
+          "Price currency",
+          "Currency",
+          "Devise du prix"
+        ]) ||
+        r.MonedaPrecio ||
+        "CAD",
+      minStock,
+      maxStock,
+      shelfLifeMonths: (() => {
+        const rawShelf = this._firstCsvField(r, [
+          "VidaUtilMeses",
+          "Vida Útil Meses",
+          "Vida útil (meses)",
+          "ShelfLifeMonths",
+          "Shelf Life Months",
+          "Shelf life (months)",
+          "Durée de vie (mois)",
+          "Duree de vie (mois)"
+        ]);
+        return rawShelf !== undefined && String(rawShelf).trim() !== ""
+          ? Math.max(0, parseInt(rawShelf, 10) || 0)
+          : 0;
+      })(),
+      expirations: this._parseLotesJsonFromCsv(
+        this._firstCsvField(r, [
+          "LotesJson",
+          "Lotes JSON",
+          "Lotes (JSON)",
+          "BatchesJson",
+          "Batches (JSON)",
+          "LotsJson",
+          "Lots (JSON)"
+        ]) || r.LotesJson
+      ),
+      notes:
+        r.Notas !== undefined
+          ? String(r.Notas ?? "")
+          : String(this._firstCsvField(r, ["Notas", "Notes", "Remarques"]) || ""),
+      boxStocks,
+      locationStocks: this._parseLocationStocksJsonFromCsv(
+        this._firstCsvField(r, [
+          "UbicacionesJson",
+          "Ubicaciones JSON",
+          "Ubicaciones (JSON)",
+          "LocationStocksJson",
+          "LocationsJson",
+          "Locations (JSON)",
+          "EmplacementsJson",
+          "Emplacements (JSON)",
+          "UbicacionesJSON",
+          "ubicacionesJson",
+          "Stock por ubicación",
+          "StockPorUbicacion",
+          "Ubicaciones"
+        ]) ||
+          r.UbicacionesJson ||
+          r.LocationStocksJson ||
+          ""
+      )
+    };
+    return this._normalizeItemCoreFields(parsed, { recomputeNumBoxes: true });
+  },
+
+  buildExportRowsForItems(items) {
+    const headers = this.INVENTORY_IMPORT_CSV_HEADERS;
+    const rows = (items || []).map(it => ({
+      Codigo: it.code || "",
+      Descripcion: it.description || "",
+      Categoria: it.category || "",
+      StockPrincipal: it.mainStock ?? 0,
+      StockProduccion: it.prodStock ?? 0,
+      StockTransformacion: it.transStock ?? 0,
+      CantidadPorCaja: it.qtyPerBox ?? 0,
+      NumeroCajas: it.numBoxes ?? 0,
+      Ubicacion: it.location || "",
+      FechaExpedicion: it.expDate || "",
+      DiasParaExpirar: it.daysToExpire ?? "",
+      FechaExpiracion: it.expirationDate || "",
+      Proveedor: it.supplier || "",
+      UltimaOrden: it.lastOrder || "",
+      Detalles: it.details || "",
+      PrecioDefecto: it.defaultPrice ?? 0,
+      MonedaPrecio: this._normalizePriceCurrency(it.priceCurrency),
+      Id: it.id || "",
+      StockMinimo: it.minStock ?? 0,
+      StockMaximo: it.maxStock ?? 0,
+      VidaUtilMeses: it.shelfLifeMonths ?? 0,
+      Notas: it.notes || "",
+      LotesJson: JSON.stringify(Array.isArray(it.expirations) ? it.expirations : []),
+      CajasJson: JSON.stringify(Array.isArray(it.boxStocks) ? it.boxStocks : []),
+      UbicacionesJson: JSON.stringify(Array.isArray(it.locationStocks) ? it.locationStocks : [])
+    }));
+    return { headers, rows };
+  },
+
+  async exportItemsToCsv(items, manifestMeta, selectedHeaders = null) {
+    if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return;
+    const { headers, rows } = this.buildExportRowsForItems(items);
+    if (!rows.length) {
+      Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
+      return;
+    }
+    const sourceHeaders = Array.isArray(selectedHeaders) && selectedHeaders.length
+      ? headers.filter(h => selectedHeaders.includes(h))
+      : headers;
+    const exportHeaders = sourceHeaders.map(h => this._inventoryExportHeaderLabel(h));
+    const projectedRows = rows.map(r => {
+      const o = {};
+      sourceHeaders.forEach((h, idx) => {
+        o[exportHeaders[idx]] = r[h];
+      });
+      return o;
+    });
+    const filename = Utils.backupFolderFilename("inventory");
+    await Utils.exportStyledXlsxToInformFolder(filename, exportHeaders, projectedRows, manifestMeta || null);
+  },
+
+  _renderInventoryExportColumnsPicker() {
+    const list = document.getElementById("inventory-export-columns-list");
+    if (!list) return;
+    list.innerHTML = this.INVENTORY_IMPORT_CSV_HEADERS.map(
+      h =>
+        `<label class="report-col-opt"><input type="checkbox" class="inventory-export-col-check" value="${Utils.escapeAttr(
+          h
+        )}" checked> <span>${this.esc(this._inventoryExportHeaderLabel(h))}</span></label>`
+    ).join("");
+  },
+
+  _inventoryExportHeaderLabel(header) {
+    const map = {
+      Codigo: "table.code",
+      Descripcion: "table.description",
+      Categoria: "table.category",
+      StockPrincipal: "table.mainStock",
+      StockProduccion: "table.prodStock",
+      StockTransformacion: "table.transStock",
+      CantidadPorCaja: "table.qtyPerBox",
+      NumeroCajas: "table.numBoxes",
+      Ubicacion: "table.location",
+      FechaExpedicion: "table.expDate",
+      DiasParaExpirar: "table.daysToExpire",
+      FechaExpiracion: "table.expirationDate",
+      Proveedor: "table.supplier",
+      UltimaOrden: "table.lastOrder",
+      Detalles: "table.details",
+      PrecioDefecto: "table.defaultPrice",
+      MonedaPrecio: "table.priceCurrency",
+      Id: "inventory.exportCol.id",
+      StockMinimo: "inventory.exportCol.minStock",
+      StockMaximo: "inventory.exportCol.maxStock",
+      VidaUtilMeses: "inventory.exportCol.shelfLifeMonths",
+      Notas: "table.notes",
+      LotesJson: "inventory.exportCol.lotesJson",
+      CajasJson: "inventory.exportCol.cajasJson",
+      UbicacionesJson: "inventory.exportCol.ubicacionesJson"
+    };
+    const k = map[header];
+    if (!k || typeof I18n === "undefined" || !I18n.t) return String(header || "");
+    const t = I18n.t(k);
+    return t === k ? String(header || "") : t;
+  },
+
+  _setAllInventoryExportColumns(checked) {
+    document.querySelectorAll(".inventory-export-col-check").forEach(el => {
+      el.checked = !!checked;
+    });
+  },
+
+  _setInventoryExportColumnsDisabled(disabled) {
+    document.querySelectorAll(".inventory-export-col-check").forEach(el => {
+      el.disabled = !!disabled;
+    });
+    const allBtn = document.getElementById("inventory-export-columns-all");
+    const noneBtn = document.getElementById("inventory-export-columns-none");
+    if (allBtn) allBtn.disabled = !!disabled;
+    if (noneBtn) noneBtn.disabled = !!disabled;
+  },
+
+  openInventoryExportModal() {
+    this._renderInventoryExportColumnsPicker();
+    const modeDefault = document.getElementById("inventory-export-mode-default");
+    const modeCustom = document.getElementById("inventory-export-mode-custom");
+    if (modeDefault) modeDefault.checked = true;
+    if (modeCustom) modeCustom.checked = false;
+    this._setInventoryExportColumnsDisabled(true);
+    document.getElementById("inventory-export-modal")?.classList.add("active");
+  },
+
+  closeInventoryExportModal() {
+    document.getElementById("inventory-export-modal")?.classList.remove("active");
+  },
+
+  _printDocument(title, subtitle, tableHtml) {
+    Utils.printHtmlDocument(title, subtitle, tableHtml);
+  },
+
+  async printItemsTable(items, title, subtitle) {
+    if (!items.length) {
+      Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
+      return;
+    }
+    const allCols = [
+      I18n.t("table.code"),
+      I18n.t("table.description"),
+      I18n.t("table.category"),
+      I18n.t("table.defaultPrice"),
+      I18n.t("table.mainStock"),
+      I18n.t("inventory.colTotal"),
+      I18n.t("inventory.colMin"),
+      I18n.t("inventory.colMax"),
+      I18n.t("table.expDate"),
+      I18n.t("table.expirationDate"),
+      I18n.t("inventory.colDays"),
+      I18n.t("table.location")
+    ];
+    const selected = await Utils.pickColumns(allCols, title || I18n.t("inventory.printTitleInventory"));
+    if (!selected || !selected.length) return;
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const rows = items
+      .map(it => {
+        const tot = this.itemTotalStock(it);
+        const eff = this.getEffectiveExpirationDate(it);
+        const ins = this.getExpirationInsight(it);
+        const days =
+          ins.has && ins.days !== null
+            ? ins.days < 0
+              ? I18n.t("inventory.insightExpired")
+              : String(ins.days)
+            : "—";
+        const minS = it.minStock != null && it.minStock !== "" ? fmt(parseFloat(it.minStock) || 0) : "—";
+        const maxS = it.maxStock != null && it.maxStock !== "" ? fmt(parseFloat(it.maxStock) || 0) : "—";
+        const map = {
+          [I18n.t("table.code")]: `<td class="print-cell-code app-code-copy-cell">${this.esc(it.code)}${this._inventoryConsumableBadgeHtml(it)}</td>`,
+          [I18n.t("table.description")]: `<td class="app-desc-copy-cell">${this.esc(it.description)}</td>`,
+          [I18n.t("table.category")]: `<td>${this.esc(it.category || "—")}</td>`,
+          [I18n.t("table.defaultPrice")]: `<td>${this._formatPriceDisplay(it.defaultPrice ?? 0, it.priceCurrency)}</td>`,
+          [I18n.t("table.mainStock")]: `<td>${fmt(it.mainStock ?? 0)}</td>`,
+          [I18n.t("inventory.colTotal")]: `<td>${fmt(tot)}</td>`,
+          [I18n.t("inventory.colMin")]: `<td>${minS}</td>`,
+          [I18n.t("inventory.colMax")]: `<td>${maxS}</td>`,
+          [I18n.t("table.expDate")]: `<td>${it.expDate ? Utils.formatDate(it.expDate) : "—"}</td>`,
+          [I18n.t("table.expirationDate")]: `<td>${eff ? Utils.formatDate(eff) : "—"}</td>`,
+          [I18n.t("inventory.colDays")]: `<td>${this.esc(days)}</td>`,
+          [I18n.t("table.location")]: `<td>${this.esc(it.location || "—")}</td>`
+        };
+        return `<tr>${selected.map(h => map[h] || "<td></td>").join("")}</tr>`;
+      })
+      .join("");
+    const table = `<table><thead><tr>${selected
+      .map(h => `<th${h === I18n.t("table.code") ? ' class="print-cell-code"' : ""}>${this.esc(h)}</th>`)
+      .join("")}</tr></thead><tbody>${rows}</tbody></table>`;
+    this._printDocument(title, subtitle, table);
+  },
+
+  exportCurrentInventoryView(mode = "default") {
+    const items = this._inventoryViewList || [];
+    const details = [`${I18n.t("export.manifest.rows")}: ${items.length}`];
+    const searchQ = (document.getElementById("inventory-search")?.value || "").trim();
+    if (searchQ) details.push(`${I18n.t("export.manifest.search")}: ${searchQ}`);
+    if (this._asOfDate)
+      details.push(`${I18n.t("export.manifest.asOf")}: ${Utils.formatDate(this._asOfDate)}`);
+    const consFil = document.getElementById("inventory-consumable-filter")?.value || "all";
+    if (consFil === "invcons") details.push(I18n.t("export.manifest.inventoryConsumableOnly"));
+    else if (consFil === "noninvcons") details.push(I18n.t("export.manifest.inventoryConsumableExclude"));
+    const useCustom = mode === "custom";
+    const selectedHeaders = useCustom
+      ? Array.from(document.querySelectorAll(".inventory-export-col-check:checked")).map(el => String(el.value || ""))
+      : [];
+    const allHeaders = this.INVENTORY_IMPORT_CSV_HEADERS.slice();
+    const headers = selectedHeaders.length ? allHeaders.filter(h => selectedHeaders.includes(h)) : allHeaders;
+    const exportHeaders = headers.map(h => this._inventoryExportHeaderLabel(h));
+    const { rows } = this.buildExportRowsForItems(items);
+    const projectedRows = rows.map(r => {
+      const o = {};
+      headers.forEach((h, idx) => {
+        o[exportHeaders[idx]] = r[h];
+      });
+      return o;
+    });
+    if (!projectedRows.length) {
+      Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
+      return;
+    }
+    const filename = Utils.backupFolderFilename("inventory");
+    void Utils.exportStyledXlsxToInformFolder(filename, exportHeaders, projectedRows, {
+      kind: "inventory_current_table",
+      title: I18n.t("export.manifest.inventoryCurrentView"),
+      details
+    });
+  },
+
+  async exportInventoryImportTemplateCsv() {
+    if (typeof Auth !== "undefined" && !Auth.guardLoadInventoryCsv()) return;
+    const technicalHeaders = this.INVENTORY_IMPORT_CSV_HEADERS;
+    const headers = technicalHeaders.map(h => this._inventoryExportHeaderLabel(h));
+    const sample = {
+      Codigo: "ART-001",
+      Descripcion: "Articulo ejemplo",
+      Categoria: "GENERAL",
+      StockPrincipal: 10,
+      StockProduccion: 0,
+      StockTransformacion: 0,
+      CantidadPorCaja: 1,
+      NumeroCajas: 10,
+      Ubicacion: "PASILLO A",
+      FechaExpedicion: "",
+      DiasParaExpirar: "",
+      FechaExpiracion: "",
+      Proveedor: "Proveedor ejemplo",
+      UltimaOrden: "",
+      Detalles: "",
+      PrecioDefecto: 0,
+      MonedaPrecio: "CAD",
+      Id: "",
+      StockMinimo: 5,
+      StockMaximo: 100,
+      VidaUtilMeses: 0,
+      Notas: "",
+      LotesJson: "[]",
+      CajasJson: "[]",
+      UbicacionesJson: "[]"
+    };
+    const sampleLocalized = {};
+    technicalHeaders.forEach((h, idx) => {
+      sampleLocalized[headers[idx]] = sample[h];
+    });
+    const filename = `GNEEX_Inventory_Import_Template_${this._fileStamp()}.xlsx`;
+    await Utils.exportStyledXlsxToInformFolder(filename, headers, [sampleLocalized], {
+      kind: "inventory_import_template",
+      title: I18n.t("export.manifest.inventoryImportTemplate"),
+      details: [I18n.t("export.manifest.templateOneExampleRow")]
+    });
+  },
+
+  async printCurrentInventoryView() {
+    const q = this._inventorySearchQuery;
+    let sub = I18n.t("inventory.printSubtitleAll");
+    if (this._asOfDate) {
+      sub = I18n.t("inventory.printSubtitleAsOf").replace("{date}", Utils.formatDate(this._asOfDate));
+    } else if (q) {
+      sub = I18n.t("inventory.printSubtitleFiltered").replace("{q}", q);
+    }
+    await this.printItemsTable(this._inventoryViewList || [], I18n.t("inventory.printTitleInventory"), sub);
+  },
+
+  async exportInsightList() {
+    const items = this._insightExportItems || [];
+    const insightKey = this._insightTitleKey || "inventory.insightTitleLow";
+    const allHeaders = this.INVENTORY_IMPORT_CSV_HEADERS.slice();
+    const labels = allHeaders.map(h => this._inventoryExportHeaderLabel(h));
+    const selectedLabels = await Utils.pickColumns(labels, I18n.t("inventory.exportCsv"));
+    if (!selectedLabels || !selectedLabels.length) return;
+    const selectedHeaders = allHeaders.filter(h => selectedLabels.includes(this._inventoryExportHeaderLabel(h)));
+    void this.exportItemsToCsv(items, {
+      kind: "inventory_alert_insight",
+      title: I18n.t(insightKey),
+      details: [`${I18n.t("export.manifest.rows")}: ${items.length}`]
+    }, selectedHeaders);
+  },
+
+  async printInsightList() {
+    const title = I18n.t(this._insightTitleKey || "inventory.insightTitleLow");
+    await this.printItemsTable(this._insightExportItems || [], title, "");
+  },
+
+  buildBoxOptionsHtmlForMovement(itemId, selectedBoxId = "") {
+    const boxes = this.getItemBoxStocks(itemId);
+    const ph = this.esc(I18n.t("inventory.boxOptionalNone"));
+    const opts = [`<option value="">${ph}</option>`];
+    for (const b of boxes) {
+      const id = Utils.escapeAttr(String(b.boxId));
+      const sel = String(selectedBoxId) === String(b.boxId) ? " selected" : "";
+      const qBox = this._parseBoxStockQtyValue(b.qty);
+      const locShort = String(b.locationLabel || "").trim();
+      const tpl = locShort ? "inventory.boxOptionWithQtyLoc" : "inventory.boxOptionWithQty";
+      let text = I18n.t(tpl)
+        .replace("{n}", String(b.boxNumber))
+        .replace("{q}", Utils.formatDecimalDisplay(qBox));
+      if (locShort) text = text.replace("{loc}", locShort);
+      const label = this.esc(text);
+      opts.push(`<option value="${id}"${sel}>${label}</option>`);
+    }
+    return opts.join("");
+  },
+
+  /**
+   * Origen de stock para movimientos en salida: producción, transformación, cajas (principal), ubicaciones.
+   * Ubicaciones muestran cantidad = stock principal − stock en cajas, repartida entre ranuras (no se duplica el total del principal).
+   * Valores: "", "depot:production", "depot:transformation", "box:id", "ibox:número", "loc:encoded"
+   * @param {{ onlyOriginsWithStock?: boolean }} [options] — si `onlyOriginsWithStock`, no lista orígenes con cantidad ≤ 0 (consumo diario, merma); la opción ya seleccionada se mantiene aunque sea 0.
+   */
+  buildStockSourceOptionsHtmlForMovement(itemId, selectedValue = "", options = {}) {
+    const item = this.getItemById(itemId);
+    const opts = [];
+    if (!item) {
+      opts.push(`<option value="">${this.esc(I18n.t("inventory.stockSourceNoRemainder"))}</option>`);
+      return opts.join("");
+    }
+    const selNorm = String(selectedValue || "").trim();
+    const onlyOriginsWithStock = !!options.onlyOriginsWithStock;
+    const pool = this._getMainLocationPoolQty(item);
+    const locSourceRows = this.getMovementLocationSourceOptions(item);
+
+    if (locSourceRows.length === 0 && pool > 0) {
+      const sel = selNorm === "" ? " selected" : "";
+      opts.push(
+        `<option value=""${sel}>${this.esc(
+          I18n.t("inventory.stockSourceRemainderPool").replace("{q}", Utils.formatDecimalDisplay(pool))
+        )}</option>`
+      );
+    } else if (locSourceRows.length === 0 && pool <= 0 && !onlyOriginsWithStock) {
+      opts.push(
+        `<option value="">${this.esc(I18n.t("inventory.stockSourceNoRemainder"))}</option>`
+      );
+    }
+
+    const prodNum = this._parseBoxStockQtyValue(item.prodStock);
+    const transNum = this._parseBoxStockQtyValue(item.transStock);
+    const prodQ = Utils.formatDecimalDisplay(prodNum);
+    const transQ = Utils.formatDecimalDisplay(transNum);
+    const selP = selNorm === "depot:production" ? " selected" : "";
+    const selT = selNorm === "depot:transformation" ? " selected" : "";
+    const showProd =
+      !onlyOriginsWithStock || prodNum > 0 || selNorm === "depot:production";
+    const showTrans =
+      !onlyOriginsWithStock || transNum > 0 || selNorm === "depot:transformation";
+    if (showProd) {
+      opts.push(
+        `<option value="depot:production"${selP}>${this.esc(
+          I18n.t("inventory.stockSourceProduction").replace("{q}", prodQ)
+        )}</option>`
+      );
+    }
+    if (showTrans) {
+      opts.push(
+        `<option value="depot:transformation"${selT}>${this.esc(
+          I18n.t("inventory.stockSourceTransformation").replace("{q}", transQ)
+        )}</option>`
+      );
+    }
+    const seenRealBox = new Set();
+    for (const b of this.getItemBoxStocks(itemId)) {
+      const qBox = this._parseBoxStockQtyValue(b.qty);
+      const v = `box:${String(b.boxId)}`;
+      if (onlyOriginsWithStock && qBox <= 0 && selNorm !== v) continue;
+      seenRealBox.add(Number(b.boxNumber));
+      const sel = selNorm === v ? " selected" : "";
+      const qDisp = Utils.formatDecimalDisplay(qBox);
+      const text = I18n.t("inventory.boxOptionWithQty")
+        .replace("{n}", String(b.boxNumber))
+        .replace("{q}", qDisp);
+      const label = this.esc(text);
+      opts.push(`<option value="${Utils.escapeAttr(v)}"${sel}>${label}</option>`);
+    }
+    const inferredNums = Utils.parseWarehouseBoxesFromLocation(item.location || "").filter(
+      num => !seenRealBox.has(num)
+    );
+    const boxRowsByNum = this.getItemBoxStocks(itemId);
+    for (const num of inferredNums) {
+      const qInf = this.getMovementInferredBoxAvailableQty(itemId, num);
+      const v = `ibox:${num}`;
+      if (onlyOriginsWithStock && qInf <= 0 && selNorm !== v) continue;
+      const sel = selNorm === v ? " selected" : "";
+      const row = boxRowsByNum.find(br => Number(br.boxNumber) === Number(num));
+      const qMgmt = row ? this._parseBoxStockQtyValue(row.qty) : qInf;
+      const label = this.esc(
+        I18n.t("inventory.boxOptionWithQty")
+          .replace("{n}", String(num))
+          .replace("{q}", Utils.formatDecimalDisplay(qMgmt))
+      );
+      opts.push(`<option value="${Utils.escapeAttr(v)}"${sel}>${label}</option>`);
+    }
+    for (const ls of locSourceRows) {
+      const qLoc = Math.max(0, parseFloat(ls.qty) || 0);
+      const v = `loc:${encodeURIComponent(ls.location)}`;
+      if (onlyOriginsWithStock && qLoc <= 0 && selNorm !== v) continue;
+      const sel = selNorm === v ? " selected" : "";
+      const label = this.esc(
+        `${ls.location} · ${Utils.formatDecimalDisplay(qLoc)}`
+      );
+      opts.push(`<option value="${Utils.escapeAttr(v)}"${sel}>${label}</option>`);
+    }
+    let html = opts.join("");
+    if (onlyOriginsWithStock && !String(html).trim()) {
+      html = `<option value="">${this.esc(I18n.t("inventory.stockSourceNoRemainder"))}</option>`;
+    }
+    return html;
+  },
+
+  _resetBoxManagerBoxForm() {
+    this._boxMgrEditBoxId = null;
+    const pairs = [
+      ["inventory-box-number", ""],
+      ["inventory-box-qty", "0"],
+      ["inventory-box-qty-boxes", "0"],
+      ["inventory-box-location", ""],
+      ["inventory-box-notes", ""]
+    ];
+    for (const [id, def] of pairs) {
+      const el = document.getElementById(id);
+      if (el) el.value = def;
+    }
+    const cb = document.getElementById("inventory-box-mark-empty");
+    if (cb) cb.checked = false;
+    const q = document.getElementById("inventory-box-qty");
+    const qb = document.getElementById("inventory-box-qty-boxes");
+    if (q) q.readOnly = false;
+    if (qb) qb.readOnly = false;
+    this._syncBoxManagerFormUi();
+  },
+
+  _syncEmptyCheckboxUi() {
+    const cb = document.getElementById("inventory-box-mark-empty");
+    const q = document.getElementById("inventory-box-qty");
+    const qb = document.getElementById("inventory-box-qty-boxes");
+    const on = !!(cb && cb.checked);
+    if (q) {
+      q.readOnly = on;
+      if (on) q.value = "0";
+    }
+    if (qb) {
+      qb.readOnly = on;
+      if (on) qb.value = "0";
+    }
+  },
+
+  _syncBoxManagerArticleClearBtn() {
+    const btn = document.getElementById("inventory-box-clear-article-btn");
+    if (btn) btn.disabled = !this._boxMgrItemId;
+  },
+
+  clearBoxManagerArticleSelection() {
+    this._boxMgrItemId = "";
+    const inp = document.getElementById("inventory-box-item-search");
+    if (inp) inp.value = "";
+    const results = document.getElementById("inventory-box-item-search-results");
+    if (results) {
+      results.classList.remove("active");
+      results.innerHTML = "";
+    }
+    this._resetBoxManagerBoxForm();
+    this._applyBoxManagerItemSelection();
+  },
+
+  _syncBoxManagerFormUi() {
+    const saveBtn = document.getElementById("inventory-box-save-btn");
+    const cancelBtn = document.getElementById("inventory-box-cancel-edit-btn");
+    const canEdit = this._canManageBoxMutations();
+    const editing = !!this._boxMgrEditBoxId;
+    if (saveBtn && typeof I18n !== "undefined") {
+      saveBtn.textContent = I18n.t(editing ? "inventory.boxMgrSaveUpdate" : "inventory.boxMgrSaveAdd");
+      saveBtn.hidden = !canEdit;
+    }
+    if (cancelBtn) cancelBtn.hidden = !canEdit || !editing;
+  },
+
+  _syncBoxManagerAccessUi() {
+    const canEdit = this._canManageBoxMutations();
+    const idsDisable = [
+      "inventory-box-number",
+      "inventory-box-qty",
+      "inventory-box-qty-boxes",
+      "inventory-box-location",
+      "inventory-box-notes",
+      "inventory-box-mark-empty",
+      "inventory-box-transfer-from",
+      "inventory-box-transfer-to",
+      "inventory-box-transfer-qty",
+      "inventory-box-transfer-location"
+    ];
+    idsDisable.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = !canEdit;
+    });
+    const transferBtn = document.getElementById("inventory-box-transfer-btn");
+    if (transferBtn) transferBtn.hidden = !canEdit;
+    const saveBtn = document.getElementById("inventory-box-save-btn");
+    if (saveBtn) saveBtn.hidden = !canEdit;
+    const cancelBtn = document.getElementById("inventory-box-cancel-edit-btn");
+    if (cancelBtn) cancelBtn.hidden = !canEdit || cancelBtn.hidden;
+  },
+
+  /** Sugerencias alineadas al catálogo efectivo + cajas conocidas (gestión de cajas y transferencias). */
+  _refreshBoxManagerLocationDatalists() {
+    if (typeof Utils === "undefined" || !Utils.getEffectiveWarehouseLocationSlots) return;
+    const slots = Utils.getEffectiveWarehouseLocationSlots() || [];
+    const opts = [];
+    const seen = new Set();
+    const pushOpt = val => {
+      const v = String(val || "").trim();
+      if (!v) return;
+      const k = v.toUpperCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      opts.push(`<option value="${Utils.escapeAttr(v)}"></option>`);
+    };
+    for (const s of slots) pushOpt(s);
+    const known = this._getKnownBoxNumbers();
+    for (const n of known) {
+      pushOpt(`BOX${n}`);
+      pushOpt(`BOX ${n}`);
+    }
+    const html = opts.join("");
+    const d1 = document.getElementById("inventory-box-location-datalist");
+    const d2 = document.getElementById("inventory-box-transfer-location-datalist");
+    if (d1) d1.innerHTML = html;
+    if (d2) d2.innerHTML = html;
+  },
+
+  /** Actualiza tabla de cajas y selects de transferencia según `_boxMgrItemId`. */
+  _applyBoxManagerItemSelection() {
+    this._renderBoxManagerRows();
+    this._syncBoxManagerArticleClearBtn();
+    const item = this.getItemById(this._boxMgrItemId);
+    const boxes = item && Array.isArray(item.boxStocks) ? item.boxStocks : [];
+    const opts = boxes
+      .map(
+        b =>
+          `<option value="${Utils.escapeAttr(String(b.boxId))}">${this.esc(
+            I18n.t("inventory.boxFilterOption").replace("{n}", String(b.boxNumber))
+          )}</option>`
+      )
+      .join("");
+    const prodOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_PROD_ID)}">${this.esc(I18n.t("table.prodStock"))}</option>`;
+    const transOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_TRANS_ID)}">${this.esc(I18n.t("table.transStock"))}</option>`;
+    const locationOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_LOCATION_ID)}">${this.esc(I18n.t("inventory.boxTransferToLocationDirect"))}</option>`;
+    const fromSpecialOpts = `${prodOpt}${transOpt}`;
+    const toSpecialOpts = `${prodOpt}${transOpt}${locationOpt}`;
+    const phFrom = this.esc(I18n.t("inventory.boxTransferPlaceholderFrom"));
+    const phTo = this.esc(I18n.t("inventory.boxTransferPlaceholderTo"));
+    const fromSel = document.getElementById("inventory-box-transfer-from");
+    const toSel = document.getElementById("inventory-box-transfer-to");
+    if (fromSel) fromSel.innerHTML = `<option value="">${phFrom}</option>${fromSpecialOpts}${opts}`;
+    if (toSel) toSel.innerHTML = `<option value="">${phTo}</option>${toSpecialOpts}${opts}`;
+    this._refreshBoxManagerLocationDatalists();
+    this._syncBoxTransferLocationVisibility();
+    this._syncBoxManagerAccessUi();
+    this._syncZeroBoxesToolbarBtn();
+    this._syncZeroTotalBoxToolbarBtn();
+  },
+
+  /** Oculta «ubicación destino» si el destino no es una caja física. */
+  _syncBoxTransferLocationVisibility() {
+    const toSel = document.getElementById("inventory-box-transfer-to");
+    const wrap = document.getElementById("inventory-box-transfer-location-wrap");
+    if (!wrap) return;
+    const toVal = toSel?.value || "";
+    const tk = _boxXferKind(toVal);
+    const show = tk === "box" || tk === "loc";
+    wrap.hidden = !show;
+  },
+
+  _syncInventoryBoxFilterToggleUi() {
+    const wrap = document.getElementById("inventory-box-filter-wrap");
+    const btn = document.getElementById("inventory-box-filter-toggle-btn");
+    if (!wrap || !btn) return;
+    const k = wrap.hidden ? "inventory.boxFilterToggleShow" : "inventory.boxFilterToggleHide";
+    const txt = typeof I18n !== "undefined" && I18n.t ? I18n.t(k) : k;
+    btn.setAttribute("title", txt);
+    btn.setAttribute("aria-label", txt);
+  },
+
+  _collapseOtherInventoryFilterPanels(exceptKind) {
+    for (const k of ["box", "depot", "consumable"]) {
+      if (k === exceptKind) continue;
+      this.collapseInventoryFilterPanel(k);
+    }
+  },
+
+  /** Primera fila del menú ⋮: minimizar tiras; deshabilitada si ninguna tira está abierta. */
+  _syncInventoryHeaderFiltersCollapseBtn() {
+    const btn = document.getElementById("inventory-header-filters-collapse-menuitem");
+    if (!btn) return;
+    const ids = ["inventory-box-filter-wrap", "inventory-depot-filter-wrap", "inventory-consumable-filter-wrap"];
+    const anyOpen = ids.some(id => {
+      const w = document.getElementById(id);
+      return !!(w && w.isConnected && !w.hidden);
+    });
+    btn.disabled = !anyOpen;
+  },
+
+  hideAllInventoryFilterPanels() {
+    const searchVal = document.getElementById("inventory-search")?.value || "";
+    let needsRender = false;
+    const pairs = [
+      ["inventory-box-filter-wrap", "inventory-box-filter"],
+      ["inventory-depot-filter-wrap", "inventory-depot-preset"],
+      ["inventory-consumable-filter-wrap", "inventory-consumable-filter"]
+    ];
+    for (const [wid, sid] of pairs) {
+      const wrap = document.getElementById(wid);
+      const sel = document.getElementById(sid);
+      if (wrap) {
+        wrap.hidden = true;
+        wrap.style.display = "none";
+      }
+      if (sel && sel.value !== "all") {
+        sel.value = "all";
+        needsRender = true;
+      }
+    }
+    this._syncInventoryBoxFilterToggleUi();
+    this._syncInventoryDepotFilterToggleUi();
+    this._syncInventoryConsumableFilterToggleUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+    if (needsRender) this.render(this.search(searchVal));
+  },
+
+  toggleInventoryBoxFilterVisibility() {
+    const wrap = document.getElementById("inventory-box-filter-wrap");
+    if (!wrap) return;
+    const nextHidden = !wrap.hidden;
+    if (!nextHidden) {
+      this._collapseOtherInventoryFilterPanels("box");
+    }
+    wrap.hidden = nextHidden;
+    wrap.style.display = nextHidden ? "none" : "inline-flex";
+    if (nextHidden) {
+      const sel = document.getElementById("inventory-box-filter");
+      if (sel && sel.value !== "all") {
+        sel.value = "all";
+        this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+      }
+    }
+    this._syncInventoryBoxFilterToggleUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+  },
+
+  _syncInventoryDepotFilterToggleUi() {
+    const wrap = document.getElementById("inventory-depot-filter-wrap");
+    const btn = document.getElementById("inventory-depot-filter-toggle-btn");
+    if (!wrap || !btn) return;
+    const k = wrap.hidden ? "inventory.depotFilterToggleShow" : "inventory.depotFilterToggleHide";
+    const txt = typeof I18n !== "undefined" && I18n.t ? I18n.t(k) : k;
+    btn.setAttribute("title", txt);
+    btn.setAttribute("aria-label", txt);
+  },
+
+  toggleInventoryDepotFilterVisibility() {
+    const wrap = document.getElementById("inventory-depot-filter-wrap");
+    if (!wrap) return;
+    const nextHidden = !wrap.hidden;
+    if (!nextHidden) {
+      this._collapseOtherInventoryFilterPanels("depot");
+    }
+    wrap.hidden = nextHidden;
+    wrap.style.display = nextHidden ? "none" : "inline-flex";
+    if (nextHidden) {
+      const sel = document.getElementById("inventory-depot-preset");
+      if (sel && sel.value !== "all") {
+        sel.value = "all";
+        this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+      }
+    }
+    this._syncInventoryDepotFilterToggleUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+  },
+
+  _syncInventoryConsumableFilterToggleUi() {
+    const wrap = document.getElementById("inventory-consumable-filter-wrap");
+    const btn = document.getElementById("inventory-consumable-filter-toggle-btn");
+    if (!wrap || !btn) return;
+    const k = wrap.hidden ? "inventory.consumableFilterToggleShow" : "inventory.consumableFilterToggleHide";
+    const txt = typeof I18n !== "undefined" && I18n.t ? I18n.t(k) : k;
+    btn.setAttribute("title", txt);
+    btn.setAttribute("aria-label", txt);
+  },
+
+  toggleInventoryConsumableFilterVisibility() {
+    const wrap = document.getElementById("inventory-consumable-filter-wrap");
+    if (!wrap) return;
+    const nextHidden = !wrap.hidden;
+    if (!nextHidden) {
+      this._collapseOtherInventoryFilterPanels("consumable");
+    }
+    wrap.hidden = nextHidden;
+    wrap.style.display = nextHidden ? "none" : "inline-flex";
+    if (nextHidden) {
+      const sel = document.getElementById("inventory-consumable-filter");
+      if (sel && sel.value !== "all") {
+        sel.value = "all";
+        this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+      }
+    }
+    this._syncInventoryConsumableFilterToggleUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+  },
+
+  collapseInventoryFilterPanel(kind) {
+    const map = {
+      box: {
+        wrapId: "inventory-box-filter-wrap",
+        selId: "inventory-box-filter",
+        sync: () => this._syncInventoryBoxFilterToggleUi()
+      },
+      depot: {
+        wrapId: "inventory-depot-filter-wrap",
+        selId: "inventory-depot-preset",
+        sync: () => this._syncInventoryDepotFilterToggleUi()
+      },
+      consumable: {
+        wrapId: "inventory-consumable-filter-wrap",
+        selId: "inventory-consumable-filter",
+        sync: () => this._syncInventoryConsumableFilterToggleUi()
+      }
+    };
+    const m = map[kind];
+    if (!m) return;
+    const wrap = document.getElementById(m.wrapId);
+    const sel = document.getElementById(m.selId);
+    const searchVal = document.getElementById("inventory-search")?.value || "";
+    if (!wrap || wrap.hidden) {
+      if (sel && sel.value !== "all") {
+        sel.value = "all";
+        this.render(this.search(searchVal));
+      }
+      m.sync();
+      this._syncInventoryHeaderFiltersCollapseBtn();
+      return;
+    }
+    wrap.hidden = true;
+    wrap.style.display = "none";
+    let needsRender = false;
+    if (sel && sel.value !== "all") {
+      sel.value = "all";
+      needsRender = true;
+    }
+    m.sync();
+    if (needsRender) this.render(this.search(searchVal));
+    this._syncInventoryHeaderFiltersCollapseBtn();
+  },
+
+  _renderBoxManagerSearchResults(query) {
+    const results = document.getElementById("inventory-box-item-search-results");
+    if (!results) return;
+    const q = String(query || "").trim().toLowerCase();
+    if (!q || q.length < 1) {
+      results.classList.remove("active");
+      results.innerHTML = "";
+      return;
+    }
+    const matches = (this.items || [])
+      .filter(it => {
+        if (
+          [it.code, it.description, it.category, it.location].some(v =>
+            String(v || "")
+              .toLowerCase()
+              .includes(q)
+          )
+        ) {
+          return true;
+        }
+        const qNum = /^\d{1,6}$/.test(q) ? parseInt(q, 10) : NaN;
+        if (this._isValidBoxNumber(qNum)) {
+          if (Utils.parseWarehouseBoxesFromLocation(it.location || "").includes(qNum)) return true;
+          if ((it.boxStocks || []).some(b => parseInt(b.boxNumber, 10) === qNum)) return true;
+        }
+        return (it.boxStocks || []).some(b => String(b.boxNumber ?? "").toLowerCase().includes(q));
+      })
+      .slice(0, 40);
+    if (!matches.length) {
+      results.classList.add("active");
+      results.innerHTML = `<div class="search-result-item no-results">${this.esc(I18n.t("msg.noResults"))}</div>`;
+      return;
+    }
+    results.classList.add("active");
+    results.innerHTML = matches
+      .map(
+        it => `<div class="search-result-item" data-item-id="${Utils.escapeAttr(String(it.id))}">
+          <strong>${this.esc(it.code || "—")}</strong> — ${this.esc(it.description || "")}
+          <small class="muted">${this.esc(it.category || "-")}</small>
+        </div>`
+      )
+      .join("");
+  },
+
+  _renderBoxManagerRows() {
+    const tbody = document.getElementById("inventory-box-item-body");
+    const title = document.getElementById("inventory-box-item-title");
+    if (!tbody) return;
+    const item = this.getItemById(this._boxMgrItemId);
+    if (title) title.textContent = item ? `${item.code || "—"} — ${item.description || ""}` : I18n.t("inventory.boxMgrNoItem");
+    if (!item) {
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">${this.esc(I18n.t("inventory.boxMgrNoItem"))}</td></tr>`;
+      return;
+    }
+    const rows = this._normalizeItemBoxStocks(item).boxStocks || [];
+    const inferredNums = Utils.parseWarehouseBoxesFromLocation(item.location || "");
+    const byNumber = new Map(rows.map(b => [Number(b.boxNumber), b]));
+    const unionNums = [...new Set([...rows.map(b => Number(b.boxNumber)), ...inferredNums])]
+      .filter(n => this._isValidBoxNumber(n))
+      .sort((a, b) => a - b);
+    if (!unionNums.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="muted">${this.esc(I18n.t("inventory.boxMgrEmpty"))}</td></tr>`;
+      return;
+    }
+    const selId = this._boxMgrEditBoxId != null ? String(this._boxMgrEditBoxId) : "";
+    const canEdit = this._canManageBoxMutations();
+    const hintInferred = I18n.t("inventory.boxMgrRowInferredHint");
+    tbody.innerHTML = unionNums
+      .map(n => {
+        const b = byNumber.get(n);
+        if (b) {
+          const bid = Utils.escapeAttr(String(b.boxId));
+          const selected = selId && String(b.boxId) === selId ? " inv-box-mgr-row--selected" : "";
+          const emptyBadge = b.empty
+            ? `<span class="inv-box-empty-badge">${this.esc(I18n.t("inventory.boxMgrBadgeEmpty"))}</span>`
+            : "";
+          const ubicCol = this._snippetFromItemLocationForBox(item, b.boxNumber);
+          const ubicShow = ubicCol
+            ? this.esc(ubicCol)
+            : this.esc(String(b.locationLabel || "").trim() || "—");
+          const actionsHtml = canEdit
+            ? `<button type="button" class="btn btn-sm btn-danger inv-box-del-btn" data-box-id="${bid}">${this.esc(
+                I18n.t("inventory.boxMgrDeleteBtn")
+              )}</button>`
+            : "—";
+          const rowRole = canEdit ? "button" : "row";
+          const rowTitle = canEdit ? this.esc(I18n.t("inventory.boxMgrRowClickHint")) : "";
+          return `<tr class="inv-box-mgr-row${selected}" data-box-id="${bid}" tabindex="0" role="${rowRole}" title="${rowTitle}">
+        <td><strong>${b.boxNumber}</strong>${emptyBadge}</td>
+        <td class="inv-box-mgr-ubic-cell">${ubicShow}</td>
+        <td>${Utils.formatDecimalDisplay(b.qty || 0)}</td>
+        <td>${Math.max(0, parseInt(b.qtyBoxes, 10) || 0)}</td>
+        <td>${this.esc(b.notes || "-")}</td>
+        <td>${this.esc(b.updatedAt ? Utils.formatDateTime(b.updatedAt) : "-")}</td>
+        <td class="inv-box-mgr-actions-cell">
+          ${actionsHtml}
+        </td>
+      </tr>`;
+        }
+        const nb = Utils.escapeAttr(String(n));
+        const inferUb = this._snippetFromItemLocationForBox(item, n);
+        const inferUbHtml = inferUb ? this.esc(inferUb) : "—";
+        const inferredQty = this.getMovementInferredBoxAvailableQty(item.id, n);
+        const perBox = Utils.roundDecimal(parseFloat(item.qtyPerBox) || 0);
+        const inferredQtyBoxes = perBox > 0 ? Math.max(0, Math.round(inferredQty / perBox)) : 0;
+        return `<tr class="inv-box-mgr-row inv-box-mgr-row--inferred muted" data-inferred-box="${nb}" tabindex="0" role="button" title="${this.esc(I18n.t("inventory.boxMgrRowInferredTitle"))}">
+        <td><strong>${n}</strong> <span class="inv-box-inferred-badge">${this.esc(I18n.t("inventory.boxMgrInferredBadge"))}</span></td>
+        <td class="inv-box-mgr-ubic-cell">${inferUbHtml}</td>
+        <td>${this.esc(Utils.formatDecimalDisplay(inferredQty || 0))}</td>
+        <td>${this.esc(String(inferredQtyBoxes))}</td>
+        <td>${this.esc(hintInferred)}</td>
+        <td>—</td>
+        <td class="inv-box-mgr-actions-cell">—</td>
+      </tr>`;
+      })
+      .join("");
+  },
+
+  openBoxManagerModal() {
+    const modal = document.getElementById("inventory-box-manager-modal");
+    if (!modal) return;
+    this._resetBoxManagerBoxForm();
+    const inp = document.getElementById("inventory-box-item-search");
+    if (inp) inp.value = "";
+    if (this._boxMgrItemId && !this.getItemById(this._boxMgrItemId)) this._boxMgrItemId = "";
+    this._applyBoxManagerItemSelection();
+    this._syncBoxManagerAccessUi();
+    modal.classList.add("active");
+  },
+
+  closeBoxManagerModal() {
+    document.getElementById("inventory-box-manager-modal")?.classList.remove("active");
+    this._resetBoxManagerBoxForm();
+  },
+
+  /** Filas CajasJson con cantidad 0 (ajuste / corrección en gestión por caja). */
+  _collectZeroQtyBoxRows() {
+    const rows = [];
+    for (const item of this.items || []) {
+      if (!item || !Array.isArray(item.boxStocks)) continue;
+      for (const b of item.boxStocks) {
+        const q = this._parseBoxStockQtyValue(b?.qty);
+        if (q > 1e-9) continue;
+        const n = parseInt(b?.boxNumber, 10);
+        if (!this._isValidBoxNumber(n)) continue;
+        rows.push({
+          itemId: item.id,
+          code: item.code || "",
+          description: item.description || "",
+          boxNumber: n,
+          boxId: b.boxId,
+          locationLabel: String(b.locationLabel || "").trim(),
+          empty: !!b.empty,
+          qty: q
+        });
+      }
+    }
+    rows.sort((a, b) => {
+      const c = String(a.code).localeCompare(String(b.code), undefined, { sensitivity: "base" });
+      if (c !== 0) return c;
+      return a.boxNumber - b.boxNumber;
+    });
+    return rows;
+  },
+
+  _syncZeroBoxesToolbarBtn() {
+    const btn = document.getElementById("inventory-zero-boxes-btn");
+    if (!btn) return;
+    const n = this._collectZeroQtyBoxRows().length;
+    btn.dataset.zeroBoxCount = String(n);
+    const baseTitle =
+      typeof I18n !== "undefined" && I18n.t ? I18n.t("inventory.zeroBoxesBtnTitle") : "";
+    btn.title = n ? `${baseTitle} (${n})` : baseTitle;
+    btn.setAttribute("aria-label", btn.title);
+  },
+
+  _renderZeroQtyBoxesModal() {
+    const body = document.getElementById("inventory-zero-boxes-body");
+    if (!body) return;
+    const rows = this._collectZeroQtyBoxRows();
+    const esc = s => this.esc(s);
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    if (!rows.length) {
+      body.innerHTML = `<p class="muted">${esc(I18n.t("inventory.zeroBoxesEmpty"))}</p>`;
+      return;
+    }
+    const intro = `<p class="muted inventory-zero-boxes-intro">${esc(I18n.t("inventory.zeroBoxesIntro"))}</p>`;
+    const th = k => `<th>${esc(I18n.t(k))}</th>`;
+    const head = [
+      "table.code",
+      "table.description",
+      "inventory.boxColNumber",
+      "table.quantity",
+      "inventory.boxColLocationLabel",
+      "inventory.boxMgrBadgeEmpty"
+    ];
+    const tableRows = rows
+      .map(r => {
+        const rowAria = I18n.t("inventory.zeroBoxesRowAria")
+          .replace("{code}", r.code || "—")
+          .replace("{n}", String(r.boxNumber));
+        const emptyCell = r.empty ? esc(I18n.t("inventory.boxMgrBadgeEmpty")) : "—";
+        return `<tr class="inv-zero-box-row" tabindex="0" role="button" data-item-id="${Utils.escapeAttr(
+          String(r.itemId)
+        )}" data-box-number="${Utils.escapeAttr(String(r.boxNumber))}" aria-label="${Utils.escapeAttr(rowAria)}">
+          <td class="app-code-copy-cell"><strong>${esc(r.code)}</strong></td>
+          <td class="app-desc-copy-cell">${esc(r.description)}</td>
+          <td>📦${r.boxNumber}</td>
+          <td>${esc(fmt(r.qty))}</td>
+          <td>${esc(r.locationLabel || "—")}</td>
+          <td>${emptyCell}</td>
+        </tr>`;
+      })
+      .join("");
+    body.innerHTML = `${intro}
+      <div class="inventory-table-container inventory-table-container--nested">
+        <table class="inventory-table">
+          <thead><tr>${head.map(th).join("")}</tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>`;
+  },
+
+  openZeroQtyBoxesModal() {
+    const modal = document.getElementById("inventory-zero-boxes-modal");
+    if (!modal) return;
+    this._renderZeroQtyBoxesModal();
+    if (typeof App !== "undefined" && typeof App._bringModalToFront === "function") {
+      App._bringModalToFront(modal);
+    }
+    modal.classList.add("active");
+  },
+
+  closeZeroQtyBoxesModal() {
+    document.getElementById("inventory-zero-boxes-modal")?.classList.remove("active");
+  },
+
+  _syncZeroTotalBoxToolbarBtn() {
+    const btn = document.getElementById("inventory-box-zero-total-btn");
+    if (!btn) return;
+    const n = this._collectZeroTotalStockByBoxNumber().length;
+    btn.dataset.zeroTotalBoxCount = String(n);
+    const baseTitle =
+      typeof I18n !== "undefined" && I18n.t ? I18n.t("inventory.boxZeroTotalBtnTitle") : "";
+    btn.title = n ? `${baseTitle} (${n})` : baseTitle;
+    btn.setAttribute("aria-label", btn.title);
+  },
+
+  _renderZeroTotalStockByBoxModal() {
+    const body = document.getElementById("inventory-box-zero-total-body");
+    if (!body) return;
+    const rows = this._collectZeroTotalStockByBoxNumber();
+    const esc = s => this.esc(s);
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    if (!rows.length) {
+      body.innerHTML = `<p class="muted">${esc(I18n.t("inventory.boxZeroTotalEmpty"))}</p>`;
+      return;
+    }
+    const intro = `<p class="muted inventory-box-zero-total-intro">${esc(I18n.t("inventory.boxZeroTotalIntro"))}</p>`;
+    const th = k => `<th>${esc(I18n.t(k))}</th>`;
+    const head = [
+      "inventory.boxColNumber",
+      "inventory.boxZeroTotalColSum",
+      "inventory.boxZeroTotalColArticles",
+      "inventory.boxZeroTotalColSituation"
+    ];
+    const kindLabel = key =>
+      key === "no-json" ? I18n.t("inventory.boxZeroTotalKindNoJson") : I18n.t("inventory.boxZeroTotalKindZeroSum");
+    const tableRows = rows
+      .map(r => {
+        const aria = I18n.t("inventory.boxZeroTotalRowAria")
+          .replace("{n}", String(r.boxNumber))
+          .replace("{sum}", fmt(r.totalQty));
+        const situation = kindLabel(r.kindKey);
+        const openId = r.openItemId ? Utils.escapeAttr(String(r.openItemId)) : "";
+        return `<tr class="inv-box-zero-total-row" tabindex="0" role="button" data-box-number="${Utils.escapeAttr(
+          String(r.boxNumber)
+        )}" data-open-item-id="${openId}" aria-label="${Utils.escapeAttr(aria)}">
+          <td><strong>📦${r.boxNumber}</strong></td>
+          <td>${esc(fmt(r.totalQty))}</td>
+          <td>${r.itemCount}</td>
+          <td>${esc(situation)}</td>
+        </tr>`;
+      })
+      .join("");
+    body.innerHTML = `${intro}
+      <div class="inventory-table-container inventory-table-container--nested">
+        <table class="inventory-table">
+          <thead><tr>${head.map(th).join("")}</tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>`;
+  },
+
+  openZeroTotalStockByBoxModal() {
+    const modal = document.getElementById("inventory-box-zero-total-modal");
+    if (!modal) return;
+    this._renderZeroTotalStockByBoxModal();
+    if (typeof App !== "undefined" && typeof App._bringModalToFront === "function") {
+      App._bringModalToFront(modal);
+    }
+    modal.classList.add("active");
+  },
+
+  closeZeroTotalStockByBoxModal() {
+    document.getElementById("inventory-box-zero-total-modal")?.classList.remove("active");
+  },
+
+  /** Abre la gestión de stock por caja en un artículo y caja concretos (público para enlaces UI). */
+  openBoxManagerAtItemBox(itemId, boxNumber) {
+    this._openBoxManagerAtItemBox(itemId, boxNumber);
+  },
+
+  saveBoxManagerBoxFromForm() {
+    if (!this._canManageBoxMutations()) {
+      Utils.showToast(I18n.t("auth.noPermission"), "warning");
+      return;
+    }
+    const itemId = this._boxMgrItemId;
+    if (!itemId) return;
+    const boxNumber = parseInt(document.getElementById("inventory-box-number")?.value, 10);
+    const qty = parseFloat(document.getElementById("inventory-box-qty")?.value) || 0;
+    const qtyBoxes = parseInt(document.getElementById("inventory-box-qty-boxes")?.value, 10) || 0;
+    const locationLabel = document.getElementById("inventory-box-location")?.value || "";
+    const notes = document.getElementById("inventory-box-notes")?.value || "";
+    const empty = !!document.getElementById("inventory-box-mark-empty")?.checked;
+    const res = this.upsertItemBoxStock(itemId, {
+      boxId: this._boxMgrEditBoxId || undefined,
+      boxNumber,
+      qty,
+      qtyBoxes,
+      empty,
+      locationLabel,
+      notes
+    });
+    if (!res.ok) {
+      Utils.showToast(
+        I18n.t(
+          res.reason === "invalid-location-catalog"
+            ? "inventory.boxTransferLocationNotInCatalog"
+            : "inventory.boxMgrInvalid"
+        ),
+        "error"
+      );
+      return;
+    }
+    this._resetBoxManagerBoxForm();
+    this._applyBoxManagerItemSelection();
+    Utils.showToast(I18n.t("inventory.boxMgrSaved"), "success");
+  },
+
+  /** Carga una caja en el formulario inferior (mismo efecto que antes tenía el botón Editar). */
+  _loadBoxIntoManagerForm(box) {
+    if (!box) return;
+    this._boxMgrEditBoxId = box.boxId;
+    document.getElementById("inventory-box-number").value = String(box.boxNumber || "");
+    document.getElementById("inventory-box-qty").value = String(box.qty || 0);
+    document.getElementById("inventory-box-qty-boxes").value = String(Math.max(0, parseInt(box.qtyBoxes, 10) || 0));
+    document.getElementById("inventory-box-location").value = box.locationLabel || "";
+    document.getElementById("inventory-box-notes").value = box.notes || "";
+    const cb = document.getElementById("inventory-box-mark-empty");
+    if (cb) cb.checked = !!box.empty;
+    this._syncEmptyCheckboxUi();
+    this._syncBoxManagerFormUi();
+    document.querySelector(".inventory-box-mgr-form-hint")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  },
+
+  handleBoxManagerTableClick(e) {
+    const canEdit = this._canManageBoxMutations();
+    const inferredRow = e.target.closest("tr[data-inferred-box]");
+    if (canEdit && inferredRow && !e.target.closest(".inv-box-del-btn")) {
+      const item = this.getItemById(this._boxMgrItemId);
+      if (!item) return;
+      const n = parseInt(inferredRow.getAttribute("data-inferred-box"), 10);
+      if (!this._isValidBoxNumber(n)) return;
+      this._boxMgrEditBoxId = null;
+      document.getElementById("inventory-box-number").value = String(n);
+      document.getElementById("inventory-box-qty").value = "0";
+      document.getElementById("inventory-box-qty-boxes").value = "0";
+      document.getElementById("inventory-box-location").value = "";
+      document.getElementById("inventory-box-notes").value = "";
+      const cb = document.getElementById("inventory-box-mark-empty");
+      if (cb) cb.checked = false;
+      this._syncEmptyCheckboxUi();
+      this._syncBoxManagerFormUi();
+      this._renderBoxManagerRows();
+      document.querySelector(".inventory-box-mgr-form-hint")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+    const del = canEdit ? e.target.closest(".inv-box-del-btn[data-box-id]") : null;
+    if (del) {
+      e.stopPropagation();
+    }
+    const row = !del && e.target.closest("tr.inv-box-mgr-row[data-box-id]");
+    if (!del && !row) return;
+    const item = this.getItemById(this._boxMgrItemId);
+    if (!item) return;
+    const boxId = (del || row).getAttribute("data-box-id");
+    const box = (item.boxStocks || []).find(b => String(b.boxId) === String(boxId));
+    if (!box) return;
+    if (row) {
+      this._loadBoxIntoManagerForm(box);
+      this._renderBoxManagerRows();
+      return;
+    }
+    const doDelete = () => {
+      const res = this.deleteItemBoxStock(item.id, box.boxId, false);
+      if (!res.ok) {
+        Utils.showToast(I18n.t("inventory.boxMgrDeleteWithStock"), "warning");
+        return;
+      }
+      if (String(this._boxMgrEditBoxId || "") === String(box.boxId)) this._resetBoxManagerBoxForm();
+      this._applyBoxManagerItemSelection();
+      Utils.showToast(I18n.t("inventory.boxMgrDeleted"), "success");
+    };
+    if (typeof App !== "undefined" && App.showConfirm) {
+      App.showConfirm(I18n.t("confirm.deleteBoxStock"), doDelete);
+    } else if (window.confirm(I18n.t("confirm.deleteBoxStock"))) {
+      doDelete();
+    }
+  },
+
+  transferBoxManagerStock() {
+    if (!this._canManageBoxMutations()) {
+      Utils.showToast(I18n.t("auth.noPermission"), "warning");
+      return;
+    }
+    const itemId = this._boxMgrItemId;
+    const fromId = document.getElementById("inventory-box-transfer-from")?.value || "";
+    const toId = document.getElementById("inventory-box-transfer-to")?.value || "";
+    const qty = parseFloat(document.getElementById("inventory-box-transfer-qty")?.value) || 0;
+    const fk = _boxXferKind(fromId);
+    const tk = _boxXferKind(toId);
+    const toLocation =
+      tk === "box" || tk === "loc" ? document.getElementById("inventory-box-transfer-location")?.value || "" : "";
+    if (!itemId || !fromId || !toId || fromId === toId || qty <= 0) {
+      Utils.showToast(I18n.t("inventory.boxTransferInvalid"), "error");
+      return;
+    }
+    let res;
+    if (fk === "box" && tk === "box") {
+      res = this.transferBetweenBoxes(itemId, fromId, toId, qty, toLocation);
+    } else if (fk === "box" && tk === "loc") {
+      res = this.transferBoxToLocation(itemId, fromId, qty, toLocation);
+    } else if (fk === "box" && tk === "prod") {
+      res = this.transferBoxToProdStock(itemId, fromId, qty);
+    } else if (fk === "prod" && tk === "box") {
+      res = this.transferProdStockToBox(itemId, toId, qty, toLocation);
+    } else if (fk === "box" && tk === "trans") {
+      res = this.transferBoxToTransStock(itemId, fromId, qty);
+    } else if (fk === "trans" && tk === "box") {
+      res = this.transferTransStockToBox(itemId, toId, qty, toLocation);
+    } else if (fk === "prod" && tk === "trans") {
+      res = this.transferProdToTransStock(itemId, qty);
+    } else if (fk === "trans" && tk === "prod") {
+      res = this.transferTransToProdStock(itemId, qty);
+    } else {
+      Utils.showToast(I18n.t("inventory.boxTransferInvalid"), "error");
+      return;
+    }
+    if (!res.ok) {
+      const key =
+        res.reason === "prod-overdraft"
+            ? "inventory.boxTransferInsufficientProd"
+            : res.reason === "trans-overdraft"
+              ? "inventory.boxTransferInsufficientTrans"
+              : res.reason === "box-overdraft"
+                ? "inventory.boxTransferInsufficientBox"
+                : res.reason === "location-required"
+                  ? "inventory.boxTransferLocationRequired"
+                  : res.reason === "invalid-location-catalog"
+                    ? "inventory.boxTransferLocationNotInCatalog"
+                    : res.reason === "box-empty"
+                      ? "inventory.boxTransferBoxEmpty"
+                      : "inventory.boxTransferInvalid";
+      Utils.showToast(I18n.t(key), "error");
+      return;
+    }
+    const tq = document.getElementById("inventory-box-transfer-qty");
+    if (tq) tq.value = "0";
+    const tloc = document.getElementById("inventory-box-transfer-location");
+    if (tloc) tloc.value = "";
+    this._applyBoxManagerItemSelection();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    Utils.showToast(I18n.t("inventory.boxTransferDone"), "success");
+  },
+
+  async exportBoxStockTemplate() {
+    const headers = [...BOX_STOCK_SHEET_HEADERS];
+    const rows = [
+      { Codigo: "ART-001", Caja: 1, UbicacionCaja: "BOX1", CantidadCaja: 10, CantidadCajas: 1, Vacia: 0 }
+    ];
+    await Utils.exportStyledXlsxToInformFolder(`GNEEX_BoxStock_Template_${this._fileStamp()}.xlsx`, headers, rows, {
+      kind: "inventory_box_stock_template",
+      title: I18n.t("inventory.boxTemplateTitle"),
+      details: [
+        I18n.t("inventory.boxStockManifestSheetDatos"),
+        I18n.t("inventory.boxStockManifestColCodigo"),
+        I18n.t("inventory.boxStockManifestColCaja"),
+        I18n.t("inventory.boxStockManifestColUbicacion"),
+        I18n.t("inventory.boxStockManifestColCantidad"),
+        I18n.t("inventory.boxStockManifestColQtyBoxes"),
+        I18n.t("inventory.boxStockManifestColEmpty"),
+        I18n.t("export.manifest.templateOneExampleRow")
+      ]
+    });
+  },
+
+  /** Exporta todo el stock por caja en el mismo formato que la plantilla (reimportable tal cual). */
+  async exportBoxStockData() {
+    const headers = [...BOX_STOCK_SHEET_HEADERS];
+    const rows = [];
+    for (const it of this.items || []) {
+      const code = String(it.code || "").trim();
+      if (!code) continue;
+      for (const b of it.boxStocks || []) {
+        const n = parseInt(b.boxNumber, 10);
+        if (!Number.isFinite(n)) continue;
+        rows.push({
+          Codigo: code,
+          Caja: n,
+          UbicacionCaja: String(b.locationLabel || "").trim(),
+          CantidadCaja: Utils.roundDecimal(parseFloat(b.qty) || 0),
+          CantidadCajas: Math.max(0, parseInt(b.qtyBoxes, 10) || 0),
+          Vacia: b.empty ? 1 : 0
+        });
+      }
+    }
+    if (!rows.length) {
+      Utils.showToast(I18n.t("inventory.boxExportEmpty"), "info");
+      return;
+    }
+    rows.sort((a, b) => {
+      const c = String(a.Codigo).localeCompare(String(b.Codigo), undefined, { sensitivity: "base" });
+      if (c !== 0) return c;
+      return (parseInt(a.Caja, 10) || 0) - (parseInt(b.Caja, 10) || 0);
+    });
+    await Utils.exportStyledXlsxToInformFolder(`GNEEX_BoxStock_Export_${this._fileStamp()}.xlsx`, headers, rows, {
+      kind: "inventory_box_stock_export",
+      title: I18n.t("inventory.boxExportTitle"),
+      details: [
+        I18n.t("inventory.boxStockManifestSheetDatos"),
+        I18n.t("inventory.boxStockManifestColCodigo"),
+        I18n.t("inventory.boxStockManifestColCaja"),
+        I18n.t("inventory.boxStockManifestColUbicacion"),
+        I18n.t("inventory.boxStockManifestColCantidad"),
+        I18n.t("inventory.boxStockManifestColQtyBoxes"),
+        I18n.t("inventory.boxStockManifestColEmpty")
+      ]
+    });
+  },
+
+  /**
+   * Agrupa filas de una hoja tipo plantilla de cajas / Libro (mismas reglas que importBoxStockTemplate).
+   * @returns {Record<string, { code: string, boxNumber: number, qty: number, qtyBoxes: number, locationLabel: string, empty: boolean }>}
+   */
+  _aggregateBoxStockImportRows(rows, codeMap) {
+    const agg = {};
+    const aliasCode = [
+      "Codigo",
+      "Código",
+      "Code",
+      "CODE",
+      "SKU",
+      "Articulo",
+      "Artículo",
+      "Item",
+      "Cod",
+      "CODIGO",
+      "Referencia",
+      "Ref",
+      "CodigoArticulo",
+      "CódigoArtículo",
+      "Article",
+      "Référence",
+      "Reference"
+    ];
+    const aliasBox = [
+      "CODE BOX",
+      "Code Box",
+      "CODEBOX",
+      "Caja",
+      "Box",
+      "BOX",
+      "NumeroCaja",
+      "NroCaja",
+      "CajaNumero",
+      "BoxNumber",
+      "NBox"
+    ];
+    const aliasQtyUnits = [
+      "LAST COUNT",
+      "Last Count",
+      "LastCount",
+      "QUANTITY",
+      "Quantity",
+      "UltimoConteo",
+      "ÚltimoConteo",
+      "Ultimo Conteo",
+      "CompteFinal",
+      "Compte Final",
+      "CantidadCaja",
+      "Cantidad",
+      "Qty",
+      "StockCaja",
+      "CajaQty",
+      "Cant",
+      "Saldo",
+      "Stock"
+    ];
+    const aliasQtyExcludedFromPick = new Set([
+      "qtyboxes",
+      "qtybox",
+      "qtboxes",
+      "numerodecajas",
+      "numcajas",
+      "difference",
+      "differenceqty",
+      "acciones",
+      "action",
+      "dernierproject",
+      "dernierprojet",
+      "cantidadcajas",
+      "codebox",
+      "description",
+      "decription"
+    ]);
+    const aliasLocation = ["UbicacionCaja", "UbicaciónCaja", "Ubicacion", "Ubicación", "Location", "BoxLocation"];
+    /** Texto libre: última cantidad tomada de la caja / proyecto (no es ubicación de ranura). → `boxStocks[].notes` */
+    const aliasDernierPickMeta = [
+      "DERNIER PROJECT",
+      "Dernier Project",
+      "Dernier projet",
+      "Ultimo Proyecto",
+      "Último Proyecto",
+      "Last Pick Project",
+      "Ultimo proyecto caja",
+      "Ultima toma proyecto"
+    ];
+    const aliasQtyBoxes = [
+      "QTY BOXES",
+      "Qty Boxes",
+      "QTYBOXES",
+      "CantidadCajas",
+      "NumCajas",
+      "NroCajas",
+      "Cajas",
+      "NbCaisse",
+      "NombreCajas"
+    ];
+    const aliasEmpty = ["Vacia", "Vacía", "Empty", "CajaVacia", "CajaVacía", "IsEmpty", "EstadoCaja"];
+    const parseEmptyFlag = raw => {
+      const t = String(raw ?? "").trim().toLowerCase();
+      if (!t) return false;
+      return ["1", "true", "yes", "si", "sí", "oui", "x", "empty", "vacia", "vacía"].includes(t);
+    };
+    const parseQtyBoxesLocal = raw => {
+      const t = String(raw ?? "").trim();
+      if (!t || t === "?" || t === "-") return 0;
+      const n = parseInt(t, 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    };
+
+    for (let idx = 0; idx < (rows || []).length; idx++) {
+      const r = rows[idx] || {};
+      const rowValues = Object.values(r || {}).map(v => String(v ?? "").trim());
+      const isBlankRow = rowValues.every(v => !v);
+      if (isBlankRow) continue;
+      const emptyInf = this._inferBoxStockFromEmptyKeyedRow(r, codeMap);
+      if (emptyInf?.ignore) continue;
+      let codeRaw = "";
+      let boxRaw = "";
+      let qtyRaw = "";
+      let qtyBoxesRaw = "";
+      let emptyRaw = "";
+      let locationRaw = "";
+      let pickMetaRaw = "";
+      if (emptyInf && !emptyInf.ignore) {
+        codeRaw = emptyInf.codeRaw;
+        boxRaw = emptyInf.boxRaw;
+        qtyRaw = emptyInf.qtyRaw;
+        qtyBoxesRaw = emptyInf.qtyBoxesRaw != null ? emptyInf.qtyBoxesRaw : "";
+        emptyRaw = "";
+        locationRaw = String(emptyInf.locationRaw || "").trim();
+        pickMetaRaw = String(emptyInf.pickMetaRaw || "").trim();
+      } else {
+        codeRaw =
+          this._pickImportValue(r, aliasCode) ||
+          this._pickCodeValueFromRowByKnownItems(r, codeMap);
+        boxRaw = this._pickImportValue(r, aliasBox) || this._pickBoxValueFromRow(r);
+        qtyRaw =
+          this._firstCsvField(r, [
+            "CantidadCaja",
+            "Cantidad Caja",
+            "Cantidad_Unidades",
+            "QtyCaja",
+            "StockCaja",
+            "UnidadesCaja"
+          ]) ||
+          this._pickImportQtyByAliasOrder(r, aliasQtyUnits, aliasQtyExcludedFromPick) ||
+          this._pickQtyValueFromRow(r, codeRaw, boxRaw, aliasQtyExcludedFromPick);
+        qtyBoxesRaw = this._pickImportQtyByAliasOrder(r, aliasQtyBoxes, new Set());
+        emptyRaw = this._pickImportValue(r, aliasEmpty);
+        locationRaw = String(this._pickImportValue(r, aliasLocation) || "").trim();
+        pickMetaRaw = String(this._pickImportValue(r, aliasDernierPickMeta) || "").trim();
+      }
+      if (!locationRaw) locationRaw = String(this._pickImportValue(r, aliasLocation) || "").trim();
+      if (!pickMetaRaw) pickMetaRaw = String(this._pickImportValue(r, aliasDernierPickMeta) || "").trim();
+      const code = this._normalizeImportCodeValue(
+        codeRaw !== undefined && codeRaw !== null ? String(codeRaw).trim() : ""
+      );
+      const boxNumber = this._parseImportBoxNumber(boxRaw);
+      const markEmpty = parseEmptyFlag(emptyRaw);
+      let qty = NaN;
+      if (markEmpty) qty = 0;
+      else {
+        const qs = qtyRaw != null ? String(qtyRaw).trim() : "";
+        if (qs === "" || qs === "?" || qs === "-") qty = NaN;
+        else {
+          qty = this._parseBoxStockQtyValue(qtyRaw);
+          if (!Number.isFinite(qty)) qty = NaN;
+        }
+      }
+      if (!code) continue;
+      if (!this._isValidBoxNumber(boxNumber)) continue;
+      if (!markEmpty && !(Number.isFinite(qty) && qty >= 0)) continue;
+      const qtyBoxes = parseQtyBoxesLocal(qtyBoxesRaw);
+
+      const key = `${code}__${boxNumber}`;
+      if (!agg[key])
+        agg[key] = { code, boxNumber, qty: 0, qtyBoxes: 0, locationLabel: "", empty: false, pickMeta: "" };
+      if (markEmpty) {
+        agg[key].empty = true;
+        agg[key].qty = 0;
+        agg[key].qtyBoxes = 0;
+        if (!agg[key].locationLabel) agg[key].locationLabel = locationRaw || "";
+        if (pickMetaRaw && !agg[key].pickMeta) agg[key].pickMeta = pickMetaRaw;
+        continue;
+      }
+      if (agg[key].empty) continue;
+      agg[key].qty = Utils.roundDecimal((agg[key].qty || 0) + qty);
+      agg[key].qtyBoxes = (agg[key].qtyBoxes || 0) + qtyBoxes;
+      if (!agg[key].locationLabel) agg[key].locationLabel = locationRaw || "";
+      if (pickMetaRaw) {
+        agg[key].pickMeta = agg[key].pickMeta
+          ? `${agg[key].pickMeta} · ${pickMetaRaw}`
+          : pickMetaRaw;
+      }
+    }
+    return agg;
+  },
+
+  /** Incorpora agregado de caja sobre ítems ya construidos (importación inicial multi-hoja). */
+  _applyBoxStockAggToItems(items, agg) {
+    const byCode = new Map();
+    for (const it of items || []) {
+      const k = this._normalizeImportCodeValue(it.code);
+      if (k) byCode.set(k, it);
+    }
+    for (const row of Object.values(agg || {})) {
+      const item = byCode.get(row.code);
+      if (!item) continue;
+      item.boxStocks = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+      const n = row.boxNumber;
+      const idx = item.boxStocks.findIndex(b => parseInt(b.boxNumber, 10) === n);
+      const boxId = idx >= 0 ? item.boxStocks[idx].boxId : `box-${n}-${Utils.generateId().slice(0, 8)}`;
+      const rawLab = String(row.locationLabel || "").trim();
+      const locLab =
+        typeof Utils.resolveImportLocationLabel === "function"
+          ? Utils.resolveImportLocationLabel(rawLab)
+          : Utils.strictEffectiveWarehouseLocationText(rawLab);
+      const prevNotes = idx >= 0 ? String(item.boxStocks[idx].notes || "").trim() : "";
+      const meta = String(row.pickMeta || "").trim();
+      const notesOut = [prevNotes, meta].filter(Boolean).join("\n");
+      const next = {
+        boxId,
+        boxNumber: n,
+        locationLabel: locLab || "",
+        qty: row.empty ? 0 : Utils.roundDecimal(row.qty),
+        qtyBoxes: row.empty ? 0 : Math.max(0, parseInt(row.qtyBoxes, 10) || 0),
+        empty: !!row.empty,
+        notes: notesOut,
+        updatedAt: new Date().toISOString()
+      };
+      if (idx >= 0) item.boxStocks[idx] = next;
+      else item.boxStocks.push(next);
+    }
+  },
+
+  /** Stock por ubicación desde hoja adicional (Codigo + ubicación catálogo + cantidad). */
+  _mergeLocationStockSheetIntoItems(items, rows) {
+    const aliasCode = [
+      "Codigo",
+      "Código",
+      "Code",
+      "SKU",
+      "Articulo",
+      "Artículo",
+      "Item",
+      "Cod",
+      "Referencia",
+      "Ref"
+    ];
+    const aliasLoc = [
+      "UbicacionAlmacen",
+      "UbicaciónAlmacen",
+      "UbicacionStock",
+      "Ranura",
+      "Slot",
+      "Pasillo",
+      "PasilloRack",
+      "Estante",
+      "Ubicacion",
+      "Ubicación",
+      "Location",
+      "Almacen",
+      "Deposito"
+    ];
+    const aliasQty = ["CantidadUbicacion", "Cantidad", "Qty", "Stock", "Saldo", "Quantity", "Units", "LAST COUNT"];
+    const byCode = new Map();
+    for (const it of items || []) {
+      const k = this._normalizeImportCodeValue(it.code);
+      if (k) byCode.set(k, it);
+    }
+    let nApp = 0;
+    for (const r of rows || []) {
+      const codeRaw = this._pickImportValue(r, aliasCode);
+      const code = this._normalizeImportCodeValue(codeRaw);
+      if (!code) continue;
+      const item = byCode.get(code);
+      if (!item) continue;
+      const locRaw = this._pickImportValue(r, aliasLoc);
+      const loc =
+        typeof Utils.resolveImportLocationLabel === "function"
+          ? Utils.resolveImportLocationLabel(locRaw)
+          : Utils.strictEffectiveWarehouseLocationText(String(locRaw || "").trim());
+      if (!loc) continue;
+      const qtyRaw = this._pickImportValue(r, aliasQty);
+      const qty = this._parseBoxStockQtyValue(qtyRaw);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      if (!Array.isArray(item.locationStocks)) item.locationStocks = [];
+      const idx = item.locationStocks.findIndex(x => String(x.location).toUpperCase() === loc.toUpperCase());
+      const entry = { location: loc, qty: Utils.roundDecimal(qty), updatedAt: new Date().toISOString() };
+      if (idx < 0) item.locationStocks.push(entry);
+      else item.locationStocks[idx] = entry;
+      nApp++;
+    }
+    return nApp;
+  },
+
+  _xlsxSheetHasEmptyKeyedLibroRows(rows) {
+    return (rows || []).some(r => r && Object.keys(r).some(k => /^__EMPTY/.test(k)));
+  },
+
+  _xlsxSheetHeaderNorms(rows) {
+    const r = (rows || []).find(x => x && Object.keys(x || {}).length) || {};
+    return new Set(Object.keys(r).map(k => this._normalizeImportHeaderName(k)));
+  },
+
+  /** Hoja de artículos (Codigo + StockPrincipal / descripción), no hoja solo de cajas. */
+  _xlsxSheetLooksLikeMainInventory(rows) {
+    const norms = this._xlsxSheetHeaderNorms(rows);
+    if (!norms.size) return false;
+    const keys = [...norms];
+    const hasStockPrincipal = keys.some(n => /stockprincipal/.test(n));
+    const hasCode = keys.some(n => /codigo|^code$|sku|articulo/.test(n));
+    const hasDesc = keys.some(n => /descripcion|description|desc|decription/.test(n));
+    return hasStockPrincipal || (hasCode && hasDesc);
+  },
+
+  _xlsxSheetLooksLikeBoxStock(name, rows) {
+    const sn = String(name || "").toLowerCase();
+    if (/caja|box|bin|stockcaja|libro/i.test(sn) && !/ubicacion/i.test(sn)) return true;
+    if (this._xlsxSheetHasEmptyKeyedLibroRows(rows)) return true;
+    const norms = this._xlsxSheetHeaderNorms(rows);
+    if (!norms.size) return false;
+    const hasCode = [...norms].some(n => /codigo|code|sku|articulo|item|referencia|ref/.test(n));
+    const hasBox = [...norms].some(
+      n =>
+        n === "caja" ||
+        n === "box" ||
+        n === "codebox" ||
+        n.includes("codebox") ||
+        n.includes("numerocaja") ||
+        n.includes("nrocaja") ||
+        (n.includes("caja") && !n.includes("ubicacion"))
+    );
+    const hasQty = [...norms].some(
+      n =>
+        /cantidad|qty|quantity|stock|saldo|count|conteo|compte|lastcount|last count|difference/.test(n) &&
+        !/qtyboxes|cantidadcajas|numerocajas|ncajas|nombre/.test(n)
+    );
+    return hasCode && hasBox && hasQty;
+  },
+
+  _xlsxSheetLooksLikeLocationStock(name, rows) {
+    const sn = String(name || "").toLowerCase();
+    if (/ubicacion|ubicaciones|locacion|stock.*ubic|ubic.*stock|rack/.test(sn)) return true;
+    const norms = this._xlsxSheetHeaderNorms(rows);
+    if (!norms.size) return false;
+    const hasCode = [...norms].some(n => /codigo|code|sku|articulo|item/.test(n));
+    const hasLoc = [...norms].some(
+      n =>
+        /ubicacion|ubicación|location|pasillo|ranura|slot|rack|estante|depot|depósito|almacen|magasin/.test(n) &&
+        !/ubicacioncaja/i.test(String(n))
+    );
+    const hasQty = [...norms].some(n => /cantidad|qty|stock|saldo|quantity|units/.test(n));
+    return hasCode && hasLoc && hasQty && !this._xlsxSheetLooksLikeBoxStock("", rows);
+  },
+
+  importBoxStockTemplate(file) {
+    if (!file) return;
+    Utils.importDataCSV(file, "__tmp_box_stock__", parsed => {
+      localStorage.removeItem("__tmp_box_stock__");
+      const rows = Array.isArray(parsed) ? parsed : [];
+      let applied = 0;
+      let skipped = 0;
+      const skippedRows = [];
+      const codeMap = {};
+      for (const it of this.items || []) {
+        const k = this._normalizeImportCodeValue(it.code);
+        if (k) codeMap[k] = it;
+      }
+      const agg = this._aggregateBoxStockImportRows(rows, codeMap);
+      for (const row of Object.values(agg)) {
+        const { code, boxNumber, qty, qtyBoxes, locationLabel, empty } = row;
+        const item = (this.items || []).find(i => String(i.code || "").trim().toLowerCase() === code);
+        if (!item) {
+          skipped++;
+          skippedRows.push({ row: "-", reason: "code-not-found", code });
+          continue;
+        }
+        const existing = (item.boxStocks || []).find(b => parseInt(b.boxNumber, 10) === boxNumber);
+        const boxId = existing ? existing.boxId : undefined;
+        const res = this.upsertItemBoxStock(
+          item.id,
+          { boxId, boxNumber, qty, qtyBoxes, locationLabel, empty: !!empty },
+          { silent: true }
+        );
+        if (res.ok) applied++;
+        else {
+          skipped++;
+          skippedRows.push({ row: "-", reason: "upsert-failed", code, boxNumber, qty });
+        }
+      }
+      this._applyBoxManagerItemSelection();
+      const skipReasonCounts = {};
+      for (const s of skippedRows) {
+        const r = s.reason || "unknown";
+        skipReasonCounts[r] = (skipReasonCounts[r] || 0) + 1;
+      }
+      const skipBreakdown =
+        skippedRows.length > 0
+          ? Object.entries(skipReasonCounts)
+              .map(([reason, n]) => `${reason}=${n}`)
+              .join(", ")
+          : "";
+      let summary =
+        I18n.t("inventory.boxImportDone").replace("{n}", String(applied)) +
+        (skipped ? ` · ${I18n.t("inventory.boxImportSkipped").replace("{n}", String(skipped))}` : "");
+      if (skipBreakdown) summary += ` (${skipBreakdown})`;
+      const report = {
+        summary,
+        applied,
+        skipped,
+        skipReasonCounts,
+        skippedRows
+      };
+      if (typeof window !== "undefined") {
+        window.__gneexLastBoxImportReport = report;
+      }
+      Utils.showToast(summary, skipped ? "warning" : "success");
+      if (skippedRows.length) {
+        console.group("G-NEEX Box Import Report");
+        console.log("Resumen:", summary);
+        console.log("Por motivo:", skipReasonCounts);
+        console.table(skippedRows.slice(0, 50));
+        console.log("Copiar informe completo: copy(window.__gneexLastBoxImportReport)");
+        console.groupEnd();
+      }
+    }, { silentToast: true });
+  },
+
+  _normalizeImportCodeValue(v) {
+    return String(v || "").trim().toLowerCase();
+  },
+
+  _normalizeImportHeaderName(v) {
+    return String(v || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toLowerCase();
+  },
+
+  _pickImportValue(row, aliases) {
+    const keys = Object.keys(row || {});
+    if (!keys.length) return "";
+    const wanted = new Set((aliases || []).map(a => this._normalizeImportHeaderName(a)));
+    for (const k of keys) {
+      if (wanted.has(this._normalizeImportHeaderName(k))) return row[k];
+    }
+    return "";
+  },
+
+  /** Resuelve cantidad de unidades respetando el orden de alias (p. ej. LAST COUNT antes que Cantidad). */
+  _pickImportQtyByAliasOrder(row, orderedAliases, excludeNormSet) {
+    const keys = Object.keys(row || {});
+    if (!keys.length || !orderedAliases?.length) return "";
+    const ex = excludeNormSet instanceof Set ? excludeNormSet : new Set();
+    const nk = k => this._normalizeImportHeaderName(k);
+    const keyByNorm = new Map();
+    for (const k of keys) keyByNorm.set(nk(k), k);
+    for (const alias of orderedAliases) {
+      const norm = nk(alias);
+      if (ex.has(norm)) continue;
+      const k = keyByNorm.get(norm);
+      if (k === undefined) continue;
+      const v = row[k];
+      if (v === null || v === undefined) continue;
+      const s = String(v).trim();
+      if (!s || s === "?" || s === "-") continue;
+      return v;
+    }
+    return "";
+  },
+
+  _pickCodeValueFromRowByKnownItems(row, codeMap) {
+    const vals = Object.values(row || {});
+    for (const raw of vals) {
+      const k = this._normalizeImportCodeValue(raw);
+      if (k && codeMap[k]) return raw;
+    }
+    return "";
+  },
+
+  _parseImportBoxNumber(raw) {
+    const direct = parseInt(raw, 10);
+    if (this._isValidBoxNumber(direct)) return direct;
+    const fromTxt = Utils.parseWarehouseBoxFromLocation(raw || "");
+    return Number.isFinite(fromTxt) ? fromTxt : NaN;
+  },
+
+  _pickBoxValueFromRow(row) {
+    const vals = Object.values(row || {});
+    for (const raw of vals) {
+      const n = this._parseImportBoxNumber(raw);
+      if (this._isValidBoxNumber(n)) return n;
+    }
+    return "";
+  },
+
+  _pickQtyValueFromRow(row, codeRaw, boxRaw, excludeHeaderNormSet) {
+    const codeNorm = this._normalizeImportCodeValue(codeRaw);
+    const boxNorm = String(boxRaw || "").trim();
+    const ex = excludeHeaderNormSet instanceof Set ? excludeHeaderNormSet : null;
+    const keys = Object.keys(row || {});
+    for (const k of keys) {
+      if (ex && ex.has(this._normalizeImportHeaderName(k))) continue;
+      const raw = row[k];
+      const s = String(raw ?? "").trim();
+      if (!s) continue;
+      if (this._normalizeImportCodeValue(s) === codeNorm) continue;
+      if (s === boxNorm) continue;
+      const n = parseFloat(s.replace(",", "."));
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    return "";
+  },
+
+  _getKnownBoxNumbers() {
+    const set = new Set();
+    for (const it of this.items || []) {
+      for (const n of this._collectWarehouseBoxesFromItem(it)) {
+        if (this._isValidBoxNumber(n)) set.add(n);
+      }
+    }
+    return [...set].sort((a, b) => a - b);
+  },
+
+  _sortItemIdsByCode(ids) {
+    const arr = [...(ids || [])].map(id => ({ id, code: String(this.getItemById(id)?.code || "") }));
+    arr.sort((a, b) => a.code.localeCompare(b.code, undefined, { sensitivity: "base" }));
+    return arr.map(x => x.id);
+  },
+
+  /**
+   * Números de caja referenciados (texto ubicación o CajasJson) cuya suma global de cantidad en caja es 0.
+   */
+  _collectZeroTotalStockByBoxNumber() {
+    const known = this._getKnownBoxNumbers();
+    const byBox = new Map();
+    for (const it of this.items || []) {
+      const rows = Array.isArray(it.boxStocks) ? it.boxStocks : [];
+      for (const b of rows) {
+        const n = parseInt(b?.boxNumber, 10);
+        if (!this._isValidBoxNumber(n)) continue;
+        const q = this._parseBoxStockQtyValue(b?.qty);
+        if (!byBox.has(n)) byBox.set(n, { totalQty: 0, itemIdsWithRow: new Set(), lines: 0 });
+        const agg = byBox.get(n);
+        agg.totalQty += q;
+        agg.itemIdsWithRow.add(it.id);
+        agg.lines++;
+      }
+    }
+    const out = [];
+    for (const n of known) {
+      const agg = byBox.get(n) || { totalQty: 0, itemIdsWithRow: new Set(), lines: 0 };
+      const totalQty = Utils.roundDecimal(agg.totalQty);
+      if (totalQty > 1e-9) continue;
+      let openItemId = "";
+      if (agg.itemIdsWithRow.size) {
+        openItemId = this._sortItemIdsByCode(agg.itemIdsWithRow)[0] || "";
+      } else {
+        const candidates = (this.items || []).filter(it => this._collectWarehouseBoxesFromItem(it).includes(n));
+        candidates.sort((a, b) =>
+          String(a.code || "").localeCompare(String(b.code || ""), undefined, { sensitivity: "base" })
+        );
+        openItemId = candidates[0]?.id || "";
+      }
+      const kindKey = agg.lines === 0 ? "no-json" : "zero-sum";
+      out.push({
+        boxNumber: n,
+        totalQty,
+        itemCount: agg.itemIdsWithRow.size,
+        lineCount: agg.lines,
+        kindKey,
+        openItemId
+      });
+    }
+    return out.sort((a, b) => a.boxNumber - b.boxNumber);
+  },
+
+  /**
+   * SheetJS emite __EMPTY / __EMPTY_N cuando la primera fila no tiene texto en esa columna.
+   * Hay que ordenar claves para que coincidan con el orden de columnas del Excel.
+   */
+  _sortSheetJsEmptyKeys(keys) {
+    return [...(keys || [])].filter(k => /^__EMPTY/.test(k)).sort((a, b) => {
+      if (a === "__EMPTY") return -1;
+      if (b === "__EMPTY") return 1;
+      const na = parseInt(String(a).replace(/^__EMPTY_/, ""), 10);
+      const nb = parseInt(String(b).replace(/^__EMPTY_/, ""), 10);
+      return (Number.isFinite(na) ? na : 9999) - (Number.isFinite(nb) ? nb : 9999);
+    });
+  },
+
+  /**
+   * Inferencia (__EMPTY): 6 cols = Libro nuevo (LAST COUNT ix3; DERNIER PROJECT ix5 → notes).
+   * ≥7 cols = layout anterior (LAST COUNT ix4; BIN ix6; meta opcional ix7).
+   */
+  _inferBoxStockFromEmptyKeyedRow(row, codeMap) {
+    const keys = Object.keys(row || {});
+    const emptyKeys = keys.filter(k => /^__EMPTY/.test(k));
+    if (!keys.length || emptyKeys.length !== keys.length) return null;
+
+    const vals = this._sortSheetJsEmptyKeys(keys).map(k => row[k]);
+    const strVals = vals.map(v => String(v ?? "").trim());
+    const nonEmpty = strVals.filter(Boolean);
+    if (!nonEmpty.length) return null;
+
+    const s0 = strVals[0] || "";
+    const s1 = strVals[1] || "";
+
+    if (/^#?\s*de\s*box$/i.test(s0) && /^code$/i.test(s1)) return { ignore: true };
+    if (/^box$/i.test(s0) && /^code$/i.test(s1)) return { ignore: true };
+
+    if (nonEmpty.length === 1 && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(nonEmpty[0])) return { ignore: true };
+
+    let codeRaw = "";
+    for (const raw of vals) {
+      const k = this._normalizeImportCodeValue(raw);
+      if (k && codeMap[k]) {
+        codeRaw = raw;
+        break;
+      }
+    }
+    if (!codeRaw) codeRaw = vals[1];
+
+    const boxRaw = vals[0];
+
+    let qtyRaw;
+    let qtyBoxesRaw;
+    let locationRaw;
+    let pickMetaRaw;
+
+    const fillQtyFallback = (primary, fallbacks) => {
+      let q = primary;
+      const q0 = String(q ?? "").trim();
+      if (q0 !== "-" && q0 !== "?" && q0 !== "") return q;
+      for (const c of fallbacks) {
+        const s = String(c ?? "").trim();
+        if (!s || s === "?" || s === "-") continue;
+        const n = parseFloat(String(s).replace(",", "."));
+        if (Number.isFinite(n) && n >= 0) return c;
+      }
+      return q;
+    };
+
+    if (vals.length === 6) {
+      qtyRaw = fillQtyFallback(vals[3], [vals[4], vals[2]]);
+      qtyBoxesRaw = vals[4];
+      pickMetaRaw = vals[5] != null ? String(vals[5]).trim() : "";
+      locationRaw = "";
+    } else {
+      qtyRaw = fillQtyFallback(vals[4], [vals[3], vals[2]]);
+      qtyBoxesRaw = vals[5];
+      locationRaw = vals[6] != null ? String(vals[6]).trim() : "";
+      pickMetaRaw = vals.length >= 8 && vals[7] != null ? String(vals[7]).trim() : "";
+    }
+
+    const qb = String(qtyBoxesRaw ?? "").trim();
+    if (qb === "?" || qb === "-") qtyBoxesRaw = "";
+
+    return { codeRaw, boxRaw, qtyRaw, qtyBoxesRaw, locationRaw, pickMetaRaw, ignore: false };
+  },
+
+  populateInventoryBoxFilter() {
+    const sel = document.getElementById("inventory-box-filter");
+    if (!sel) return;
+    const prev = sel.value || "all";
+    const parts = [
+      `<option value="all">${this.esc(I18n.t("inventory.boxFilterAll"))}</option>`,
+      `<option value="none">${this.esc(I18n.t("inventory.boxFilterNone"))}</option>`,
+      `<optgroup label="${this.esc(I18n.t("inventory.boxFilterGroupBoxes"))}">`
+    ];
+    for (const n of this._getKnownBoxNumbers()) {
+      parts.push(`<option value="${n}">${this.esc(I18n.t("inventory.boxFilterOption").replace("{n}", String(n)))}</option>`);
+    }
+    parts.push(`</optgroup><optgroup label="${this.esc(I18n.t("inventory.boxFilterGroupSlots"))}">`);
+    for (const slot of (Utils.getEffectiveWarehouseLocationSlots ? Utils.getEffectiveWarehouseLocationSlots() : Utils.WAREHOUSE_LOCATION_SLOTS) || []) {
+      const val = `slot:${encodeURIComponent(slot)}`;
+      parts.push(`<option value="${Utils.escapeAttr(val)}">${this.esc(slot)}</option>`);
+    }
+    parts.push("</optgroup>");
+    sel.innerHTML = parts.join("");
+    const ok = [...sel.options].some(o => o.value === prev);
+    sel.value = ok ? prev : "all";
+  },
+
+  _filterInventoryByBoxSelect(arr) {
+    if (!Array.isArray(arr)) return [];
+    const sel = document.getElementById("inventory-box-filter");
+    const v = sel?.value ?? "all";
+    if (!v || v === "all") return arr;
+    if (v === "none") {
+      return arr.filter(it => this._collectWarehouseBoxesFromItem(it).length === 0);
+    }
+    if (String(v).startsWith("slot:")) {
+      let canon = "";
+      try {
+        canon = decodeURIComponent(String(v).slice(5));
+      } catch (e) {
+        canon = String(v).slice(5);
+      }
+      if (!canon) return arr;
+      return arr.filter(it => this._collectWarehouseSlotsFromItem(it).includes(canon));
+    }
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n)) return arr;
+    return arr.filter(it => this._collectWarehouseBoxesFromItem(it).includes(n));
+  },
+
+  _filterInventoryDepotPreset(arr) {
+    if (!Array.isArray(arr)) return [];
+    const sel = document.getElementById("inventory-depot-preset");
+    const v = sel?.value ?? "all";
+    if (v === "prod") return arr.filter(it => (parseFloat(it.prodStock) || 0) > 0);
+    if (v === "trans") return arr.filter(it => (parseFloat(it.transStock) || 0) > 0);
+    if (v === "prod_or_trans") {
+      return arr.filter(it => (parseFloat(it.prodStock) || 0) > 0 || (parseFloat(it.transStock) || 0) > 0);
+    }
+    return arr;
+  },
+
+  _filterInventoryConsumablePreset(arr) {
+    if (!Array.isArray(arr)) return [];
+    const sel = document.getElementById("inventory-consumable-filter");
+    const v = sel?.value ?? "all";
+    if (v === "invcons") return arr.filter(it => !!it.inventoryConsumable);
+    if (v === "noninvcons") return arr.filter(it => !it.inventoryConsumable);
+    return arr;
+  },
+
+  resetInventorySearchAndFilters() {
+    const s = document.getElementById("inventory-search");
+    if (s) s.value = "";
+    const sel = document.getElementById("inventory-box-filter");
+    if (sel) sel.value = "all";
+    const dep = document.getElementById("inventory-depot-preset");
+    if (dep) dep.value = "all";
+    const invc = document.getElementById("inventory-consumable-filter");
+    if (invc) invc.value = "all";
+    this._asOfDate = null;
+    const asofDate = document.getElementById("inventory-asof-date");
+    if (asofDate) asofDate.value = "";
+    this.render();
+  },
+
+  _setInventoryBoxFilterBySlot(slotId) {
+    const sel = document.getElementById("inventory-box-filter");
+    if (!sel) return false;
+    const val = `slot:${encodeURIComponent(String(slotId || ""))}`;
+    const has = [...(sel.options || [])].some(o => o.value === val);
+    if (!has) return false;
+    sel.value = val;
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return true;
+  },
+
+  _setInventoryBoxFilterByNumber(n) {
+    const sel = document.getElementById("inventory-box-filter");
+    if (!sel) return false;
+    const num = parseInt(n, 10);
+    if (!this._isValidBoxNumber(num)) return false;
+    const val = String(num);
+    const has = [...(sel.options || [])].some(o => o.value === val);
+    if (!has) return false;
+    sel.value = val;
+    this._collapseOtherInventoryFilterPanels("box");
+    const wrap = document.getElementById("inventory-box-filter-wrap");
+    if (wrap) {
+      wrap.hidden = false;
+      wrap.style.display = "inline-flex";
+    }
+    this._syncInventoryBoxFilterToggleUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return true;
+  },
+
+  _openBoxManagerAtItemBox(itemId, boxNumber) {
+    if (!itemId) return;
+    this.openBoxManagerModal();
+    this._boxMgrItemId = String(itemId);
+    this._applyBoxManagerItemSelection();
+    const item = this.getItemById(itemId);
+    if (!item) return;
+    const n = parseInt(boxNumber, 10);
+    if (!this._isValidBoxNumber(n)) return;
+    const row = (item.boxStocks || []).find(b => parseInt(b?.boxNumber, 10) === n);
+    if (row) {
+      this._loadBoxIntoManagerForm(row);
+      this._renderBoxManagerRows();
+      return;
+    }
+    this._boxMgrEditBoxId = null;
+    const numberInput = document.getElementById("inventory-box-number");
+    if (numberInput) numberInput.value = String(n);
+    this._renderBoxManagerRows();
+  },
+
+  _estimateLocationQtyForItem(item, locationKey = "") {
+    if (!item) return { qty: 0, mode: "none" };
+    const key = String(locationKey || "").trim();
+    const locRows = this._normalizeItemLocationStocks(item);
+    if (key) {
+      const direct = locRows.find(ls => this._locationLabelEquals(ls?.location, key));
+      if (direct) return { qty: Math.max(0, this._parseBoxStockQtyValue(direct.qty)), mode: "explicit" };
+    }
+    if (locRows.length > 1) return { qty: 0, mode: "ambiguous" };
+    // Regla pedida: cantidad ubicación ≈ cantidad total - cantidad en cajas.
+    const total = Math.max(0, Utils.roundDecimal(this.itemTotalStock(item)));
+    const sumBoxes = (Array.isArray(item.boxStocks) ? item.boxStocks : [])
+      .reduce((acc, b) => acc + Math.max(0, this._parseBoxStockQtyValue(b?.qty)), 0);
+    return { qty: Math.max(0, Utils.roundDecimal(total - sumBoxes)), mode: "derived" };
+  },
+
+  _handleInventoryLocationJump(target) {
+    const node = target?.closest?.("[data-jump-kind]");
+    if (!node) return false;
+    const kind = String(node.getAttribute("data-jump-kind") || "").trim();
+    if (kind === "box") {
+      const itemId = String(node.getAttribute("data-item-id") || "").trim();
+      const boxNumber = parseInt(node.getAttribute("data-box-number") || "", 10);
+      if (itemId && this._isValidBoxNumber(boxNumber)) {
+        this._openBoxManagerAtItemBox(itemId, boxNumber);
+        return true;
+      }
+      return false;
+    }
+    if (kind === "slot") {
+      const slotId = String(node.getAttribute("data-slot-id") || "").trim();
+      const itemId = String(node.getAttribute("data-item-id") || "").trim();
+      const item = this.getItemById(itemId);
+      const est = this._estimateLocationQtyForItem(item, slotId);
+      if (est.mode === "ambiguous") {
+        Utils.showToast(
+          I18n.t("inventory.locationQtyAmbiguousToast").replace("{loc}", slotId),
+          "warning"
+        );
+      } else {
+        Utils.showToast(`${slotId}: ${Utils.formatDecimalDisplay(est.qty)}`, "info");
+      }
+      const ok = this._setInventoryBoxFilterBySlot(slotId);
+      if (!ok && itemId) this._openBoxManagerAtItemBox(itemId, NaN);
+      return true;
+    }
+    if (kind === "locqty") {
+      const locationKey = String(node.getAttribute("data-location-key") || "").trim();
+      if (!locationKey) return false;
+      const itemId = String(node.getAttribute("data-item-id") || "").trim();
+      const item = this.getItemById(itemId);
+      const est = this._estimateLocationQtyForItem(item, locationKey);
+      if (est.mode === "ambiguous") {
+        Utils.showToast(
+          I18n.t("inventory.locationQtyAmbiguousToast").replace("{loc}", locationKey),
+          "warning"
+        );
+      } else {
+        Utils.showToast(`${locationKey}: ${Utils.formatDecimalDisplay(est.qty)}`, "info");
+      }
+      const slots = Utils.parseWarehouseSlotsFromLocation(locationKey);
+      if (slots.length) return this._setInventoryBoxFilterBySlot(slots[0]);
+      this._openBoxManagerAtItemBox(itemId, NaN);
+      return true;
+    }
+    return false;
+  },
+
+  /**
+   * Agregación por caja a partir del texto «Ubicación» (convención box/caja + número).
+   */
+  buildWarehouseBoxSummary(items) {
+    const map = {};
+    let noBoxSku = 0;
+    let noBoxMain = 0;
+    const itemsNoBox = [];
+    for (const it of items || []) {
+      const boxes = this._collectWarehouseBoxesFromItem(it);
+      const main = Number(it.mainStock) || 0;
+      if (boxes.length) {
+        for (const box of boxes) {
+          if (!map[box]) map[box] = { box, skuCount: 0, totalMain: 0, items: [] };
+          map[box].skuCount++;
+          map[box].totalMain += main;
+          map[box].items.push(it);
+        }
+      } else {
+        noBoxSku++;
+        noBoxMain += main;
+        itemsNoBox.push(it);
+      }
+    }
+    const rows = Object.keys(map)
+      .map(k => map[k])
+      .sort((a, b) => a.box - b.box);
+    return { rows, noBoxSku, noBoxMain, itemsNoBox };
+  },
+
+  _showInventoryBoxSummaryDetail(boxKey) {
+    const panel = document.getElementById("inventory-box-summary-detail");
+    if (!panel) return;
+    const isNone = boxKey === "none";
+    const list = isNone
+      ? (this._boxSummaryNoBox || []).slice()
+      : (this._boxSummaryByBox && this._boxSummaryByBox[boxKey]) ? this._boxSummaryByBox[boxKey].slice() : [];
+    const sorted = list.sort((a, b) =>
+      String(a.code || "").localeCompare(String(b.code || ""), undefined, { sensitivity: "base" })
+    );
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const th = k => `<th>${this.esc(I18n.t(k))}</th>`;
+    const detailTitle = isNone
+      ? I18n.t("inventory.boxSummaryDetailTitleNone")
+      : I18n.t("inventory.boxSummaryDetailTitle").replace("{n}", String(boxKey));
+    const rowLines = sorted
+      .map(
+        it =>
+          `<tr><td class="app-code-copy-cell"><strong>${this.esc(it.code)}</strong></td><td class="app-desc-copy-cell">${this.esc(it.description || "")}</td><td>${fmt(
+            this._qtyInSummaryBoxForItem(it, isNone ? "none" : boxKey)
+          )}</td><td>${fmt(
+            it.mainStock || 0
+          )}</td><td>${this.esc(it.location || "-")}</td></tr>`
+      )
+      .join("");
+    panel.innerHTML = `
+      <h4 class="inventory-box-summary-detail-title">${this.esc(detailTitle)}</h4>
+      <div class="inventory-table-container inventory-table-container--nested">
+        <table class="inventory-table">
+          <thead><tr>${th("table.code")}${th("table.description")}${th("inventory.boxColQtyInBox")}${th("table.mainStock")}${th("table.location")}</tr></thead>
+          <tbody>${
+            sorted.length
+              ? rowLines
+              : `<tr><td colspan="5" class="muted">${this.esc(I18n.t("inventory.boxSummaryDetailEmpty"))}</td></tr>`
+          }</tbody>
+        </table>
+      </div>`;
+    panel.hidden = false;
+    document.querySelectorAll("#inventory-box-summary-modal tr.inv-box-summary-row").forEach(tr => {
+      const raw = tr.getAttribute("data-box-num");
+      const match = isNone ? raw === "none" : raw === String(boxKey);
+      tr.classList.toggle("is-selected", match);
+    });
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  },
+
+  _syncBoxSummarySelectionUi() {
+    const scope = document.getElementById("inventory-box-summary-export-scope")?.value || "all";
+    const selectedMode = scope === "selected";
+    document.querySelectorAll("#inventory-box-summary-modal .inv-box-summary-select").forEach(inp => {
+      inp.disabled = !selectedMode;
+      if (!selectedMode) inp.checked = false;
+    });
+    this._renderBoxContentListingPreview();
+  },
+
+  _itemMatchesBoxSummarySearch(item, rawQuery) {
+    const q = String(rawQuery || "").trim().toLowerCase();
+    if (!q) return false;
+    const fields = [item?.code, item?.description, item?.category, item?.location];
+    return fields.some(f => String(f || "").toLowerCase().includes(q));
+  },
+
+  _applyBoxSummarySearchSelection(rawQuery) {
+    const q = String(rawQuery || "").trim();
+    const scopeSel = document.getElementById("inventory-box-summary-export-scope");
+    if (scopeSel) scopeSel.value = "selected";
+    this._syncBoxSummarySelectionUi();
+
+    let selectedCount = 0;
+    let firstKey = null;
+    document.querySelectorAll("#inventory-box-summary-modal .inv-box-summary-select").forEach(inp => {
+      const key = String(inp.getAttribute("data-box-key") || "").trim();
+      const items =
+        key === "none"
+          ? (Array.isArray(this._boxSummaryNoBox) ? this._boxSummaryNoBox : [])
+          : (Array.isArray(this._boxSummaryByBox?.[key]) ? this._boxSummaryByBox[key] : []);
+      const match = q ? items.some(it => this._itemMatchesBoxSummarySearch(it, q)) : false;
+      inp.checked = match;
+      if (match) {
+        selectedCount++;
+        if (firstKey == null) firstKey = key;
+      }
+    });
+    this._renderBoxContentListingPreview();
+    return selectedCount;
+  },
+
+  openWarehouseBoxSummaryModal() {
+    const modal = document.getElementById("inventory-box-summary-modal");
+    const body = document.getElementById("inventory-box-summary-body");
+    const h = document.getElementById("inventory-box-summary-heading");
+    if (!modal || !body) return;
+    if (h) h.textContent = I18n.t("inventory.boxSummaryTitle");
+
+    const items = this.getItemsWithOptionalAsOfStock();
+    const { rows, noBoxSku, noBoxMain, itemsNoBox } = this.buildWarehouseBoxSummary(items);
+    this._boxSummaryByBox = {};
+    for (const r of rows) this._boxSummaryByBox[r.box] = r.items;
+    this._boxSummaryNoBox = itemsNoBox.slice();
+
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const th = k => `<th>${this.esc(I18n.t(k))}</th>`;
+    const rowHtml = rows
+      .map(
+        r =>
+          `<tr class="inv-box-summary-row is-clickable" data-box-num="${r.box}" tabindex="0" role="button" aria-label="${this.esc(
+            I18n.t("inventory.boxSummaryRowAria")
+              .replace("{n}", String(r.box))
+              .replace("{count}", String(r.skuCount))
+          )}">
+          <td><input type="checkbox" class="inv-box-summary-select" data-box-key="${this.esc(String(r.box))}" aria-label="${this.esc(
+            I18n.t("inventory.boxSummarySelectRowAria").replace("{n}", String(r.box))
+          )}" /></td>
+          <td><strong>${r.box}</strong></td>
+          <td>${r.skuCount}</td>
+          <td>${fmt(r.totalMain)}</td>
+        </tr>`
+      )
+      .join("");
+    const noBoxRow =
+      noBoxSku > 0
+        ? `<tr class="inv-box-summary-row inv-box-summary-row--orphan is-clickable" data-box-num="none" tabindex="0" role="button" aria-label="${this.esc(
+            I18n.t("inventory.boxSummaryRowAriaNone").replace("{count}", String(noBoxSku))
+          )}">
+          <td><input type="checkbox" class="inv-box-summary-select" data-box-key="none" aria-label="${this.esc(
+            I18n.t("inventory.boxSummarySelectRowAriaNone")
+          )}" /></td>
+          <td><strong>${this.esc(I18n.t("inventory.boxUnassigned"))}</strong></td>
+          <td>${noBoxSku}</td>
+          <td>${fmt(noBoxMain)}</td>
+        </tr>`
+        : "";
+    const tbodyRows =
+      rows.length === 0 && noBoxSku === 0
+        ? `<tr><td colspan="4">${this.esc(I18n.t("inventory.boxSummaryEmpty"))}</td></tr>`
+        : rowHtml + noBoxRow;
+
+    const exportContentLbl = this.esc(I18n.t("inventory.boxSummaryExportContent"));
+    const printContentLbl = this.esc(I18n.t("inventory.boxSummaryPrintContent"));
+    const searchInBoxesLbl = this.esc(I18n.t("inventory.boxSummarySearchInBoxes"));
+    const searchPh = this.esc(I18n.t("inventory.boxSummarySearchPlaceholder"));
+    const clearSearchLbl = this.esc(I18n.t("inventory.boxSummarySearchClear"));
+    const scopeLbl = this.esc(I18n.t("inventory.boxSummaryScopeLabel"));
+    const scopeAllLbl = this.esc(I18n.t("inventory.boxSummaryScopeAll"));
+    const scopeSelLbl = this.esc(I18n.t("inventory.boxSummaryScopeSelected"));
+    const toolbar = `<div class="inventory-insight-toolbar filter-actions">
+      <input id="inventory-box-summary-item-search" class="search-input" type="text" placeholder="${searchPh}" aria-label="${searchInBoxesLbl}" title="${searchInBoxesLbl}" autocomplete="off" />
+      <button type="button" id="inventory-box-summary-search-clear" class="btn btn-secondary btn-sm">${clearSearchLbl}</button>
+      <span class="muted inventory-box-summary-scope-label">${scopeLbl}</span>
+      <select id="inventory-box-summary-export-scope" class="filter-select inventory-box-summary-scope-select" aria-label="${scopeLbl}">
+        <option value="all">${scopeAllLbl}</option>
+        <option value="selected">${scopeSelLbl}</option>
+      </select>
+      <button type="button" id="inventory-box-summary-export-content" class="btn inventory-asof-icon-btn" title="${exportContentLbl}" aria-label="${exportContentLbl}">${INV_ICONS.download}</button>
+      <button type="button" id="inventory-box-summary-print-content" class="btn inventory-asof-icon-btn" title="${printContentLbl}" aria-label="${printContentLbl}">${INV_ICONS.print}</button>
+    </div>`;
+    const intro = `<p class="muted inventory-box-summary-intro">${this.esc(I18n.t("inventory.boxSummaryIntro"))}</p>`;
+    const orphan = `<p class="muted inventory-box-summary-orphan"><strong>${this.esc(I18n.t("inventory.boxUnassigned"))}</strong>: ${noBoxSku} · ${this.esc(I18n.t("inventory.boxUnassignedMain"))}: ${fmt(noBoxMain)}</p>`;
+    const multiAssign = `<p class="muted inventory-box-summary-multi-assign">${this.esc(
+      I18n.t("inventory.boxSummaryMultiAssignNote")
+    )}</p>`;
+    body.innerHTML = `${toolbar}${intro}${orphan}${multiAssign}
+      <div class="inventory-table-container inventory-table-container--nested"><table class="inventory-table"><thead><tr>
+        <th>${this.esc(I18n.t("inventory.boxSummaryColSelect"))}</th>${th("inventory.boxColNumber")}${th("inventory.boxColSkuCount")}${th("inventory.boxColTotalMain")}
+      </tr></thead><tbody>${tbodyRows}</tbody></table></div>
+      <div id="inventory-box-summary-content-preview" class="inventory-box-summary-detail"></div>`;
+    this._syncBoxSummarySelectionUi();
+    modal.classList.add("active");
+  },
+
+  _isMeObraItem(it) {
+    const txt = `${it?.category || ""} ${it?.description || ""} ${it?.code || ""}`.toLowerCase();
+    return (
+      txt.includes("m.e. obra") ||
+      txt.includes("me obra") ||
+      txt.includes("mat elec obra") ||
+      txt.includes("material electrico obra") ||
+      txt.includes("material eléctrico obra")
+    );
+  },
+
+  _buildMeObraBoxSummaryRows() {
+    const base = this.getItemsWithOptionalAsOfStock();
+    const meObraItems = (base || []).filter(it => this._isMeObraItem(it));
+    return this.buildWarehouseBoxSummary(meObraItems);
+  },
+
+  _buildBoxContentListingRows(selectedOnly = false) {
+    const selectedKeys = new Set();
+    document.querySelectorAll("#inventory-box-summary-modal .inv-box-summary-select:checked").forEach(inp => {
+      const k = String(inp.getAttribute("data-box-key") || "").trim();
+      if (k) selectedKeys.add(k);
+    });
+    if (selectedOnly && selectedKeys.size === 0) return [];
+
+    const out = [];
+    const pushItem = (boxKey, item) => {
+      if (!item) return;
+      out.push({
+        Caja: boxKey === "none" ? I18n.t("inventory.boxUnassigned") : String(boxKey),
+        Codigo: String(item.code || ""),
+        Descripcion: String(item.description || ""),
+        CantidadEnCaja: this._qtyInSummaryBoxForItem(item, boxKey),
+        StockPrincipal: Utils.roundDecimal(item.mainStock || 0),
+        Ubicacion: String(item.location || "-")
+      });
+    };
+
+    const boxKeys = Object.keys(this._boxSummaryByBox || {}).sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+    boxKeys.forEach(k => {
+      if (selectedOnly && !selectedKeys.has(String(k))) return;
+      const items = Array.isArray(this._boxSummaryByBox[k]) ? this._boxSummaryByBox[k] : [];
+      items.forEach(it => pushItem(k, it));
+    });
+    const noBox = Array.isArray(this._boxSummaryNoBox) ? this._boxSummaryNoBox : [];
+    if ((!selectedOnly || selectedKeys.has("none")) && noBox.length) noBox.forEach(it => pushItem("none", it));
+    return out;
+  },
+
+  _qtyInSummaryBoxForItem(item, boxKey) {
+    const main = Math.max(0, Number(item?.mainStock) || 0);
+    if (boxKey === "none") return Utils.roundDecimal(main);
+    const n = parseInt(String(boxKey || ""), 10);
+    if (!Number.isFinite(n)) return 0;
+    const rows = Array.isArray(item?.boxStocks) ? item.boxStocks : [];
+    let qty = 0;
+    for (const b of rows) {
+      if (parseInt(b?.boxNumber, 10) !== n) continue;
+      qty += this._parseBoxStockQtyValue(b?.qty);
+    }
+    if (qty > 0) return Utils.roundDecimal(qty);
+    const inferred = this._collectWarehouseBoxesFromItem(item);
+    return inferred.includes(n) ? Utils.roundDecimal(main) : 0;
+  },
+
+  _renderBoxContentListingPreview() {
+    const panel = document.getElementById("inventory-box-summary-content-preview");
+    if (!panel) return;
+    const scope = document.getElementById("inventory-box-summary-export-scope")?.value || "all";
+    const selectedOnly = scope === "selected";
+    const rows = this._buildBoxContentListingRows(selectedOnly);
+    const title = this.esc(I18n.t("inventory.boxSummaryContentListTitle"));
+    const emptyMsg = this.esc(
+      selectedOnly ? I18n.t("inventory.boxSummarySelectAtLeastOne") : I18n.t("inventory.boxSummaryDetailEmpty")
+    );
+    if (!rows.length) {
+      panel.innerHTML = `<h4 class="inventory-box-summary-detail-title">${title}</h4><p class="muted">${emptyMsg}</p>`;
+      return;
+    }
+    const bodyRows = rows
+      .map(
+        r => `<tr>
+      <td><strong>${this.esc(r.Caja)}</strong></td>
+      <td>${this.esc(r.Codigo)}</td>
+      <td>${this.esc(r.Descripcion)}</td>
+      <td>${this.esc(Utils.formatDecimalDisplay(r.CantidadEnCaja))}</td>
+      <td>${this.esc(Utils.formatDecimalDisplay(r.StockPrincipal))}</td>
+      <td>${this.esc(r.Ubicacion)}</td>
+    </tr>`
+      )
+      .join("");
+    panel.innerHTML = `<h4 class="inventory-box-summary-detail-title">${title}</h4>
+      <div class="inventory-table-container inventory-table-container--nested">
+        <table class="inventory-table">
+          <thead><tr>
+            <th>${this.esc(I18n.t("inventory.boxColNumber"))}</th>
+            <th>${this.esc(I18n.t("table.code"))}</th>
+            <th>${this.esc(I18n.t("table.description"))}</th>
+            <th>${this.esc(I18n.t("inventory.boxColQtyInBox"))}</th>
+            <th>${this.esc(I18n.t("table.mainStock"))}</th>
+            <th>${this.esc(I18n.t("table.location"))}</th>
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>`;
+  },
+
+  async exportBoxContentListing() {
+    const scope = document.getElementById("inventory-box-summary-export-scope")?.value || "all";
+    const selectedOnly = scope === "selected";
+    const rows = this._buildBoxContentListingRows(selectedOnly);
+    if (!rows.length) {
+      Utils.showToast(
+        selectedOnly ? I18n.t("inventory.boxSummarySelectAtLeastOne") : I18n.t("inventory.boxSummaryDetailEmpty"),
+        "info"
+      );
+      return;
+    }
+    const headers = ["Caja", "Codigo", "Descripcion", "CantidadEnCaja", "StockPrincipal", "Ubicacion"];
+    await Utils.exportStyledXlsxToInformFolder(`GNEEX_Cajas_Contenido_${this._fileStamp()}.xlsx`, headers, rows, {
+      kind: "inventory_box_content_listing",
+      title: I18n.t("inventory.boxSummaryContentListTitle"),
+      details: [`${I18n.t("export.manifest.rows")}: ${rows.length}`]
+    });
+  },
+
+  printBoxContentListing() {
+    const scope = document.getElementById("inventory-box-summary-export-scope")?.value || "all";
+    const selectedOnly = scope === "selected";
+    const rows = this._buildBoxContentListingRows(selectedOnly);
+    if (!rows.length) {
+      Utils.showToast(
+        selectedOnly ? I18n.t("inventory.boxSummarySelectAtLeastOne") : I18n.t("inventory.boxSummaryDetailEmpty"),
+        "info"
+      );
+      return;
+    }
+    const tableRows = rows
+      .map(
+        r => `<tr><td><strong>${this.esc(r.Caja)}</strong></td><td>${this.esc(r.Codigo)}</td><td>${this.esc(
+          r.Descripcion
+        )}</td><td>${this.esc(Utils.formatDecimalDisplay(r.CantidadEnCaja))}</td><td>${this.esc(
+          Utils.formatDecimalDisplay(r.StockPrincipal)
+        )}</td><td>${this.esc(r.Ubicacion)}</td></tr>`
+      )
+      .join("");
+    const tableHtml = `<table class="inventory-table"><thead><tr>
+      <th>${this.esc(I18n.t("inventory.boxColNumber"))}</th>
+      <th>${this.esc(I18n.t("table.code"))}</th>
+      <th>${this.esc(I18n.t("table.description"))}</th>
+      <th>${this.esc(I18n.t("inventory.boxColQtyInBox"))}</th>
+      <th>${this.esc(I18n.t("table.mainStock"))}</th>
+      <th>${this.esc(I18n.t("table.location"))}</th>
+    </tr></thead><tbody>${tableRows}</tbody></table>`;
+    this._printDocument(I18n.t("inventory.boxSummaryContentListTitle"), "", tableHtml);
+  },
+
+  async exportMeObraBoxSummary() {
+    const { rows, noBoxSku, noBoxMain } = this._buildMeObraBoxSummaryRows();
+    const outRows = [];
+    rows.forEach(r => {
+      outRows.push({
+        Caja: String(r.box),
+        Referencias: r.skuCount,
+        StockPrincipalTotal: Utils.roundDecimal(r.totalMain || 0)
+      });
+    });
+    if (noBoxSku > 0) {
+      outRows.push({
+        Caja: I18n.t("inventory.boxUnassigned"),
+        Referencias: noBoxSku,
+        StockPrincipalTotal: Utils.roundDecimal(noBoxMain || 0)
+      });
+    }
+    if (!outRows.length) {
+      Utils.showToast(I18n.t("inventory.boxExportEmpty"), "info");
+      return;
+    }
+    await Utils.exportStyledXlsxToInformFolder(
+      `GNEEX_ME_Obra_Cajas_${this._fileStamp()}.xlsx`,
+      ["Caja", "Referencias", "StockPrincipalTotal"],
+      outRows,
+      {
+        kind: "inventory_me_obra_box_summary",
+        title: I18n.t("inventory.boxSummaryMeObraTitle"),
+        details: [`${I18n.t("export.manifest.rows")}: ${outRows.length}`]
+      }
+    );
+  },
+
+  printMeObraBoxSummary() {
+    const { rows, noBoxSku, noBoxMain } = this._buildMeObraBoxSummaryRows();
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const bodyRows = rows
+      .map(
+        r => `<tr><td><strong>${this.esc(String(r.box))}</strong></td><td>${this.esc(String(r.skuCount))}</td><td>${this.esc(
+          fmt(r.totalMain)
+        )}</td></tr>`
+      )
+      .join("");
+    const noBoxRow =
+      noBoxSku > 0
+        ? `<tr><td><strong>${this.esc(I18n.t("inventory.boxUnassigned"))}</strong></td><td>${this.esc(
+            String(noBoxSku)
+          )}</td><td>${this.esc(fmt(noBoxMain))}</td></tr>`
+        : "";
+    const empty =
+      rows.length === 0 && noBoxSku === 0
+        ? `<tr><td colspan="3" class="muted">${this.esc(I18n.t("inventory.boxSummaryEmpty"))}</td></tr>`
+        : "";
+    const tableHtml = `<table class="inventory-table"><thead><tr>
+      <th>${this.esc(I18n.t("inventory.boxColNumber"))}</th>
+      <th>${this.esc(I18n.t("inventory.boxColSkuCount"))}</th>
+      <th>${this.esc(I18n.t("inventory.boxColTotalMain"))}</th>
+    </tr></thead><tbody>${bodyRows}${noBoxRow}${empty}</tbody></table>`;
+    this._printDocument(I18n.t("inventory.boxSummaryMeObraTitle"), "", tableHtml);
+  },
+
+  openInsightModal(kind) {
+    const modal = document.getElementById("inventory-insight-modal");
+    const title = document.getElementById("inventory-insight-title");
+    const body = document.getElementById("inventory-insight-body");
+    if (!modal || !title || !body) return;
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+      content.style.width = "";
+      content.style.height = "";
+    }
+
+    const base = this.getItemsWithOptionalAsOfStock();
+    let items = [];
+    let titleKey = "";
+    if (kind === "low") {
+      const showIgnored = !!this._insightLowShowIgnored;
+      items = showIgnored
+        ? base.filter(i => !!i.ignoreLowStockAlert)
+        : base.filter(i => this.isItemLowStock(i));
+      titleKey = showIgnored ? "inventory.insightTitleLowIgnored" : "inventory.insightTitleLow";
+    } else if (kind === "negative") {
+      items = base.filter(i => this.itemTotalStock(i) < 0);
+      titleKey = "inventory.insightTitleNegative";
+    } else if (kind === "expiration") {
+      items = base.filter(i => {
+        const x = this.getExpirationInsight(i);
+        return x.has && (x.expired || x.soon);
+      });
+      titleKey = "inventory.insightTitleExpiration";
+    } else if (kind === "overstock") {
+      items = base.filter(i => this.isItemOverstock(i));
+      titleKey = "inventory.insightTitleOverstock";
+    } else if (kind === "zero") {
+      items = base.filter(i => this.itemTotalStock(i) === 0);
+      titleKey = "inventory.insightTitleZero";
+    }
+
+    title.textContent = I18n.t(titleKey);
+    this._insightExportItems = items.slice();
+    this._insightTitleKey = titleKey;
+
+    const csvLbl = this.esc(I18n.t("inventory.exportCsv"));
+    const printLbl = this.esc(I18n.t("inventory.printList"));
+    const lowModeToggle =
+      kind === "low"
+        ? `<label class="checkbox-label" style="margin-right:0.5rem;display:inline-flex;align-items:center;gap:0.35rem;">
+        <input type="checkbox" id="insight-low-show-ignored" ${this._insightLowShowIgnored ? "checked" : ""} />
+        <span>${this.esc(I18n.t("inventory.lowStockShowIgnoredToggle"))}</span>
+      </label>`
+        : "";
+    const toolbar =
+      items.length > 0
+        ? `<div class="inventory-insight-toolbar filter-actions">
+        ${lowModeToggle}
+        <button type="button" id="insight-export-csv" class="btn inventory-asof-icon-btn" title="${csvLbl}" aria-label="${csvLbl}">${INV_ICONS.download}</button>
+        <button type="button" id="insight-print-list" class="btn inventory-asof-icon-btn" title="${printLbl}" aria-label="${printLbl}">${INV_ICONS.print}</button>
+      </div>`
+        : kind === "low"
+          ? `<div class="inventory-insight-toolbar filter-actions">${lowModeToggle}</div>`
+          : "";
+
+    if (!items.length) {
+      body.innerHTML = `${toolbar}<p class="muted" style="padding:1rem;">${this.esc(I18n.t("inventory.insightEmpty"))}</p>`;
+      modal.classList.add("active");
+      return;
+    }
+
+    const th = (k) => `<th>${this.esc(I18n.t(k))}</th>`;
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const canEditFromList = typeof Auth !== "undefined" && Auth.isAdmin();
+    const canToggleLowIgnore = typeof Auth === "undefined" || Auth.hasPerm?.("editItems");
+    const showLowIgnore = kind === "low";
+    const showBuyAction = kind === "low";
+    const rows = items
+      .map(it => {
+        const tot = this.itemTotalStock(it);
+        const eff = this.getEffectiveExpirationDate(it);
+        const ins = this.getExpirationInsight(it);
+        const days =
+          ins.has && ins.days !== null
+            ? ins.days < 0
+              ? I18n.t("inventory.insightExpired")
+              : String(ins.days)
+            : "—";
+        const minS = it.minStock != null && it.minStock !== "" ? fmt(parseFloat(it.minStock) || 0) : "—";
+        const maxS = it.maxStock != null && it.maxStock !== "" ? fmt(parseFloat(it.maxStock) || 0) : "—";
+        const rowClass = canEditFromList ? " class=\"inventory-insight-row inventory-insight-row--editable\"" : "";
+        const rowAttrs = canEditFromList
+          ? ` data-item-id="${Utils.escapeAttr(String(it.id || ""))}" title="${Utils.escapeAttr(I18n.t("inventory.insightRowEditAdminHint"))}"`
+          : "";
+        const lowIgnoreCell = showLowIgnore
+          ? `<td><label class="checkbox-label" style="justify-content:center;"><input type="checkbox" class="insight-low-ignore-toggle" data-item-id="${Utils.escapeAttr(
+              String(it.id || "")
+            )}" ${it.ignoreLowStockAlert ? "checked" : ""} ${canToggleLowIgnore ? "" : "disabled"} /><span>${this.esc(
+              I18n.t("inventory.lowStockIgnoreShort")
+            )}</span></label></td>`
+          : "";
+        const buyActionCell = showBuyAction
+          ? `<td><button type="button" class="btn btn-secondary btn-sm insight-add-purchase-btn" data-item-code="${Utils.escapeAttr(
+              String(it.code || "")
+            )}" title="${Utils.escapeAttr(I18n.t("inventory.addPurchaseTitle"))}" aria-label="${Utils.escapeAttr(
+              I18n.t("inventory.addPurchaseFromRow").replace("{code}", String(it.code || ""))
+            )}">🛒</button></td>`
+          : "";
+        return `<tr${rowClass}${rowAttrs}>
+          ${lowIgnoreCell}
+          ${buyActionCell}
+          <td class="app-code-copy-cell"><strong>${this.esc(it.code)}</strong></td>
+          <td class="app-desc-copy-cell">${this.esc(it.description)}</td>
+          <td>${this.esc(it.category || "—")}</td>
+          <td>${this._formatPriceDisplay(it.defaultPrice ?? 0, it.priceCurrency)}</td>
+          <td>${fmt(it.mainStock ?? 0)}</td>
+          <td>${fmt(tot)}</td>
+          <td>${minS}</td>
+          <td>${maxS}</td>
+          <td>${it.expDate ? Utils.formatDate(it.expDate) : "—"}</td>
+          <td>${eff ? Utils.formatDate(eff) : "—"}</td>
+          <td>${this.esc(days)}</td>
+          <td>${this.esc(it.location || "—")}</td>
+        </tr>`;
+      })
+      .join("");
+
+    body.innerHTML = `${toolbar}
+      <div class="inventory-table-container">
+        <table class="inventory-table inventory-table--detail${kind === "low" ? " inventory-table--insight-low" : ""}">
+          <thead><tr>
+            ${showLowIgnore ? th("inventory.lowStockIgnoreCol") : ""}
+            ${showBuyAction ? th("table.actions") : ""}
+            ${th("table.code")}
+            ${th("table.description")}
+            ${th("table.category")}
+            ${th("table.defaultPrice")}
+            ${th("table.mainStock")}
+            ${th("inventory.colTotal")}
+            ${th("inventory.colMin")}
+            ${th("inventory.colMax")}
+            ${th("table.expDate")}
+            ${th("table.expirationDate")}
+            ${th("inventory.colDays")}
+            ${th("table.location")}
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    modal.classList.add("active");
+  },
+
+  // =========================================================
+  // IMPORTACIÓN DE CSV INICIAL
+  // =========================================================
+  importInitialCSV(file) {
+    const nameLc = file && file.name ? String(file.name).toLowerCase() : "";
+    const finish = next => {
+      const prevList = this.items || [];
+      const prevMap = {};
+      prevList.forEach(i => {
+        prevMap[i.id] = {
+          main: parseFloat(i.mainStock) || 0,
+          prod: parseFloat(i.prodStock) || 0,
+          trans: parseFloat(i.transStock) || 0
+        };
+      });
+      this.items = next;
+      this.save();
+      if (typeof MovementManager !== "undefined" && MovementManager.recordAjusteInventoryCsvImportBatch) {
+        MovementManager.recordAjusteInventoryCsvImportBatch({
+          prevMap,
+          items: next,
+          notes: I18n.t("movements.configCsvImportAjusteNote")
+        });
+      }
+      this.render();
+      Utils.showToast(I18n.t("msg.initialInventoryLoaded"), "success");
+    };
+
+    if (nameLc.endsWith(".xlsx") || nameLc.endsWith(".xls")) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const XLSX = typeof window !== "undefined" ? window.XLSX : null;
+          if (!XLSX || typeof XLSX.read !== "function") {
+            Utils.showToast(I18n.t("msg.errorImportingData"), "error");
+            return;
+          }
+          const buf = new Uint8Array(e.target.result);
+          const wb = XLSX.read(buf, { type: "array" });
+          const names = wb.SheetNames || [];
+          let mainName = names.find(n => String(n).toLowerCase() === "datos");
+          if (!mainName) {
+            mainName = names.find(sn => {
+              if (String(sn).toLowerCase() === "info") return false;
+              const sh = wb.Sheets[sn];
+              if (!sh) return false;
+              const sample = XLSX.utils.sheet_to_json(sh, { defval: "", raw: false });
+              return this._xlsxSheetLooksLikeMainInventory(sample);
+            });
+          }
+          let items = [];
+          let mainRows = [];
+          if (!mainName) {
+            // Si no hay hoja "principal", intentar modo overlay para libros legacy de cajas (p.ej. libro2.xlsx).
+            items = (this.items || []).map(it => ({ ...(it || {}) }));
+          } else {
+            const mainSheet = wb.Sheets[mainName];
+            if (!mainSheet) {
+              Utils.showToast(I18n.t("msg.errorImportingData"), "error");
+              return;
+            }
+            mainRows = XLSX.utils.sheet_to_json(mainSheet, { defval: "", raw: false });
+            items = this._mergeInventoryImportRowsByCode(mainRows || []);
+          }
+
+          const codeMap = {};
+          for (const it of items) {
+            const k = this._normalizeImportCodeValue(it.code);
+            if (k) codeMap[k] = it;
+          }
+
+          let mergedBoxSheets = 0;
+          let mergedLocRows = 0;
+          for (const sn of names) {
+            const sl = String(sn).toLowerCase();
+            if (sl === "info" || sn === mainName) continue;
+            const sh = wb.Sheets[sn];
+            if (!sh) continue;
+            const subRows = XLSX.utils.sheet_to_json(sh, { defval: "", raw: false });
+            if (!Array.isArray(subRows) || !subRows.length) continue;
+            const isBoxSheet = this._xlsxSheetLooksLikeBoxStock(sn, subRows);
+            const isLocSheet = this._xlsxSheetLooksLikeLocationStock(sn, subRows);
+
+            const agg = this._aggregateBoxStockImportRows(subRows, codeMap);
+            if (isBoxSheet || Object.keys(agg).length) {
+              this._applyBoxStockAggToItems(items, agg);
+              mergedBoxSheets++;
+              continue;
+            }
+            if (isLocSheet) {
+              mergedLocRows += this._mergeLocationStockSheetIntoItems(items, subRows);
+            }
+          }
+
+          const next = items.map(it => this._normalizeItemForStorage(it));
+          if (mergedBoxSheets || mergedLocRows) {
+            console.info(
+              `G-NEEX inventario XLSX: hojas caja fusionadas=${mergedBoxSheets}, filas ubicación aplicadas=${mergedLocRows}`
+            );
+          }
+          finish(next);
+        } catch (err) {
+          console.error(err);
+          Utils.showToast(I18n.t("msg.errorImportingData"), "error");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    Utils.importDataCSV(file, STORAGE_KEYS.INVENTORY, data => {
+      const merged = this._mergeInventoryImportRowsByCode(data || []);
+      const next = merged.map(it => this._normalizeItemForStorage(it));
+      finish(next);
+    });
+  },
+
+  _setupInventoryHeaderToolsMenu() {
+    const btn = document.getElementById("inventory-header-tools-menu-btn");
+    const menu = document.getElementById("inventory-header-tools-menu");
+    if (!btn || !menu) return;
+    const close = () => {
+      menu.hidden = true;
+      btn.setAttribute("aria-expanded", "false");
+    };
+    const open = () => {
+      menu.hidden = false;
+      btn.setAttribute("aria-expanded", "true");
+      this._syncInventoryProblemsMenuItemUi();
+      this._syncInventoryLowStockIgnoredMenuItemUi();
+      this._syncInventoryHeaderFiltersCollapseBtn();
+    };
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      if (menu.hidden) open();
+      else close();
+    });
+    document.addEventListener("click", e => {
+      if (menu.hidden) return;
+      if (btn.contains(e.target) || menu.contains(e.target)) return;
+      close();
+    });
+    menu.addEventListener("click", e => {
+      const lowIg = e.target.closest("[data-inv-toggle-lowstock-ignored]");
+      if (lowIg) {
+        e.preventDefault();
+        this.toggleInventoryLowStockIgnoredFilter();
+        close();
+        return;
+      }
+      const prob = e.target.closest("[data-inv-toggle-problems]");
+      if (prob) {
+        e.preventDefault();
+        this.toggleInventoryProblemsFilter();
+        close();
+        return;
+      }
+      const collapse = e.target.closest("[data-inv-collapse-filters]");
+      if (collapse) {
+        if (collapse.disabled) return;
+        e.preventDefault();
+        this.hideAllInventoryFilterPanels();
+        close();
+        return;
+      }
+      const item = e.target.closest("[data-inv-tool-trigger]");
+      if (!item) return;
+      e.preventDefault();
+      const id = item.getAttribute("data-inv-tool-trigger");
+      document.getElementById(id)?.click();
+      close();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key !== "Escape" || menu.hidden) return;
+      close();
+      btn.focus();
+    });
+  },
+
+  // =========================================================
+  // EVENTOS
+  // =========================================================
+  setupEventListeners(){
+    const s=document.getElementById("inventory-search");
+    if(s){
+      s.addEventListener("input",Utils.debounce(e=>{
+        this.render(this.search(e.target.value));
+      },300));
+    }
+    document.getElementById("inventory-search-reset-btn")?.addEventListener("click", () => {
+      this.resetInventorySearchAndFilters();
+    });
+    document.querySelectorAll("[data-inv-insight]").forEach(el => {
+      const open = () => this.openInsightModal(el.getAttribute("data-inv-insight"));
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      });
+    });
+
+    document.getElementById("close-inventory-insight")?.addEventListener("click", () => {
+      document.getElementById("inventory-insight-modal")?.classList.remove("active");
+    });
+    document.getElementById("inventory-insight-modal")?.addEventListener("click", e => {
+      if (e.target.id === "inventory-insight-modal") e.currentTarget.classList.remove("active");
+      else if (e.target.id === "insight-export-csv") {
+        e.stopPropagation();
+        void this.exportInsightList();
+      } else if (e.target.id === "insight-print-list") {
+        e.stopPropagation();
+        this.printInsightList();
+      } else {
+        const buyBtn = e.target.closest(".insight-add-purchase-btn[data-item-code]");
+        if (buyBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.markForPurchase(buyBtn.getAttribute("data-item-code") || "");
+          this.openInsightModal("low");
+          if (typeof OrderLinesManager !== "undefined" && OrderLinesManager.renderPurchaseSuggestionsPanel) {
+            OrderLinesManager.renderPurchaseSuggestionsPanel();
+          }
+          return;
+        }
+        const lowTg = e.target.closest(".insight-low-ignore-toggle[data-item-id]");
+        if (lowTg) {
+          e.stopPropagation();
+          return;
+        }
+        const row = e.target.closest("tr.inventory-insight-row--editable[data-item-id]");
+        if (row && typeof Auth !== "undefined" && Auth.isAdmin()) {
+          const id = row.getAttribute("data-item-id");
+          if (id && typeof ConfigManager !== "undefined" && ConfigManager.openItemEditorFromInventoryById) {
+            e.preventDefault();
+            ConfigManager.openItemEditorFromInventoryById(id);
+          }
+        }
+      }
+    });
+    document.getElementById("inventory-insight-modal")?.addEventListener("change", e => {
+      const lowMode = e.target?.id === "insight-low-show-ignored";
+      if (lowMode) {
+        this._insightLowShowIgnored = !!e.target.checked;
+        this.openInsightModal("low");
+        return;
+      }
+      const tg = e.target.closest(".insight-low-ignore-toggle[data-item-id]");
+      if (!tg) return;
+      const id = tg.getAttribute("data-item-id");
+      if (!id) return;
+      if (typeof Auth !== "undefined" && !Auth.hasPerm("editItems")) {
+        tg.checked = !tg.checked;
+        Utils.showToast(I18n.t("auth.noPermission"), "warning");
+        return;
+      }
+      this.setIgnoreLowStockDetection(id, !!tg.checked);
+      // Refresca de inmediato la lista de bajo stock: el artículo marcado desaparece al instante.
+      this.openInsightModal("low");
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    });
+
+    document.getElementById("inventory-export-csv")?.addEventListener("click", () => this.openInventoryExportModal());
+    document.getElementById("close-inventory-export-modal")?.addEventListener("click", () => this.closeInventoryExportModal());
+    document.getElementById("inventory-export-cancel")?.addEventListener("click", () => this.closeInventoryExportModal());
+    document.getElementById("inventory-export-modal")?.addEventListener("click", e => {
+      if (e.target.id === "inventory-export-modal") this.closeInventoryExportModal();
+    });
+    document.getElementById("inventory-export-columns-all")?.addEventListener("click", () =>
+      this._setAllInventoryExportColumns(true)
+    );
+    document.getElementById("inventory-export-columns-none")?.addEventListener("click", () =>
+      this._setAllInventoryExportColumns(false)
+    );
+    document.getElementById("inventory-export-mode-default")?.addEventListener("change", e => {
+      if (e.target.checked) this._setInventoryExportColumnsDisabled(true);
+    });
+    document.getElementById("inventory-export-mode-custom")?.addEventListener("change", e => {
+      if (e.target.checked) this._setInventoryExportColumnsDisabled(false);
+    });
+    document.getElementById("inventory-export-run")?.addEventListener("click", () => {
+      const mode = document.getElementById("inventory-export-mode-custom")?.checked ? "custom" : "default";
+      this.exportCurrentInventoryView(mode);
+      this.closeInventoryExportModal();
+    });
+    document.getElementById("inventory-print-list")?.addEventListener("click", () => this.printCurrentInventoryView());
+    document.getElementById("inventory-box-summary-btn")?.addEventListener("click", () => this.openWarehouseBoxSummaryModal());
+    document.getElementById("inventory-zero-boxes-btn")?.addEventListener("click", () => this.openZeroQtyBoxesModal());
+    document.getElementById("inventory-box-zero-total-btn")?.addEventListener("click", () =>
+      this.openZeroTotalStockByBoxModal()
+    );
+    document.getElementById("inventory-box-manager-btn")?.addEventListener("click", () => this.openBoxManagerModal());
+    document.getElementById("close-inventory-zero-boxes")?.addEventListener("click", () => this.closeZeroQtyBoxesModal());
+    document.getElementById("inventory-zero-boxes-modal")?.addEventListener("click", e => {
+      if (e.target.id === "inventory-zero-boxes-modal") {
+        this.closeZeroQtyBoxesModal();
+        return;
+      }
+      const tr = e.target.closest("tr.inv-zero-box-row[data-item-id]");
+      if (!tr) return;
+      const itemId = tr.getAttribute("data-item-id");
+      const boxNum = parseInt(tr.getAttribute("data-box-number") || "", 10);
+      if (!itemId || !this._isValidBoxNumber(boxNum)) return;
+      this.closeZeroQtyBoxesModal();
+      this._openBoxManagerAtItemBox(itemId, boxNum);
+    });
+    document.getElementById("inventory-zero-boxes-modal")?.addEventListener("keydown", e => {
+      const tr = e.target.closest("tr.inv-zero-box-row[data-item-id]");
+      if (!tr || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      tr.click();
+    });
+    document.getElementById("close-inventory-box-zero-total")?.addEventListener("click", () =>
+      this.closeZeroTotalStockByBoxModal()
+    );
+    document.getElementById("inventory-box-zero-total-modal")?.addEventListener("click", e => {
+      if (e.target.id === "inventory-box-zero-total-modal") {
+        this.closeZeroTotalStockByBoxModal();
+        return;
+      }
+      const tr = e.target.closest("tr.inv-box-zero-total-row[data-box-number]");
+      if (!tr) return;
+      const boxNum = parseInt(tr.getAttribute("data-box-number") || "", 10);
+      const openItemId = String(tr.getAttribute("data-open-item-id") || "").trim();
+      if (!this._isValidBoxNumber(boxNum)) return;
+      this.closeZeroTotalStockByBoxModal();
+      if (openItemId) {
+        this._openBoxManagerAtItemBox(openItemId, boxNum);
+        return;
+      }
+      if (this._setInventoryBoxFilterByNumber(boxNum)) {
+        Utils.showToast(I18n.t("inventory.boxZeroTotalFilterToast").replace("{n}", String(boxNum)), "info");
+      } else {
+        Utils.showToast(I18n.t("inventory.boxZeroTotalNoJumpToast").replace("{n}", String(boxNum)), "warning");
+      }
+    });
+    document.getElementById("inventory-box-zero-total-modal")?.addEventListener("keydown", e => {
+      const tr = e.target.closest("tr.inv-box-zero-total-row[data-box-number]");
+      if (!tr || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      tr.click();
+    });
+    document.getElementById("close-inventory-box-summary")?.addEventListener("click", () => {
+      document.getElementById("inventory-box-summary-modal")?.classList.remove("active");
+    });
+    document.getElementById("inventory-box-summary-modal")?.addEventListener("click", e => {
+      if (e.target.id === "inventory-box-summary-modal") {
+        e.currentTarget.classList.remove("active");
+        return;
+      }
+      if (e.target.closest("#inventory-box-summary-export-content")) {
+        void this.exportBoxContentListing();
+        return;
+      }
+      if (e.target.closest("#inventory-box-summary-print-content")) {
+        this.printBoxContentListing();
+        return;
+      }
+      if (e.target.closest("#inventory-box-summary-search-clear")) {
+        const searchInp = document.getElementById("inventory-box-summary-item-search");
+        if (searchInp) searchInp.value = "";
+        const scopeSel = document.getElementById("inventory-box-summary-export-scope");
+        if (scopeSel) scopeSel.value = "all";
+        this._syncBoxSummarySelectionUi();
+        return;
+      }
+      if (e.target.closest(".inv-box-summary-select")) {
+        e.stopPropagation();
+        this._renderBoxContentListingPreview();
+        return;
+      }
+      const tr = e.target.closest("tr.inv-box-summary-row[data-box-num]");
+      if (!tr) return;
+      e.stopPropagation();
+      const cb = tr.querySelector(".inv-box-summary-select");
+      if (!cb || cb.disabled) return;
+      cb.checked = !cb.checked;
+      this._renderBoxContentListingPreview();
+    });
+    document.getElementById("inventory-box-summary-modal")?.addEventListener("keydown", e => {
+      const tr = e.target.closest("tr.inv-box-summary-row[data-box-num]");
+      if (!tr || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      const cb = tr.querySelector(".inv-box-summary-select");
+      if (!cb || cb.disabled) return;
+      cb.checked = !cb.checked;
+      this._renderBoxContentListingPreview();
+    });
+    document.getElementById("inventory-box-summary-modal")?.addEventListener("change", e => {
+      if (e.target?.id === "inventory-box-summary-export-scope") {
+        this._syncBoxSummarySelectionUi();
+      }
+    });
+    document.getElementById("inventory-box-summary-modal")?.addEventListener("input", e => {
+      if (e.target?.id !== "inventory-box-summary-item-search") return;
+      const q = String(e.target.value || "");
+      if (!q.trim()) {
+        this._renderBoxContentListingPreview();
+        return;
+      }
+      const n = this._applyBoxSummarySearchSelection(q);
+      if (n <= 0) Utils.showToast(I18n.t("inventory.boxSummarySearchNoMatch"), "info");
+    });
+    document.getElementById("inventory-box-filter")?.addEventListener("change", () => {
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    });
+    document.getElementById("inventory-depot-preset")?.addEventListener("change", () => {
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    });
+    document.getElementById("inventory-consumable-filter")?.addEventListener("change", () => {
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    });
+    document.getElementById("inventory-box-filter-toggle-btn")?.addEventListener("click", () => {
+      this.toggleInventoryBoxFilterVisibility();
+    });
+    document.getElementById("inventory-depot-filter-toggle-btn")?.addEventListener("click", () => {
+      this.toggleInventoryDepotFilterVisibility();
+    });
+    document.getElementById("inventory-consumable-filter-toggle-btn")?.addEventListener("click", () => {
+      this.toggleInventoryConsumableFilterVisibility();
+    });
+    document.getElementById("inventory-problems-filter-toggle-btn")?.addEventListener("click", () => {
+      this.toggleInventoryProblemsFilter();
+    });
+    document.getElementById("inventory-lowstock-ignored-filter-toggle-btn")?.addEventListener("click", () => {
+      this.toggleInventoryLowStockIgnoredFilter();
+    });
+    const filterWrap = document.getElementById("inventory-box-filter-wrap");
+    if (filterWrap) {
+      filterWrap.hidden = true;
+      filterWrap.style.display = "none";
+    }
+    this._syncInventoryBoxFilterToggleUi();
+    const depotFilterWrap = document.getElementById("inventory-depot-filter-wrap");
+    if (depotFilterWrap) {
+      depotFilterWrap.hidden = true;
+      depotFilterWrap.style.display = "none";
+    }
+    this._syncInventoryDepotFilterToggleUi();
+    const consumableFilterWrap = document.getElementById("inventory-consumable-filter-wrap");
+    if (consumableFilterWrap) {
+      consumableFilterWrap.hidden = true;
+      consumableFilterWrap.style.display = "none";
+    }
+    this._syncInventoryConsumableFilterToggleUi();
+    this._syncInventoryProblemsFilterToggleUi();
+    this._syncInventoryLowStockIgnoredFilterToggleUi();
+    this._syncInventoryProblemsMenuItemUi();
+    this._syncInventoryLowStockIgnoredMenuItemUi();
+    this._syncInventoryHeaderFiltersCollapseBtn();
+    document.getElementById("close-inventory-box-manager")?.addEventListener("click", () => this.closeBoxManagerModal());
+    document.getElementById("inventory-box-manager-modal")?.addEventListener("click", e => {
+      if (e.target.id === "inventory-box-manager-modal") this.closeBoxManagerModal();
+    });
+    document.getElementById("inventory-box-item-search")?.addEventListener(
+      "input",
+      Utils.debounce(e => this._renderBoxManagerSearchResults(e.target.value), 180)
+    );
+    document.getElementById("inventory-box-item-search-results")?.addEventListener("click", e => {
+      const row = e.target.closest(".search-result-item[data-item-id]");
+      if (!row) return;
+      const id = row.getAttribute("data-item-id");
+      this._boxMgrItemId = id || "";
+      this._resetBoxManagerBoxForm();
+      this._applyBoxManagerItemSelection();
+      const results = document.getElementById("inventory-box-item-search-results");
+      const inp = document.getElementById("inventory-box-item-search");
+      if (results) {
+        results.classList.remove("active");
+        results.innerHTML = "";
+      }
+      if (inp) inp.value = "";
+    });
+    document.getElementById("inventory-box-clear-article-btn")?.addEventListener("click", () =>
+      this.clearBoxManagerArticleSelection()
+    );
+    document.getElementById("inventory-box-mark-empty")?.addEventListener("change", () => this._syncEmptyCheckboxUi());
+    document.getElementById("inventory-box-save-btn")?.addEventListener("click", () => this.saveBoxManagerBoxFromForm());
+    document.getElementById("inventory-box-cancel-edit-btn")?.addEventListener("click", () => this._resetBoxManagerBoxForm());
+    document.getElementById("inventory-box-transfer-btn")?.addEventListener("click", () => this.transferBoxManagerStock());
+    document.getElementById("inventory-box-transfer-from")?.addEventListener("change", () => this._syncBoxTransferLocationVisibility());
+    document.getElementById("inventory-box-transfer-to")?.addEventListener("change", () => this._syncBoxTransferLocationVisibility());
+    document.getElementById("inventory-box-item-body")?.addEventListener("click", e => this.handleBoxManagerTableClick(e));
+    document.getElementById("inventory-box-item-body")?.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const row =
+        e.target.closest("tr.inv-box-mgr-row[data-box-id]") || e.target.closest("tr[data-inferred-box]");
+      if (!row) return;
+      e.preventDefault();
+      row.click();
+    });
+    document.getElementById("inventory-box-template-btn")?.addEventListener("click", () => void this.exportBoxStockTemplate());
+    document.getElementById("inventory-box-export-btn")?.addEventListener("click", () => void this.exportBoxStockData());
+    document.getElementById("inventory-box-import-btn")?.addEventListener("click", () => {
+      document.getElementById("inventory-box-stock-import-input")?.click();
+    });
+    document.getElementById("inventory-box-stock-import-input")?.addEventListener("change", e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) this.importBoxStockTemplate(file);
+      e.target.value = "";
+    });
+
+    const asofDate = document.getElementById("inventory-asof-date");
+    document.getElementById("inventory-asof-open")?.addEventListener("click", () => this._openInventoryAsOfPicker());
+    asofDate?.addEventListener("change", () => {
+      const v = (asofDate.value || "").trim();
+      if (!v) return;
+      this._asOfDate = v;
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    });
+    document.getElementById("inventory-asof-clear")?.addEventListener("click", () => {
+      this._asOfDate = null;
+      if (asofDate) asofDate.value = "";
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    });
+
+    const invBody = document.getElementById("inventory-body");
+    if (invBody && !this._invNotesRowClickBound) {
+      this._invNotesRowClickBound = true;
+      invBody.addEventListener("click", e => {
+        const toggle = e.target.closest(".inv-row-actions-toggle[data-item-id]");
+        if (toggle) {
+          e.preventDefault();
+          const id = toggle.getAttribute("data-item-id");
+          if (!id) return;
+          invBody.querySelectorAll(".inv-row-actions.is-open").forEach(el => {
+            if (el.getAttribute("data-item-id") !== id) {
+              el.classList.remove("is-open");
+              delete el.dataset.openByClick;
+            }
+          });
+          const holder = toggle.closest(".inv-row-actions");
+          if (holder) {
+            const willOpen = !holder.classList.contains("is-open");
+            holder.classList.toggle("is-open", willOpen);
+            if (willOpen) holder.dataset.openByClick = "1";
+            else delete holder.dataset.openByClick;
+          }
+          return;
+        }
+        if (this._handleInventoryLocationJump(e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const btn = e.target.closest(".inv-notes-hit");
+        if (btn && btn.dataset.itemId) {
+          e.preventDefault();
+          this.openItemNotesModal(btn.dataset.itemId);
+          return;
+        }
+        const quickBtn = e.target.closest(".inv-quick-hit");
+        if (quickBtn && quickBtn.dataset.itemId) {
+          e.preventDefault();
+          this.openItemQuickViewModal(quickBtn.dataset.itemId);
+          invBody.querySelectorAll(".inv-row-actions.is-open").forEach(el => el.classList.remove("is-open"));
+          return;
+        }
+        const purchaseBtn = e.target.closest(".inv-add-purchase-hit");
+        if (purchaseBtn && purchaseBtn.dataset.itemCode) {
+          e.preventDefault();
+          this.markForPurchase(purchaseBtn.dataset.itemCode);
+          invBody.querySelectorAll(".inv-row-actions.is-open").forEach(el => el.classList.remove("is-open"));
+        }
+      });
+    }
+    if (invBody && !this._invRowActionsHoverBound) {
+      this._invRowActionsHoverBound = true;
+      invBody.addEventListener("mouseout", e => {
+        const holder = e.target.closest(".inv-row-actions");
+        if (!holder) return;
+        const rel = e.relatedTarget;
+        if (rel && holder.contains(rel)) return;
+        const key = String(holder.getAttribute("data-item-id") || "");
+        if (!key) return;
+        clearTimeout(this._invRowActionsCloseTimers[key]);
+        this._invRowActionsCloseTimers[key] = setTimeout(() => {
+          holder.classList.remove("is-open");
+          delete holder.dataset.openByClick;
+          delete this._invRowActionsCloseTimers[key];
+        }, 260);
+      });
+      invBody.addEventListener("mouseover", e => {
+        const holder = e.target.closest(".inv-row-actions");
+        if (!holder) return;
+        const key = String(holder.getAttribute("data-item-id") || "");
+        if (!key) return;
+        clearTimeout(this._invRowActionsCloseTimers[key]);
+        delete this._invRowActionsCloseTimers[key];
+      });
+    }
+    if (!this._invRowActionsOutsideCloseBound) {
+      this._invRowActionsOutsideCloseBound = true;
+      document.addEventListener("click", e => {
+        const inInv = e.target && e.target.closest ? e.target.closest("#inventory-body") : null;
+        if (inInv) return;
+        document.querySelectorAll(".inv-row-actions.is-open").forEach(el => el.classList.remove("is-open"));
+      });
+    }
+    if (invBody && !this._invCodeDblClickBound) {
+      this._invCodeDblClickBound = true;
+      invBody.addEventListener("dblclick", e => {
+        if (typeof Auth === "undefined" || !Auth.isAdmin()) return;
+        const td = e.target.closest("tr.inv-row td.inv-code-cell--admin");
+        if (!td) return;
+        const row = td.closest("tr.inv-row[data-id]");
+        if (!row) return;
+        const id = row.getAttribute("data-id");
+        if (!id || typeof ConfigManager === "undefined" || !ConfigManager.openItemEditorFromInventoryById) return;
+        e.preventDefault();
+        ConfigManager.openItemEditorFromInventoryById(id);
+      });
+    }
+
+    if (!this._invNotesModalUiBound) {
+      this._invNotesModalUiBound = true;
+      document.getElementById("close-inv-notes-modal")?.addEventListener("click", () => this.closeItemNotesModal());
+      document.getElementById("inv-notes-cancel")?.addEventListener("click", () => this.closeItemNotesModal());
+      document.getElementById("inv-notes-save")?.addEventListener("click", () => this.saveItemNotesFromModal());
+      document.getElementById("inventory-item-notes-modal")?.addEventListener("click", e => {
+        if (e.target.id === "inventory-item-notes-modal") this.closeItemNotesModal();
+      });
+    }
+    if (!this._invQuickModalUiBound) {
+      this._invQuickModalUiBound = true;
+      document.getElementById("close-inv-quick-modal")?.addEventListener("click", () => this.closeItemQuickViewModal());
+      document.getElementById("inv-quick-close")?.addEventListener("click", () => this.closeItemQuickViewModal());
+      document.getElementById("inventory-item-quick-modal")?.addEventListener("click", e => {
+        if (e.target.id === "inventory-item-quick-modal") this.closeItemQuickViewModal();
+      });
+    }
+
+    this._setupInventoryHeaderToolsMenu();
+  }
+};

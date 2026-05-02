@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "source": "Phoenix Excel (plantilla)",
+    "description": "Reemplazar por datos reales o generar desde export CSV/Excel"
+  },
+  "inventory": [
+    {
+      "code": "EJ-0001",
+      "description": "Artículo ejemplo",
+      "category": "General",
+      "mainStock": 100,
+      "prodStock": 0,
+      "transStock": 0,
+      "location": "A-01",
+      "defaultPrice": 0,
+      "minStock": 0,
+      "maxStock": 0
+    }
+  ],
+  "movements": [
+    {
+      "reference": "00000001",
+      "date": "2026-01-15T14:00:00.000Z",
+      "type": "CONSUMO_DIARIO",
+      "projectId": "CONSUMO DIARIO",
+      "notes": "Ejemplo migración",
+      "createdBy": "Migración Phoenix",
+      "lines": [
+        {
+          "code": "EJ-0001",
+          "quantity": -5,
+          "target": "main"
+        }
+      ]
+    }
+  ]
+}

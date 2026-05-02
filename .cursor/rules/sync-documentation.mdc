@@ -1,0 +1,29 @@
+---
+description: Manuales y presentaciones solo si el usuario dice «ACTUALIZA AHORA».
+alwaysApply: true
+---
+
+# Documentación de usuario y presentaciones
+
+**No** actualices carpetas **`User Manual/`** ni **`Presentation/`** de forma automática ni «por convención» tras cambios de código o UX.
+
+El usuario debe indicarlo explícitamente con la frase exacta:
+
+**`ACTUALIZA AHORA`**
+
+Solo entonces sincroniza manuales y presentaciones en los **tres idiomas** (ES / EN / FR), manteniendo cada par `.md` / `.html` alineado dentro de su carpeta, y **regenera los PDF** exportados desde esos `.html`.
+
+## Qué incluye una actualización bajo «ACTUALIZA AHORA»
+
+- **Manuales:** `MANUAL_DE_USUARIO.*`, `USER_MANUAL.*`, `MANUEL_UTILISATEUR.*` (`.md`, `.html`, `.pdf`)
+- **Presentaciones:** `PRESENTACION_GNEEX.*`, `PRESENTATION_GNEEX.*`, `PRESENTATION_GNEEX_FR.*` (`.md`, `.html`, `.pdf`)
+
+**PDF:** Ejecutar desde la raíz del proyecto:
+
+`powershell -NoProfile -ExecutionPolicy Bypass -File docs\export-user-docs-pdf.ps1`
+
+(Requiere Microsoft Edge; los PDF reflejan el mismo HTML que la ayuda en pantalla.)
+
+## Excepción: migración Phoenix → G-NEEX
+
+Trabajo solo en **`migration/`**: puedes mantener **`migration/README_PHOENIX_TO_GNEEX.md`** cuando haga falta para scripts o formato de respaldo. **No** toques manuales ni presentaciones salvo **`ACTUALIZA AHORA`**.
