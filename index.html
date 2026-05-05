@@ -1,0 +1,2088 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Luis Goire">
+    <meta name="application-name" content="G-neex">
+    <meta name="apple-mobile-web-app-title" content="G-neex">
+    <meta name="description" content="G-NEEX — PHOENIX EVOLUTION · Inventory Manager">
+    <!-- Mitiga XSS reflejada/almacenada: scripts solo locales; estilos propios + fuentes Google; sin iframes embebidos -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' blob:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; upgrade-insecure-requests">
+    <title>G-neex</title>
+    <link rel="icon" href="favicon.ico" sizes="32x32" type="image/x-icon">
+    <link rel="icon" type="image/png" href="assets/logo.png" sizes="any">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- ========== LOGIN GATE ========== -->
+<div id="login-gate" class="login-gate">
+  <div class="login-panel">
+    <img class="login-logo" src="assets/logo.png" alt="G-NEEX" width="100" height="100" decoding="async">
+    <div class="login-lang-row">
+      <label for="login-language-select" class="login-lang-label" data-i18n="ui.languageTitle">Idioma</label>
+      <select id="login-language-select" class="login-lang-select" data-i18n-title="ui.languageTitle" title="Idioma">
+        <option value="es">🇪🇸 ES</option>
+        <option value="en">🇺🇸 EN</option>
+        <option value="fr">🇫🇷 FR</option>
+      </select>
+    </div>
+    <div id="login-error"></div>
+
+    <!-- Normal login (administradores y usuarios adicionales se gestionan en Configuración; cuentas integradas definidas en la app) -->
+    <form id="login-form-standard" autocomplete="off">
+      <h2 data-i18n="auth.loginTitle">Iniciar sesión</h2>
+      <div class="form-group">
+        <label data-i18n="auth.username">Usuario</label>
+        <input id="login-username" type="text" class="form-input" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label data-i18n="auth.password">Contraseña</label>
+        <input id="login-password" type="password" class="form-input" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-login" data-i18n="auth.loginBtn">Conectar</button>
+    </form>
+    <button type="button" id="login-forgot-btn" class="login-forgot-btn" data-i18n="auth.forgotPasswordLink"></button>
+    <p class="login-creator-credit" data-i18n="app.creatorCredit" data-i18n-title="app.creatorCreditTitle"></p>
+  </div>
+</div>
+
+<!-- Ayuda si olvidó la contraseña (contactar administrador) -->
+<div id="login-recovery-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="login-recovery-title">
+  <div class="modal-content" style="max-width:480px">
+    <div class="modal-header">
+      <h2 id="login-recovery-title" data-i18n="auth.recoveryModalTitle"></h2>
+      <button type="button" id="close-login-recovery-modal" class="modal-close" data-i18n-aria-label="auth.recoveryCloseAria">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p data-i18n="auth.recoveryContactAdmin"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Acceso flotante Stand-by (visible con sesión iniciada) -->
+<div id="standby-float-wrap" class="standby-float-wrap standby-float-wrap--dismissed" hidden>
+        <div id="standby-float-panel" class="standby-float-panel" role="dialog" aria-modal="false" aria-labelledby="standby-float-panel-title" hidden>
+        <div class="standby-float-panel-header">
+            <strong id="standby-float-panel-title" data-i18n="movements.standbyFloatTitle">Stand-by</strong>
+            <div class="standby-float-panel-header-actions">
+            <button type="button" id="standby-float-dismiss" class="standby-float-dismiss" data-i18n="movements.floatDismissShort" data-i18n-title="movements.floatDismissTitle" title="Ocultar globo">⏬</button>
+            <button type="button" id="standby-float-close" class="standby-float-close" data-i18n-aria-label="movements.standbyFloatCloseAria" aria-label="Cerrar">&times;</button>
+            </div>
+        </div>
+        <div id="standby-float-body" class="standby-float-body"></div>
+        <div class="standby-float-footer">
+            <button type="button" id="standby-float-new" class="btn btn-secondary btn-sm" data-i18n="movements.standbyFloatNew">Nuevo Stand-by</button>
+            <button type="button" id="standby-float-go-movements" class="btn btn-primary btn-sm" data-i18n="movements.standbyFloatOpenSection">Ir a Movimientos</button>
+        </div>
+    </div>
+    <button type="button" id="standby-float-fab" class="standby-float-fab" aria-expanded="false" aria-controls="standby-float-panel" data-i18n-title="movements.standbyFloatFabTitle" title="Stand-by">
+        <span class="standby-float-fab-icon" aria-hidden="true">⏸</span>
+        <span id="standby-float-badge" class="standby-float-badge"></span>
+    </button>
+</div>
+
+<!-- Carrito Consumo diario: acumula líneas hasta procesar un solo movimiento -->
+<div id="consumo-cart-float-wrap" class="consumo-cart-float-wrap consumo-cart-float-wrap--dismissed" hidden>
+    <div id="consumo-cart-float-panel" class="consumo-cart-float-panel" role="dialog" aria-modal="false" aria-labelledby="consumo-cart-float-panel-title" hidden>
+        <div class="consumo-cart-float-panel-header">
+            <div>
+                <strong id="consumo-cart-float-panel-title" data-i18n="movements.consumoCartFloatTitle">Consumo diario</strong>
+            </div>
+            <div class="consumo-cart-float-panel-header-actions">
+            <button type="button" id="consumo-cart-float-dismiss" class="consumo-cart-float-dismiss" data-i18n="movements.floatDismissShort" data-i18n-title="movements.floatDismissTitle" title="Ocultar globo">⏬</button>
+            <button type="button" id="consumo-cart-float-close" class="consumo-cart-float-close" data-i18n-aria-label="movements.consumoCartFloatCloseAria" aria-label="Cerrar">&times;</button>
+            </div>
+        </div>
+        <div id="consumo-cart-float-body" class="consumo-cart-float-body"></div>
+        <div class="consumo-cart-float-footer">
+            <button type="button" id="consumo-cart-float-process" class="btn btn-primary btn-sm" data-i18n="movements.consumoCartProcessAll">Procesar todo</button>
+            <div class="consumo-cart-float-footer-row">
+                <button type="button" id="consumo-cart-float-go-movements" class="btn btn-secondary btn-sm" data-i18n="movements.consumoCartGoMovements">Ir a Movimientos</button>
+                <button type="button" id="consumo-cart-float-clear" class="btn btn-secondary btn-sm" data-i18n="movements.consumoCartClear">Vaciar</button>
+            </div>
+        </div>
+    </div>
+    <button type="button" id="consumo-cart-float-fab" class="consumo-cart-float-fab" aria-expanded="false" aria-controls="consumo-cart-float-panel" data-i18n-title="movements.consumoCartFloatFabTitle" title="Consumo diario (acceso flotante)">
+        <span class="consumo-cart-float-fab-icon" aria-hidden="true">📅</span>
+        <span id="consumo-cart-float-badge" class="consumo-cart-float-badge"></span>
+    </button>
+</div>
+
+<!-- Borradores minimizados: reanudar sin perder datos (movimientos / configuración) -->
+<div id="movement-draft-float-wrap" class="draft-float-bar-wrap" hidden>
+    <div class="draft-float-bar draft-float-bar--movement" role="status">
+        <span class="draft-float-bar-label"><strong data-i18n="movements.draftFloatTitle">Borrador de movimiento</strong> · <span id="movement-draft-float-subtype"></span></span>
+        <div class="draft-float-bar-actions">
+            <button type="button" id="movement-draft-float-resume" class="btn btn-primary btn-sm" data-i18n="movements.draftFloatResume">Reanudar</button>
+            <button type="button" id="movement-draft-float-discard" class="btn btn-secondary btn-sm" data-i18n="movements.draftFloatDiscard">Descartar</button>
+        </div>
+    </div>
+</div>
+<div id="config-draft-float-wrap" class="draft-float-bar-wrap" hidden>
+    <div class="draft-float-bar draft-float-bar--config" role="status">
+        <strong class="draft-float-bar-label" data-i18n="config.draftFloatTitle">Borrador de configuración</strong>
+        <div class="draft-float-bar-actions">
+            <button type="button" id="config-draft-float-resume" class="btn btn-primary btn-sm" data-i18n="config.draftFloatResume">Reanudar</button>
+            <button type="button" id="config-draft-float-discard" class="btn btn-secondary btn-sm" data-i18n="config.draftFloatDiscard">Descartar</button>
+        </div>
+    </div>
+</div>
+
+<header class="main-header">
+    <div class="header-left">
+        <div class="logo-container">
+            <img class="logo" src="assets/logo.png" alt="" width="48" height="48" decoding="async">
+            <div class="app-brand">
+                <h1 class="app-title">G-NEEX</h1>
+                <p class="app-subtitle" data-i18n="app.taglineEvolution">PHOENIX EVOLUTION</p>
+                <p class="app-tagline-inventory" data-i18n="app.taglineInventory">Inventory Manager</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="header-center">
+        <nav class="main-nav">
+            <button type="button" class="nav-btn active" data-tab="dashboard" data-help-key="helpCoach.navDashboard" data-i18n-title="nav.dashboard" title="Panel">
+                📊 <span data-i18n="nav.dashboard">Panel</span>
+            </button>
+            <button type="button" class="nav-btn requires-reminders-perm" data-tab="reminders" data-help-key="helpCoach.navReminders" data-i18n-title="nav.reminders" title="Recordatorios">
+                📌 <span data-i18n="nav.reminders">Recordatorios</span>
+            </button>
+            <button type="button" class="nav-btn" data-tab="inventory" data-help-key="helpCoach.navInventory" data-i18n-title="nav.inventory" title="Inventario">
+                📦 <span data-i18n="nav.inventory">Inventario</span>
+            </button>
+            <button type="button" class="nav-btn" data-tab="movements" data-help-key="helpCoach.navMovements" data-i18n-title="nav.movements" title="Movimientos">
+                ➕ <span data-i18n="nav.movements">Movimientos</span>
+            </button>
+            <button type="button" class="nav-btn" data-tab="history" data-help-key="helpCoach.navHistory" data-i18n-title="nav.history" title="Historial">
+                📜 <span data-i18n="nav.history">Historial</span>
+            </button>
+            <button type="button" class="nav-btn" data-tab="transport" data-help-key="helpCoach.navTransport" data-i18n-title="nav.transport" title="Transporte">
+                🚚 <span data-i18n="nav.transport">Transporte</span>
+            </button>
+            <button type="button" class="nav-btn requires-movements-perm" data-tab="orderlines" data-help-key="helpCoach.navOrderlines" data-i18n-title="nav.orderlines" title="Pedidos a proveedor">
+                📋 <span data-i18n="nav.orderlines">Pedidos</span>
+            </button>
+
+        </nav>
+    </div>
+
+    <div class="header-right">
+        <select id="language-select" data-help-key="helpCoach.langSelect" data-i18n-title="ui.languageTitle" title="Idioma">
+            <option value="es">🇪🇸 ES</option>
+            <option value="en">🇺🇸 EN</option>
+            <option value="fr">🇫🇷 FR</option>
+        </select>
+
+        <button type="button" id="gneex-help-open" class="gneex-help-open-btn" data-help-key="helpCoach.btnHelp" data-i18n-title="ui.helpTitle" title="">
+            <span class="gneex-help-open-icon" aria-hidden="true">❓</span>
+            <span class="gneex-help-open-text" data-i18n="help.modalTitle">Ayuda</span>
+        </button>
+
+        <div class="test-mode-control" data-help-key="helpCoach.testMode" data-i18n-title="ui.testModeTitle" title="Modo demostración: tema azul. Al desactivar se restauran los datos anteriores; tema e idioma no cambian.">
+            <label class="test-mode-switch">
+                <input type="checkbox" id="test-mode-toggle" data-i18n-aria-label="ui.testModeAria" aria-label="Modo prueba" />
+                <span class="test-mode-slider" aria-hidden="true"></span>
+            </label>
+            <span class="test-mode-label" data-i18n="ui.testMode">Prueba</span>
+        </div>
+
+        <button type="button" id="theme-toggle" class="theme-toggle" data-help-key="helpCoach.btnTheme" data-i18n-title="ui.themeTitle" title="Cambiar tema">
+            <span class="theme-icon">🌙</span>
+        </button>
+
+        <button type="button" id="config-btn" class="config-btn" data-auth-act="cfgModalOpen" data-auth-act-level="view" data-open-view="config" data-help-key="helpCoach.btnConfig" data-i18n-title="ui.configTitle" title="Configuración">
+            ⚙️
+        </button>
+    </div>
+</header>
+
+<div id="nav-context-menu" class="nav-context-menu" hidden>
+  <button type="button" class="nav-context-menu-item" data-nav-open-target="same" data-i18n="navContext.openHere">Abrir aquí</button>
+  <button type="button" class="nav-context-menu-item" data-nav-open-target="tab" data-i18n="navContext.openTab">Abrir en nueva pestaña</button>
+  <button type="button" class="nav-context-menu-item" data-nav-open-target="window" data-i18n="navContext.openWindow">Abrir en nueva ventana</button>
+</div>
+
+<!-- Modo ayuda (overlay): fuera de scripts para que exista antes de ejecutar JS -->
+<div id="help-coach-banner" class="help-coach-banner" hidden role="status">
+  <span id="help-coach-banner-text" class="help-coach-banner-text"></span>
+  <button type="button" id="help-coach-banner-close" class="btn btn-sm btn-secondary" data-i18n="helpCoach.bannerClose">Salir del modo ayuda</button>
+</div>
+<div id="help-coach-cursor-badge" class="help-coach-cursor-badge" hidden aria-hidden="true">?</div>
+<div id="help-coach-popover" class="help-coach-popover" hidden role="dialog" aria-modal="true" aria-labelledby="help-coach-popover-title">
+  <button type="button" id="help-coach-popover-close" class="help-coach-popover-close modal-close" data-i18n-aria-label="helpCoach.closePopover" aria-label="Cerrar">&times;</button>
+  <h4 id="help-coach-popover-title" class="help-coach-popover-title"></h4>
+  <p id="help-coach-popover-body" class="help-coach-popover-body"></p>
+</div>
+
+<div id="test-mode-banner" class="test-mode-banner" role="status">
+    <span data-i18n="ui.testModeBanner">Demostración: los cambios se descartan al desactivar el modo prueba.</span>
+</div>
+
+<!-- Session user bar -->
+<div id="session-user-bar" class="session-user-bar" style="display:none">
+  <span id="session-user-name"></span>
+  <span id="session-user-role" class="role-badge"></span>
+  <button type="button" id="session-redeem-elevation-btn" class="btn-logout btn-session-secondary" style="display:none" data-i18n="elevation.redeemOpenBtn">Canjear código</button>
+  <button id="session-logout-btn" class="btn-logout" data-i18n="auth.logout">Cerrar sesión</button>
+</div>
+
+<!-- Canjear código de elevación temporal (no administradores) -->
+<div id="elevation-redeem-modal" class="modal">
+  <div class="modal-content modal-small">
+    <div class="modal-header">
+      <h2 data-i18n="elevation.redeemTitle">Activar permisos temporales</h2>
+      <button type="button" id="close-elevation-redeem" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="elevation-redeem-form">
+        <label for="elevation-redeem-input" data-i18n="elevation.redeemLabel">Código</label>
+        <input type="text" id="elevation-redeem-input" class="form-input" autocomplete="one-time-code" spellcheck="false" data-i18n-placeholder="elevation.redeemPlaceholder">
+        <p id="elevation-redeem-error" class="form-error" style="display:none;"></p>
+        <button type="submit" class="btn btn-primary" data-i18n="elevation.redeemSubmit">Activar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Ayuda: overlay independiente (gneex-help-overlay), no usa la clase .modal del resto de la app -->
+<div id="help-modal" class="gneex-help-overlay" hidden aria-hidden="true">
+  <div class="gneex-help-panel modal-content modal-large help-modal-content" role="dialog" aria-modal="true" aria-labelledby="gneex-help-heading" tabindex="-1">
+    <div class="modal-header help-modal-header">
+      <h2 id="gneex-help-heading" class="help-modal-title" data-i18n="help.modalTitle">Ayuda</h2>
+      <div class="help-modal-header-controls">
+        <button type="button" id="help-coach-modal-header-toggle" class="btn btn-primary btn-sm help-coach-modal-header-btn" data-i18n="help.btnCoachOn">Activar modo ayuda</button>
+        <button type="button" id="close-help" class="modal-close" data-gneex-help-close data-i18n-aria-label="help.closeAria" aria-label="Cerrar ayuda">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body help-modal-body">
+      <p class="help-lead" data-i18n="help.lead"></p>
+      <div class="help-manual-block" role="region" aria-labelledby="help-manual-h">
+        <h3 id="help-manual-h" class="help-section-title" data-i18n="help.hManual">Manual de usuario</h3>
+        <p class="help-manual-lead" data-i18n="help.pManual">Abre la guía completa en tu idioma (nueva pestaña del navegador).</p>
+        <div class="help-manual-links" role="group" data-i18n-aria-label="help.hManual">
+          <a href="user-manual/MANUAL_DE_USUARIO.html" target="_blank" rel="noopener" class="btn btn-primary btn-sm help-manual-link" data-i18n="help.manualEs" data-i18n-aria-label="help.manualOpenEs">Español</a>
+          <a href="user-manual/USER_MANUAL.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm help-manual-link" data-i18n="help.manualEn" data-i18n-aria-label="help.manualOpenEn">English</a>
+          <a href="user-manual/MANUEL_UTILISATEUR.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm help-manual-link" data-i18n="help.manualFr" data-i18n-aria-label="help.manualOpenFr">Français</a>
+        </div>
+      </div>
+      <h3 class="help-section-title" data-i18n="help.hAdmin"></h3>
+      <p data-i18n="help.pAdmin"></p>
+      <h3 class="help-section-title" data-i18n="help.hOperator"></h3>
+      <p data-i18n="help.pOperator"></p>
+      <h3 class="help-section-title" data-i18n="help.hViewer"></h3>
+      <p data-i18n="help.pViewer"></p>
+      <h3 class="help-section-title" data-i18n="help.hBackup"></h3>
+      <p data-i18n="help.pBackup"></p>
+      <h3 class="help-section-title" data-i18n="help.hSafety"></h3>
+      <p data-i18n="help.pSafety"></p>
+      <h3 class="help-section-title" data-i18n="help.hMap"></h3>
+      <p data-i18n="help.pMap"></p>
+      <h3 class="help-section-title" data-i18n="help.hNavOpen"></h3>
+      <p data-i18n="help.pNavOpen"></p>
+      <h3 class="help-section-title" data-i18n="help.hMoveTip"></h3>
+      <p data-i18n="help.pMoveTip"></p>
+      <h3 class="help-section-title" data-i18n="help.hCoach"></h3>
+      <p data-i18n="help.pCoach"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Profile edit modal -->
+<div id="profile-modal" class="modal">
+  <div class="modal-content" style="max-width:420px">
+    <div class="modal-header">
+      <h2 data-i18n="auth.editProfile">Editar perfil</h2>
+      <button id="close-profile-modal" class="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="profile-edit-form" autocomplete="off">
+        <div class="form-group">
+          <label data-i18n="auth.username">Usuario</label>
+          <input id="profile-username" type="text" class="form-input" required minlength="2" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label data-i18n="auth.displayName">Nombre visible</label>
+          <input id="profile-display" type="text" class="form-input" autocomplete="name">
+        </div>
+        <hr style="border-color:var(--border-color);margin:1rem 0">
+        <div class="form-group">
+          <label data-i18n="auth.newPassword">Nueva contraseña</label>
+          <input id="profile-new-pw" type="password" class="form-input" minlength="6" autocomplete="new-password">
+        </div>
+        <div id="profile-error" style="display:none;color:#e74c3c;margin:0.5rem 0;font-size:0.85rem;"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem" data-i18n="buttons.save">Guardar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<main class="main-content">
+
+    <!-- PANEL (dashboard propio, separado del inventario) -->
+    <section id="dashboard-tab" class="tab-content active">
+      <div class="dashboard-page">
+        <header class="dashboard-hero" data-auth-act="dashHero" data-auth-act-level="view">
+          <h1 class="dashboard-hero-title" data-i18n="dashboard.pageTitle">Panel de control</h1>
+
+          <section class="dashboard-block dashboard-transport-preview-block" aria-labelledby="dash-transport-preview-h">
+            <h2 id="dash-transport-preview-h" class="dashboard-block-title" data-i18n="dashboard.transportPendingPreviewTitle">Alertas de transporte</h2>
+            <div id="dashboard-transport-preview-body" class="dashboard-transport-preview-body"></div>
+            <button type="button" class="btn btn-sm btn-secondary" data-dash-action="transport" id="dashboard-goto-transport-hero" data-open-tab="transport" data-i18n="dashboard.transportOpenTab">Abrir transporte</button>
+          </section>
+
+          <div id="dashboard-pending-movements" class="dashboard-pending-movements" style="display:none;" role="region" aria-labelledby="dashboard-pending-movements-h">
+            <h2 id="dashboard-pending-movements-h" class="dashboard-pending-movements-title" data-i18n="dashboard.pendingMovementsTitle">Pendientes de movimientos</h2>
+            <div id="dashboard-pending-standby" class="dashboard-pending-row dashboard-pending-row--standby" style="display:none;">
+              <span class="dashboard-pending-icon" aria-hidden="true">⏸</span>
+              <span id="dashboard-pending-standby-text" class="dashboard-pending-text"></span>
+              <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-standby" data-open-tab="movements" data-i18n="dashboard.pendingGoMovements">Abrir</button>
+            </div>
+            <div id="dashboard-pending-consumo" class="dashboard-pending-row dashboard-pending-row--consumo" style="display:none;">
+              <span class="dashboard-pending-icon" aria-hidden="true">📅</span>
+              <span id="dashboard-pending-consumo-text" class="dashboard-pending-text"></span>
+              <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-consumo" data-open-tab="movements" data-i18n="dashboard.pendingGoMovements">Abrir</button>
+            </div>
+          </div>
+
+          <div id="dashboard-transport-expedition-urgent" class="dashboard-transport-expedition-urgent" style="display:none;" role="alert" aria-live="polite" aria-labelledby="dashboard-transport-expedition-urgent-h">
+            <h2 id="dashboard-transport-expedition-urgent-h" class="dashboard-transport-expedition-urgent-title" data-i18n="dashboard.transportExpeditionUrgentTitle">Urgente: expediciones atrasadas</h2>
+            <p id="dashboard-transport-expedition-urgent-text" class="dashboard-transport-expedition-urgent-text"></p>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-transport-urgent" data-open-tab="transport" data-i18n="dashboard.transportExpeditionUrgentOpen">Abrir transporte</button>
+          </div>
+
+          <div id="dashboard-transport-readiness" class="dashboard-transport-readiness" style="display:none;" role="region" aria-labelledby="dashboard-transport-readiness-h">
+            <h2 id="dashboard-transport-readiness-h" class="dashboard-transport-readiness-title" data-i18n="dashboard.transportReadinessTitle">Transporte: qué falta para estar listo</h2>
+            <p id="dashboard-transport-readiness-intro" class="dashboard-transport-readiness-intro muted" data-i18n="dashboard.transportReadinessIntro"></p>
+            <div id="dashboard-transport-readiness-body" class="dashboard-transport-readiness-body"></div>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-transport-readiness" data-open-tab="transport" data-i18n="dashboard.transportExpeditionUrgentOpen">Abrir transporte</button>
+          </div>
+
+          <section class="dashboard-block dashboard-reminders-preview requires-reminders-perm" aria-labelledby="dash-reminders-preview-h">
+            <h2 id="dash-reminders-preview-h" class="dashboard-block-title" data-i18n="reminders.dashboardPreviewTitle">Recordatorios pendientes</h2>
+            <ul id="dashboard-reminders-summary" class="dashboard-reminders-summary" data-i18n-aria-label="reminders.dashboardPreviewTitle"></ul>
+            <p id="dashboard-reminders-preview-empty" class="reminders-dashboard-empty muted" style="display:none;" data-i18n="reminders.dashboardEmpty">No hay recordatorios pendientes.</p>
+            <button type="button" id="dashboard-open-reminders-btn" class="btn btn-sm btn-secondary dashboard-open-reminders" data-open-tab="reminders" data-i18n="reminders.openTab">Abrir recordatorios</button>
+          </section>
+        </header>
+
+        <section class="dashboard-block" aria-labelledby="dash-overview-heading" data-auth-act="dashOverview" data-auth-act-level="view">
+          <h2 id="dash-overview-heading" class="dashboard-block-title" data-i18n="dashboard.sectionOverview">Resumen general</h2>
+          <div class="dashboard-grid dashboard-grid--overview">
+            <div class="dash-card dash-card--static">
+              <div class="dash-card-icon">📚</div>
+              <div class="dash-card-value" id="dash-total-articles">0</div>
+              <div class="dash-card-label" data-i18n="dashboard.cardCatalog">Artículos en catálogo</div>
+            </div>
+            <div class="dash-card dash-card--static">
+              <div class="dash-card-icon">📆</div>
+              <div class="dash-card-value" id="dash-movements-week">0</div>
+              <div class="dash-card-label" data-i18n="dashboard.cardMovementsWeek">Movimientos (7 días)</div>
+            </div>
+            <div class="dash-card dash-card--static">
+              <div class="dash-card-icon">📋</div>
+              <div class="dash-card-value" id="dash-order-lines-open">0</div>
+              <div class="dash-card-label" data-i18n="dashboard.cardOrderLinesOpen">Líneas de pedido activas</div>
+            </div>
+          </div>
+        </section>
+
+        <div id="dashboard-panel" class="dashboard-panel" data-auth-act="dashToday" data-auth-act-level="view">
+          <div class="dashboard-header">
+            <h2 data-i18n="dashboard.sectionToday">Actividad de hoy</h2>
+            <button type="button" id="dashboard-toggle" class="btn btn-sm btn-secondary" data-help-key="helpCoach.dashCollapse" data-i18n="dashboard.collapse">Ocultar</button>
+          </div>
+          <div id="dashboard-body" class="dashboard-body">
+            <div class="dashboard-grid">
+              <div class="dash-card dash-card--movements dash-card--interactive" data-dash-action="history-today" data-help-key="helpCoach.dashMovementsToday" role="button" tabindex="0" data-i18n-title="dashboard.tooltipCardMovements">
+                <div class="dash-card-icon">📦</div>
+                <div class="dash-card-value" id="dash-movements-today">0</div>
+                <div class="dash-card-label" data-i18n="dashboard.movementsToday">Movimientos hoy</div>
+              </div>
+              <div class="dash-card dash-card--alerts dash-card--interactive requires-dashboard-alerts" data-dash-action="inventory-alerts" data-help-key="helpCoach.dashAlerts" role="button" tabindex="0" data-i18n-title="dashboard.tooltipCardAlertsModal">
+                <div class="dash-card-icon">⚠️</div>
+                <div class="dash-card-value" id="dash-alerts">0</div>
+                <div class="dash-card-label" data-i18n="dashboard.activeAlerts">Alertas activas</div>
+              </div>
+              <div class="dash-card dash-card--transport dash-card--interactive" data-dash-action="transport" data-help-key="helpCoach.dashTransport" role="button" tabindex="0" data-i18n-title="dashboard.tooltipCardTransport">
+                <div class="dash-card-icon">🚛</div>
+                <div class="dash-card-value" id="dash-pending-transport">0</div>
+                <div class="dash-card-label" data-i18n="dashboard.pendingTransports">Transportes pendientes</div>
+              </div>
+              <div class="dash-card dash-card--backup dash-card--interactive" data-dash-action="backup" data-help-key="helpCoach.dashBackup" role="button" tabindex="0" data-i18n-title="dashboard.tooltipCardBackup">
+                <div class="dash-card-icon">💾</div>
+                <div class="dash-card-value dash-card-value--small" id="dash-last-backup">—</div>
+                <div class="dash-card-label" data-i18n="dashboard.lastBackup">Último respaldo</div>
+              </div>
+            </div>
+            <div class="dashboard-detail-row">
+              <div id="dash-movement-types" class="dash-movement-types"></div>
+              <div id="dash-alert-detail" class="dash-alert-detail requires-dashboard-alerts"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section id="inventory-tab" class="tab-content">
+        <div class="inventory-header">
+            <div class="search-container" data-auth-act="invBrowse" data-auth-act-level="view">
+                <input id="inventory-search" class="search-input" type="text"
+                       data-i18n-placeholder="search.placeholder"
+                       placeholder="Buscar por código, descripción, categoría o ubicación...">
+                <button id="inventory-search-reset-btn" class="search-btn" type="button" data-i18n-title="ui.resetInventoryFiltersTitle" title="Limpiar filtros">🔄</button>
+            </div>
+            <div class="inventory-header-actions" id="inventory-header-actions" data-auth-act="invTools" data-auth-act-level="view">
+                <div class="inventory-header-tools-dropdown">
+                  <button type="button" id="inventory-header-tools-menu-btn" class="btn inventory-asof-icon-btn inventory-header-tools-menu-open" data-i18n-title="inventory.toolsMenuBtnTitle" data-i18n-aria-label="inventory.toolsMenuBtnAria" aria-expanded="false" aria-haspopup="true" aria-controls="inventory-header-tools-menu">
+                    <svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+                  </button>
+                  <div id="inventory-header-tools-menu" class="inventory-header-tools-menu" role="menu" aria-labelledby="inventory-header-tools-menu-btn" hidden>
+                    <button type="button" role="menuitem" id="inventory-header-filters-collapse-menuitem" class="inventory-header-tools-menu-item" data-inv-collapse-filters="1" disabled data-i18n-title="inventory.toolsCollapseFiltersTitle" data-i18n-aria-label="inventory.toolsCollapseFiltersAria" aria-label="Ocultar filtros en línea">
+                      <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+                      <span data-i18n="inventory.toolsCollapseFiltersMenu">Ocultar filtros en línea</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-box-filter-toggle-btn">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">📍</span>
+                      <span data-i18n="inventory.toolsItemBoxFilter">Filtro Caja / ubicación</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-depot-filter-toggle-btn">
+                      <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 4c.6-1 2-1 2.6 0"/><path d="M14.5 5.5c.8-1.2 2.6-1 3.4.3"/><rect x="13.5" y="7" width="5.5" height="9.5" rx="1"/><path d="M3 13L12 5l9 8"/><path d="M5 13v10h14V13"/></svg>
+                      <span data-i18n="inventory.toolsItemDepot">Filtro Depósito</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-consumable-filter-toggle-btn">
+                      <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22a7 7 0 0 0 7-7c0-5-7-13-7-13S5 10 5 15a7 7 0 0 0 7 7z"/></svg>
+                      <span data-i18n="inventory.toolsItemConsumable">Filtro Consumible inv.</span>
+                    </button>
+                    <button type="button" role="menuitemcheckbox" class="inventory-header-tools-menu-item inventory-header-tools-menu-item--switch" data-inv-toggle-problems="1" aria-checked="false">
+                      <span class="inventory-header-tools-menu-ico inventory-header-tools-problems-ico" aria-hidden="true">❗</span>
+                      <span data-i18n="inventory.toolsItemProblemsFilter">Solo artículos con problemas / todos</span>
+                    </button>
+                    <button type="button" role="menuitemcheckbox" class="inventory-header-tools-menu-item inventory-header-tools-menu-item--switch" data-inv-toggle-lowstock-ignored="1" aria-checked="false">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">🔕</span>
+                      <span data-i18n="inventory.toolsItemLowStockIgnoredFilter">Alerta stock bajo desactivada</span>
+                    </button>
+                    <div class="inventory-header-tools-menu-sep" role="separator"></div>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-asof-open">
+                      <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                      <span data-i18n="inventory.toolsItemAsOf">Stock a fecha</span>
+                    </button>
+                    <div class="inventory-header-tools-menu-sep" role="separator"></div>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-export-csv">
+                      <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                      <span data-i18n="inventory.toolsItemExport">Exportar XLSX</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-print-list">
+                      <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                      <span data-i18n="inventory.toolsItemPrint">Imprimir lista</span>
+                    </button>
+                    <div class="inventory-header-tools-menu-sep" role="separator"></div>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-box-summary-btn">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">🧰</span>
+                      <span data-i18n="inventory.toolsItemBoxSummary">Resumen por caja</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-zero-boxes-btn">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">0️⃣</span>
+                      <span data-i18n="inventory.toolsItemZeroBoxes">Cajas con cantidad 0</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-box-zero-total-btn">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">📭</span>
+                      <span data-i18n="inventory.toolsItemZeroTotal">Cajas sin unidades (suma)</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-box-manager-btn" data-auth-act="invTools" data-auth-act-level="edit">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">🗃</span>
+                      <span data-i18n="inventory.toolsItemBoxManager">Gestionar stock por caja</span>
+                    </button>
+                  </div>
+                </div>
+                <div id="inventory-box-filter-wrap" class="inventory-box-filter-wrap" hidden>
+                  <label for="inventory-box-filter" class="inventory-box-filter-label" data-i18n="inventory.boxFilterLabel">Caja</label>
+                  <select id="inventory-box-filter" class="filter-select inventory-box-filter-select"></select>
+                </div>
+                <div id="inventory-depot-filter-wrap" class="inventory-box-filter-wrap" hidden>
+                  <label for="inventory-depot-preset" class="inventory-box-filter-label" data-i18n="inventory.depotPresetLabel">Depósito</label>
+                  <select id="inventory-depot-preset" class="filter-select">
+                    <option value="all" data-i18n="inventory.depotPresetAll">Todos</option>
+                    <option value="prod" data-i18n="inventory.depotPresetProd">Solo con stock en producción</option>
+                    <option value="trans" data-i18n="inventory.depotPresetTrans">Solo con stock en transformación</option>
+                    <option value="prod_or_trans" data-i18n="inventory.depotPresetProdOrTrans">Con stock en producción o transformación</option>
+                  </select>
+                </div>
+                <div id="inventory-consumable-filter-wrap" class="inventory-box-filter-wrap" hidden>
+                  <label for="inventory-consumable-filter" class="inventory-box-filter-label" data-i18n="inventory.consumableFilterLabel">Consumible inv.</label>
+                  <select id="inventory-consumable-filter" class="filter-select inventory-consumable-filter-select">
+                    <option value="all" data-i18n="inventory.consumableFilterAll">Todos</option>
+                    <option value="invcons" data-i18n="inventory.consumableFilterInvOnly">Solo consumibles inv.</option>
+                    <option value="noninvcons" data-i18n="inventory.consumableFilterHideInv">Sin consumibles inv.</option>
+                  </select>
+                </div>
+                <div class="inventory-asof-group" id="inventory-asof-group">
+                    <span id="inventory-asof-active" class="inventory-asof-pill" style="display:none" aria-live="polite"></span>
+                    <button type="button" id="inventory-asof-clear" class="btn inventory-asof-icon-btn inventory-asof-icon-btn--clear" style="display:none" data-i18n-title="inventory.asOfClearTitle" data-i18n-aria-label="inventory.asOfClearTitle"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                    <input type="date" id="inventory-asof-date" class="inventory-asof-date-input" tabindex="-1" autocomplete="off" aria-hidden="true">
+                </div>
+                <div class="inventory-toolbar-triggers-sr" aria-hidden="true">
+                  <button type="button" id="inventory-box-filter-toggle-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxFilterToggleShow" data-i18n-aria-label="inventory.boxFilterToggleShow"><span class="inventory-box-summary-btn-icon" aria-hidden="true">📍</span></button>
+                  <button type="button" id="inventory-depot-filter-toggle-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.depotFilterToggleShow" data-i18n-aria-label="inventory.depotFilterToggleShow"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4c.6-1 2-1 2.6 0"/><path d="M14.5 5.5c.8-1.2 2.6-1 3.4.3"/><rect x="13.5" y="7" width="5.5" height="9.5" rx="1"/><path d="M3 13L12 5l9 8"/><path d="M5 13v10h14V13"/></svg></button>
+                  <button type="button" id="inventory-consumable-filter-toggle-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.consumableFilterToggleShow" data-i18n-aria-label="inventory.consumableFilterToggleShow"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a7 7 0 0 0 7-7c0-5-7-13-7-13S5 10 5 15a7 7 0 0 0 7 7z"/></svg></button>
+                  <button type="button" id="inventory-problems-filter-toggle-btn" class="btn inventory-asof-icon-btn inventory-problems-filter-btn" tabindex="-1" data-i18n-title="inventory.problemsFilterToggleShow" data-i18n-aria-label="inventory.problemsFilterToggleShow" aria-pressed="false"><span class="inventory-problems-filter-ico" aria-hidden="true">❗</span></button>
+                  <button type="button" id="inventory-lowstock-ignored-filter-toggle-btn" class="btn inventory-asof-icon-btn inventory-lowstock-ignored-filter-btn" tabindex="-1" data-i18n-title="inventory.lowStockIgnoredFilterToggleShow" data-i18n-aria-label="inventory.lowStockIgnoredFilterToggleShow" aria-pressed="false"><span class="inventory-lowstock-ignored-filter-ico" aria-hidden="true">🔕</span></button>
+                  <button type="button" id="inventory-asof-open" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.asOfOpenTitle" data-i18n-aria-label="inventory.asOfOpenTitle"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button>
+                  <button type="button" id="inventory-export-csv" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.exportCsv" data-i18n-aria-label="inventory.exportCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+                  <button type="button" id="inventory-print-list" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.printList" data-i18n-aria-label="inventory.printList"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+                  <button type="button" id="inventory-box-summary-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxSummaryBtnTitle" data-i18n-aria-label="inventory.boxSummaryBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧰</span></button>
+                  <button type="button" id="inventory-zero-boxes-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.zeroBoxesBtnTitle" data-i18n-aria-label="inventory.zeroBoxesBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">0️⃣</span></button>
+                  <button type="button" id="inventory-box-zero-total-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxZeroTotalBtnTitle" data-i18n-aria-label="inventory.boxZeroTotalBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">📭</span></button>
+                  <button type="button" id="inventory-box-manager-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.boxManagerBtnTitle" data-i18n-aria-label="inventory.boxManagerBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🗃</span></button>
+                </div>
+                <input type="file" id="inventory-box-stock-import-input" accept=".csv,.xlsx,.xls" style="display:none;" data-auth-act="invTools" data-auth-act-level="edit">
+            </div>
+        </div>
+
+        <div class="inventory-stats" data-auth-act="invBrowse" data-auth-act-level="view">
+            <div class="stat-card">
+                <div id="total-items" class="stat-value">0</div>
+                <div class="stat-label" data-i18n="stats.totalItems">Artículos totales</div>
+            </div>
+            <div class="stat-card stat-card-clickable" id="stat-card-low" role="button" tabindex="0" data-inv-insight="low">
+                <div id="low-stock" class="stat-value">0</div>
+                <div class="stat-label" data-i18n="stats.lowStock">Stock bajo</div>
+            </div>
+            <div class="stat-card stat-card-clickable stat-card-expiration" id="stat-card-expiration" role="button" tabindex="0" data-inv-insight="expiration">
+                <div id="expiration-alert" class="stat-value">0</div>
+                <div class="stat-label" data-i18n="stats.expirationAlert">Expiración</div>
+            </div>
+            <div class="stat-card stat-card-clickable stat-card-overstock" id="stat-card-overstock" role="button" tabindex="0" data-inv-insight="overstock">
+                <div id="overstock-count" class="stat-value">0</div>
+                <div class="stat-label" data-i18n="stats.overstock">Overstock</div>
+            </div>
+            <div class="stat-card stat-card-clickable stat-card-zero" id="stat-card-zero" role="button" tabindex="0" data-inv-insight="zero">
+                <div id="zero-stock" class="stat-value">0</div>
+                <div class="stat-label" data-i18n="stats.zeroStock">Stock en 0</div>
+            </div>
+            <div class="stat-card stat-card-clickable" id="stat-card-negative" role="button" tabindex="0" data-inv-insight="negative">
+                <div id="negative-stock" class="stat-value">0</div>
+                <div class="stat-label" data-i18n="stats.negativeStock">Stock negativo</div>
+            </div>
+        </div>
+
+        <div class="inventory-table-container inventory-table-container--main" data-auth-act="invBrowse" data-auth-act-level="view">
+            <table class="inventory-table inventory-table--main">
+                <thead>
+                    <tr>
+                        <th data-i18n="table.code">Código</th>
+                        <th data-i18n="table.description">Descripción</th>
+                        <th data-i18n="table.category">Categoría</th>
+                        <th data-i18n="table.defaultPrice">Precio por defecto</th>
+                        <th data-i18n="table.mainStock">Stock Principal</th>
+                        <th data-i18n="table.prodStock">Stock Producción</th>
+                        <th data-i18n="table.transStock">Stock Transformación</th>
+                        <th data-i18n="table.location">Ubicación</th>
+                        <th data-i18n="table.expirationDate">Fecha Expiración</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- MOVIMIENTOS -->
+    <section id="movements-tab" class="tab-content">
+        <div class="movements-container">
+            <h2 data-i18n="movements.title">Crear Movimiento</h2>
+            <div data-auth-act="movPicker" data-auth-act-level="edit">
+            <div id="movement-types-grid" class="movement-types-grid"></div>
+            </div>
+            <div class="movements-recent-block" id="movements-recent-block" data-auth-act="movRecent" data-auth-act-level="view">
+                <h3 class="movements-recent-heading" data-i18n="movements.recentTitle">Últimos movimientos</h3>
+                <div id="movements-recent-list" class="movements-recent-list" role="list"></div>
+            </div>
+        </div>
+    </section>
+
+  <!-- HISTORIAL -->
+    <section id="history-tab" class="tab-content">
+        <div class="history-container">
+            <div class="history-head-row history-head-row--actions">
+                <h2 data-i18n="nav.history">Historial</h2>
+                <div class="history-head-buttons" data-auth-act="histExports" data-auth-act-level="view">
+                <button type="button" id="history-print-filtered" class="btn inventory-asof-icon-btn" data-i18n-title="history.printFiltered" data-i18n-aria-label="history.printFiltered"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+                <button type="button" id="history-export-filtered-csv" class="btn inventory-asof-icon-btn" data-i18n-title="history.exportFilteredCsv" data-i18n-aria-label="history.exportFilteredCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+                <button type="button" id="open-report-modal" class="btn btn-secondary btn-sm" data-open-view="reports-movements" data-i18n="reports.open">Informes / exportar XLSX</button>
+                </div>
+            </div>
+
+            <div class="history-top-panels-row">
+            <div class="history-top-panels-row__col history-top-panels-row__col--filters">
+            <div id="history-main-filters" class="history-filters-panel" role="region" data-i18n-aria-label="history.filters" aria-label="Filtros de Búsqueda" data-auth-act="histFilters" data-auth-act-level="view">
+                <h3 class="history-filters-heading"><span data-i18n="history.filters">Filtros de Búsqueda</span></h3>
+            <div class="history-filters">
+                <div class="filters-grid history-filters-grid">
+                    <div class="filter-group">
+                        <label data-i18n="history.filterType">Tipo:</label>
+                        <select id="filter-type" class="filter-select">
+                            <option value="" data-i18n="history.all">Todos</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.filterRef">Referencia:</label>
+                        <input id="filter-ref" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="table.code">Código:</label>
+                        <input id="filter-code" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="table.description">Descripción:</label>
+                        <input id="filter-desc" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.filterRecipient">Destinatario (consumo diario):</label>
+                        <input id="filter-recipient" type="text" class="filter-input" data-i18n-title="history.filterRecipientTitle" title="">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.filterSupplier">Proveedor (compra):</label>
+                        <input id="filter-supplier" type="text" class="filter-input" data-i18n-title="history.filterSupplierTitle" title="">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.filterQtyMin">Cantidad mín. (línea):</label>
+                        <input id="filter-qty-min" type="number" class="filter-input" step="any" min="0" data-i18n-title="history.filterQtyHint" title="">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.filterQtyMax">Cantidad máx. (línea):</label>
+                        <input id="filter-qty-max" type="number" class="filter-input" step="any" min="0" data-i18n-title="history.filterQtyHint" title="">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.dateFrom">Desde:</label>
+                        <input id="filter-date-from" type="date" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.dateTo">Hasta:</label>
+                        <input id="filter-date-to" type="date" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="table.location">Ubicación:</label>
+                        <input id="filter-location" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="movements.projectId">ID Proyecto:</label>
+                        <input id="filter-project-id" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.createdBy">Realizado por:</label>
+                        <input id="filter-created-by" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.overdraft">Sobregiro:</label>
+                        <select id="filter-overdraft" class="filter-select">
+                            <option value="" data-i18n="history.all">Todos</option>
+                            <option value="yes" data-i18n="history.yes">Sí</option>
+                            <option value="no" data-i18n="history.no">No</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label data-i18n="history.negativeStock" title="Basado en stock actual, no histórico">Stock Negativo:</label>
+                        <select id="filter-negative-stock" class="filter-select" data-i18n-title="history.negativeStockHint">
+                            <option value="" data-i18n="history.all">Todos</option>
+                            <option value="yes" data-i18n="history.yes">Sí</option>
+                            <option value="no" data-i18n="history.no">No</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-annul-status" data-i18n="history.filterAnnulStatus">Anulación:</label>
+                        <select id="filter-annul-status" class="filter-select">
+                            <option value="" data-i18n="history.filterAnnulAll">Todos</option>
+                            <option value="active" data-i18n="history.filterAnnulActive">Sin anulación total</option>
+                            <option value="partial" data-i18n="history.filterAnnulPartial">Anulado parcial (líneas anuladas)</option>
+                            <option value="full" data-i18n="history.filterAnnulFull">Totalmente anulados</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-actions filter-actions--history">
+                    <button type="button" id="clear-filters" class="btn btn-secondary" data-i18n="buttons.clearFilters">Limpiar Filtros</button>
+                </div>
+            </div>
+            </div>
+            </div>
+
+            <div class="history-top-panels-row__col history-top-panels-row__col--ledger">
+            <details id="consumo-recipient-ledger-details" class="history-filters-details history-consumo-ledger-details history-consumo-ledger-panel" data-auth-act="histLedger" data-auth-act-level="view">
+                <summary class="consumo-ledger-summary">
+                    <span class="consumo-ledger-summary-title" data-i18n="history.consumoRecipientLedgerTitle">Consumo diario por destinatario</span>
+                    <button type="button" id="consumo-ledger-open-expanded" class="btn btn-secondary btn-sm consumo-ledger-expand-btn" data-i18n="history.consumoLedgerExpandView" data-i18n-title="history.consumoLedgerExpandTitle" title="">Vista ampliada</button>
+                </summary>
+                <div id="consumo-ledger-expandable-root" class="consumo-ledger-expandable-root">
+                <div class="filters-grid consumo-ledger-filters" style="margin-bottom:0.75rem;">
+                    <div class="filter-group">
+                        <label for="ledger-filter-person" data-i18n="history.ledgerFilterPerson">Persona</label>
+                        <input id="ledger-filter-person" type="text" class="filter-input" autocomplete="name">
+                    </div>
+                    <div class="filter-group">
+                        <label for="ledger-filter-code" data-i18n="history.ledgerFilterCode">Código artículo</label>
+                        <input id="ledger-filter-code" type="text" class="filter-input" autocomplete="off">
+                    </div>
+                </div>
+                <div class="filter-actions consumo-ledger-actions">
+                    <button type="button" id="consumo-ledger-save" class="btn btn-primary btn-sm admin-only" data-i18n="history.consumoLedgerSave">Guardar cambios</button>
+                    <button type="button" id="consumo-ledger-clear-table" class="btn btn-warning btn-sm admin-only" data-i18n="history.consumoLedgerClear">Limpiar tabla</button>
+                    <button type="button" id="consumo-ledger-print" class="btn inventory-asof-icon-btn admin-only" data-i18n-title="history.consumoLedgerPrint" data-i18n-aria-label="history.consumoLedgerPrint"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+                    <button type="button" id="consumo-ledger-export-csv" class="btn inventory-asof-icon-btn admin-only" data-i18n-title="history.consumoLedgerExportCsv" data-i18n-aria-label="history.consumoLedgerExportCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+                </div>
+                <div class="inventory-table-container consumo-ledger-table-wrap">
+                    <table class="inventory-table consumo-ledger-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="standby.date">Fecha</th>
+                                <th data-i18n="standby.reference">Ref.</th>
+                                <th data-i18n="movements.recipientName">Destinatario</th>
+                                <th data-i18n="table.code">Código</th>
+                                <th data-i18n="table.description">Descripción</th>
+                                <th data-i18n="table.quantity">Cantidad</th>
+                                <th data-i18n="table.target">Depósito</th>
+                                <th data-i18n="history.consumoLedgerActions">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="consumo-recipient-ledger-body"></tbody>
+                    </table>
+                </div>
+                </div>
+            </details>
+            </div>
+
+            </div>
+
+            <div class="history-results-scope" data-auth-act="histResults" data-auth-act-level="view">
+            <div class="section-view-toolbar section-view-toolbar--history" role="toolbar" data-i18n-aria-label="viewSwitcher.toolbarAriaHistory">
+              <span class="section-view-toolbar-label muted" data-i18n="viewSwitcher.label">Vista</span>
+              <div class="segmented-control" role="radiogroup" data-i18n-aria-label="viewSwitcher.radioGroupHistory">
+                <button type="button" class="btn btn-sm btn-segment" data-history-view="tiles" data-i18n-title="viewSwitcher.tilesTitle" title="" aria-pressed="true">▦</button>
+                <button type="button" class="btn btn-sm btn-segment" data-history-view="list" data-i18n-title="viewSwitcher.listTitle" title="" aria-pressed="false">☰</button>
+                <button type="button" class="btn btn-sm btn-segment" data-history-view="details" data-i18n-title="viewSwitcher.detailsTitle" title="" aria-pressed="false">⊞</button>
+                <button type="button" class="btn btn-sm btn-segment" data-history-view="carousel" data-i18n-title="viewSwitcher.carouselTitle" title="" aria-pressed="false">⇄</button>
+              </div>
+            </div>
+
+            <div id="history-cells" class="history-cells-container"></div>
+            </div>
+        </div>
+    </section>
+
+
+  <!-- ========== TRANSPORTE ========== -->
+  <section id="transport-tab" class="tab-content">
+    <div class="transport-tab-header">
+      <h2 data-i18n="transport.title">Gestión de transporte</h2>
+      <div class="transport-tab-actions" data-auth-act="trnToolbar" data-auth-act-level="view">
+        <div class="section-view-toolbar section-view-toolbar--transport" role="toolbar" data-i18n-aria-label="viewSwitcher.toolbarAriaTransport">
+          <span class="section-view-toolbar-label muted" data-i18n="viewSwitcher.label">Vista</span>
+          <div class="segmented-control" role="radiogroup" data-i18n-aria-label="viewSwitcher.radioGroupTransport">
+            <button type="button" class="btn btn-sm btn-segment" data-transport-view="tiles" data-i18n-title="viewSwitcher.tilesTitle" title="" aria-pressed="true">▦</button>
+            <button type="button" class="btn btn-sm btn-segment" data-transport-view="list" data-i18n-title="viewSwitcher.listTitle" title="" aria-pressed="false">☰</button>
+          </div>
+        </div>
+        <button type="button" id="transport-create-btn" class="btn btn-primary btn-sm" data-auth-act="trnToolbar" data-auth-act-level="edit" data-i18n="transport.createManual">+ Nuevo transporte</button>
+        <button type="button" id="open-report-modal-transport" class="btn btn-secondary btn-sm" data-open-view="reports-transport" data-i18n="reports.open">Informes / exportar XLSX</button>
+        <button type="button" id="transport-export-summary-btn" class="btn inventory-asof-icon-btn" data-i18n-title="reports.transportQuickExport" data-i18n-aria-label="reports.transportQuickExport"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+        <button type="button" id="transport-print-summary-btn" class="btn inventory-asof-icon-btn" data-i18n-title="reports.transportQuickPrint" data-i18n-aria-label="reports.transportQuickPrint"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+      </div>
+    </div>
+    <div id="transport-board" class="transport-board" data-auth-act="trnMain" data-auth-act-level="view"></div>
+  </section>
+
+  <!-- ========== PEDIDOS A PROVEEDOR (líneas) — solo administrador ========== -->
+  <section id="orderlines-tab" class="tab-content requires-movements-perm">
+    <div class="orderlines-header transport-tab-header">
+      <div>
+        <h2 data-i18n="orderLines.title">Pedidos a proveedor</h2>
+      </div>
+      <div class="transport-tab-actions orderlines-header-actions">
+        <button type="button" id="orderlines-export-btn" class="btn inventory-asof-icon-btn" data-auth-act="ordExportXlsx" data-auth-act-level="view" data-i18n-title="orderLines.exportTableBtn" data-i18n-aria-label="orderLines.exportTableBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+        <button type="button" id="orderlines-print-btn" class="btn inventory-asof-icon-btn" data-auth-act="ordPrint" data-auth-act-level="view" data-i18n-title="orderLines.printTableBtn" data-i18n-aria-label="orderLines.printTableBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+        <button type="button" id="orderlines-purge-old-btn" class="btn btn-secondary btn-sm requires-orderlines-edit" data-auth-act="ordPurgeOld" data-auth-act-level="edit" data-i18n="orderLines.purgeOldReceivedBtn">Limpiar recibidos +1 año</button>
+      </div>
+    </div>
+
+    <div id="orderlines-purchase-suggestions-wrap" class="mov-compra-suggestions" data-auth-act="ordSuggestions" data-auth-act-level="view">
+      <h3 data-i18n="orderLines.suggestionsTitle">Sugerencias de compra (inventario)</h3>
+      <div id="orderlines-purchase-suggestions-list"></div>
+    </div>
+
+    <form id="orderlines-add-form" class="orderlines-add-form orderlines-add-form--bronze" data-auth-act="ordFormNewLine" data-auth-act-level="edit">
+      <div class="orderlines-add-form-head">
+        <h3 class="orderlines-form-title" data-i18n="orderLines.addTitle">Nueva línea</h3>
+        <label class="checkbox-label orderlines-consumible-toggle">
+          <input type="checkbox" id="orderline-consumible-mode" />
+          <span data-i18n="orderLines.consumableModeToggle">Pedido de consumible (sin artículo de inventario — lista maestra)</span>
+        </label>
+      </div>
+      <div id="orderlines-inventory-pick" class="orderlines-kind-panel orderlines-kind-panel--horizontal">
+        <div class="form-group item-search-container orderline-search-wrap">
+          <label data-i18n="orderLines.searchItem">Artículo</label>
+          <input type="search" id="orderline-item-search" class="search-input" autocomplete="off" data-i18n-placeholder="orderLines.searchPlaceholder" placeholder="Código o descripción…">
+          <input type="hidden" id="orderline-pick-id" value="">
+          <div id="orderline-search-results" class="search-results"></div>
+        </div>
+        <div class="form-group orderline-supplier-field-wrap">
+          <label data-i18n="table.supplier">Proveedor</label>
+          <select id="orderline-supplier-select" class="form-input orderline-supplier-select" style="display:none;" aria-label="Proveedor"></select>
+          <input type="text" id="orderline-supplier" class="form-input" list="orderline-supplier-datalist" data-i18n-placeholder="orderLines.supplierPh" placeholder="Opcional; por defecto del artículo" autocomplete="organization">
+          <datalist id="orderline-supplier-datalist"></datalist>
+        </div>
+        <div class="form-group">
+          <label data-i18n="table.quantity">Cantidad</label>
+          <input type="number" id="orderline-qty" class="form-input" min="0" step="0.01" value="1" required>
+        </div>
+        <div class="form-group orderlines-form-submit">
+          <label class="orderlines-submit-spacer">&nbsp;</label>
+          <button type="submit" class="btn btn-primary orderlines-submit-btn" data-i18n="orderLines.btnAdd">Añadir</button>
+        </div>
+      </div>
+      <div id="orderlines-consumible-pick" class="orderlines-kind-panel orderlines-kind-panel--horizontal" hidden style="display:none;">
+        <div class="form-group orderline-consumible-field-wrap">
+          <label data-i18n="consumables.consumibleLabelShort">Consumible</label>
+          <select id="orderline-consumible-select" class="form-input" style="display:none;" aria-label="Consumible"></select>
+          <input type="text" id="orderline-consumible-name" class="form-input" list="orderline-consumible-datalist" data-i18n-placeholder="consumables.selectPlaceholder"
+            placeholder="" autocomplete="off" />
+          <datalist id="orderline-consumible-datalist"></datalist>
+        </div>
+        <div class="form-group orderline-supplier-field-wrap">
+          <label data-i18n="table.supplier">Proveedor</label>
+          <select id="orderline-consum-supplier-select" class="form-input orderline-supplier-select" style="display:none;"></select>
+          <input type="text" id="orderline-consum-supplier" class="form-input" list="orderline-consum-supplier-datalist" data-i18n-placeholder="orderLines.supplierPh" placeholder="" autocomplete="organization" />
+          <datalist id="orderline-consum-supplier-datalist"></datalist>
+        </div>
+        <div class="form-group">
+          <label data-i18n="table.quantity">Cantidad</label>
+          <input type="number" id="orderline-consum-qty" class="form-input" min="0" step="0.01" value="1">
+        </div>
+        <div class="form-group orderlines-form-submit">
+          <label class="orderlines-submit-spacer">&nbsp;</label>
+          <button type="button" id="orderline-add-consumable-btn" class="btn btn-primary orderlines-submit-btn" data-i18n="orderLines.btnAddConsumable">Añadir consumible</button>
+        </div>
+      </div>
+    </form>
+
+    <div class="orderlines-filters orderlines-filters--extended" id="orderlines-filters" data-auth-act="ordFilters" data-auth-act-level="view" data-i18n-aria-label="orderLines.filterBarAria" role="region">
+      <div class="orderlines-filters-row orderlines-filters-row--search">
+        <div class="filter-group orderlines-filter-search-all">
+          <label for="orderlines-filter-search" data-i18n="orderLines.filterTextSearch">Buscar (referencia, código, descripción, proveedor, cantidades)</label>
+          <input type="search" id="orderlines-filter-search" class="filter-input" autocomplete="off" data-i18n-placeholder="orderLines.filterTextSearchPlaceholder" placeholder="" />
+        </div>
+      </div>
+      <div class="orderlines-filters-row filters-grid orderlines-filters-row--controls">
+        <div class="filter-group">
+          <label for="orderlines-filter-status" data-i18n="orderLines.filterStatus">Estado</label>
+          <select id="orderlines-filter-status" class="filter-select">
+            <option value="" data-i18n="orderLines.filterAll">Todos</option>
+            <option value="INACTIVA" data-i18n="orderLines.status.INACTIVA">Inactiva</option>
+            <option value="PEDIDA" data-i18n="orderLines.status.PEDIDA">Pedida</option>
+            <option value="RECEPCION_PARCIAL" data-i18n="orderLines.status.RECEPCION_PARCIAL">Recepción parcial</option>
+            <option value="RECEPCION_TOTAL" data-i18n="orderLines.status.RECEPCION_TOTAL">Recepción total</option>
+            <option value="CANCELADA" data-i18n="orderLines.status.CANCELADA">Cancelada</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="orderlines-filter-date-from" data-i18n="orderLines.filterDateFrom">Fecha clave desde</label>
+          <input type="date" id="orderlines-filter-date-from" class="filter-input orderlines-filter-date" />
+        </div>
+        <div class="filter-group">
+          <label for="orderlines-filter-date-to" data-i18n="orderLines.filterDateTo">Fecha clave hasta</label>
+          <input type="date" id="orderlines-filter-date-to" class="filter-input orderlines-filter-date" />
+        </div>
+        <div class="filter-group">
+          <label for="orderlines-filter-timeline" data-i18n="orderLines.filterTimeline">Historial</label>
+          <select id="orderlines-filter-timeline" class="filter-select">
+            <option value="" data-i18n="orderLines.timelineFilterAll">Todos</option>
+            <option value="has_receipt" data-i18n="orderLines.timelineFilterHasReceipt">Con recepción</option>
+            <option value="no_receipt" data-i18n="orderLines.timelineFilterNoReceipt">Sin recepción</option>
+            <option value="has_ordered" data-i18n="orderLines.timelineFilterHasOrdered">Con pedido registrado</option>
+            <option value="has_cancel" data-i18n="orderLines.timelineFilterHasCancel">Con anulación</option>
+          </select>
+        </div>
+        <div class="filter-group orderlines-filter-reset-wrap">
+          <label class="orderlines-filter-reset-spacer">&nbsp;</label>
+          <button type="button" id="orderlines-filter-reset" class="btn btn-secondary btn-sm" data-i18n="orderLines.filterReset">Limpiar filtros</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="orderlines-table-wrap" class="orderlines-table-wrap">
+      <div id="orderlines-view-table" class="orderlines-view-pane orderlines-table-panel">
+        <table class="data-table orderlines-table orderlines-table--centered">
+          <thead>
+            <tr>
+              <th class="orderline-col-select" scope="col">
+                <label class="orderline-select-head-label">
+                  <input type="checkbox" id="orderlines-select-all" class="orderline-select-cb orderline-select-cb--head" data-auth-act="ordBatchReceive" data-auth-act-level="edit" data-i18n-aria-label="orderLines.selectAllReceiptAria" aria-label="Seleccionar líneas pendientes para recepción múltiple" />
+                </label>
+              </th>
+              <th class="orderline-th-article" data-i18n="orderLines.colArticle">Artículo</th>
+              <th class="orderline-th-supplier" data-i18n="table.supplier">Proveedor</th>
+              <th data-i18n="orderLines.poColReceipt">OC (recepción)</th>
+              <th data-i18n="orderLines.colOrdered">Pedido</th>
+              <th data-i18n="orderLines.colReceived">Recibido</th>
+              <th data-i18n="orderLines.colRemaining">Pendiente</th>
+              <th data-i18n="orderLines.colMainStock">Stock principal</th>
+              <th data-i18n="table.status">Estado</th>
+              <th data-i18n="orderLines.colKeyDate">Fecha clave</th>
+              <th data-i18n="orderLines.colTimeline">Historial / fechas</th>
+              <th data-i18n="table.actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="orderlines-body"></tbody>
+        </table>
+        <div id="orderlines-batch-receipt-wrap" class="orderlines-batch-receipt-wrap">
+          <button type="button" id="orderlines-batch-receive-btn" class="btn btn-primary btn-sm" data-auth-act="ordBatchReceive" data-auth-act-level="edit" data-i18n="orderLines.btnBatchReceive" disabled>Recepcionar seleccionadas</button>
+        </div>
+      </div>
+      <p id="orderlines-empty" class="muted orderlines-empty" data-i18n="orderLines.empty" style="display:none;">No hay líneas de pedido.</p>
+      <p id="orderlines-empty-filter" class="muted orderlines-empty" data-i18n="orderLines.emptyFiltered" style="display:none;">Ninguna línea coincide con los filtros.</p>
+    </div>
+  </section>
+
+  <!-- ========== RECORDATORIOS — permiso dedicado (admin, Keith y Alex integrados) ========== -->
+  <section id="reminders-tab" class="tab-content requires-reminders-perm">
+    <div class="reminders-page" data-auth-act="remPanel" data-auth-act-level="view">
+      <header class="reminders-header">
+        <h2 data-i18n="reminders.pageTitle">Recordatorios</h2>
+      </header>
+      <div class="reminders-form reminders-form--full">
+        <input type="text" id="reminder-text-input" class="form-input reminders-input" maxlength="500" data-auth-act="remPanel" data-auth-act-level="edit" data-i18n-placeholder="reminders.placeholder" autocomplete="off" />
+        <input type="date" id="reminder-due-input" class="form-input reminders-due" data-auth-act="remPanel" data-auth-act-level="edit" data-i18n-title="reminders.dueTitle" title="" />
+        <select id="reminder-priority-input" class="filter-select reminders-priority-select" data-auth-act="remPanel" data-auth-act-level="edit" data-i18n-title="reminders.priorityLabel" title="">
+          <option value="when" data-i18n="reminders.priority.when">Cuando se pueda</option>
+          <option value="attention" data-i18n="reminders.priority.attention">Prestar atención</option>
+          <option value="urgent" data-i18n="reminders.priority.urgent">Urgente</option>
+        </select>
+        <button type="button" id="reminder-add-btn" class="btn btn-primary reminders-add" data-auth-act="remPanel" data-auth-act-level="edit" data-i18n="reminders.add">Añadir</button>
+      </div>
+      <ul id="reminders-list" class="reminders-list" data-i18n-aria-label="reminders.pageTitle"></ul>
+    </div>
+  </section>
+
+</main>
+
+<!-- ========== MODAL CONFIGURACIÓN ========== -->
+<div id="config-modal" class="modal">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 data-i18n="config.title">Configuración</h2>
+      <div class="modal-header-actions">
+        <button type="button" id="config-modal-minimize" class="modal-minimize-btn" data-i18n-aria-label="config.formMinimizeAria" data-i18n-title="config.formMinimizeAria" aria-label="">
+          <span class="modal-minimize-icon" aria-hidden="true"></span>
+        </button>
+        <button id="close-config" class="modal-close" data-i18n-aria-label="config.modalCloseAria" aria-label="Cerrar">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Tabs de configuración -->
+      <div class="config-tabs">
+        <button type="button" class="config-tab-btn active" data-auth-act="cfgTabImport" data-auth-act-level="view" data-config-tab="import" data-i18n="config.tab.import">Import/Export</button>
+        <button type="button" class="config-tab-btn requires-expiration-config" data-auth-act="cfgTabExpirations" data-auth-act-level="view" data-config-tab="expirations" data-i18n="config.tab.expirations">Expiraciones</button>
+        <button type="button" class="config-tab-btn" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-config-tab="receptions" data-i18n="config.tab.receptions">Recepciones</button>
+        <button type="button" class="config-tab-btn admin-only" id="config-tab-employees-btn" data-auth-act="cfgTabEmployees" data-auth-act-level="view" data-config-tab="employees" data-i18n="config.tab.employees">Empleados</button>
+        <button type="button" class="config-tab-btn admin-only" id="config-tab-suppliers-btn" data-auth-act="cfgTabSuppliers" data-auth-act-level="view" data-config-tab="suppliers" data-i18n="config.tab.suppliers">Proveedores</button>
+        <button type="button" class="config-tab-btn admin-only" id="config-tab-consumables-btn" data-auth-act="cfgTabConsumables" data-auth-act-level="view" data-config-tab="consumables" data-i18n="config.tab.consumables">Consumibles</button>
+        <button type="button" class="config-tab-btn admin-only" data-config-tab="itemedit" data-auth-act="cfgTabItemEdit" data-auth-act-level="view" data-i18n="config.tab.itemEdit">Edición de artículo</button>
+        <button type="button" class="config-tab-btn super-admin-only" data-config-tab="users" data-auth-act="cfgTabUsers" data-auth-act-level="view" data-i18n="config.tab.users" style="display:none;">Usuarios</button>
+        <button type="button" class="config-tab-btn super-admin-only" data-config-tab="elevation" data-auth-act="cfgTabElevation" data-auth-act-level="view" data-i18n="config.tab.elevation">Códigos elevación</button>
+        <button type="button" class="config-tab-btn" data-config-tab="about" data-auth-act="cfgTabAbout" data-auth-act-level="view" data-i18n="config.tab.about">Antecedentes</button>
+      </div>
+
+      <!-- Import / Export -->
+      <div id="config-import" class="config-content active">
+        <div class="config-section">
+          <h3 data-i18n="config.importInitialTitle">Cargar inventario inicial (CSV o XLSX)</h3>
+          <input type="file" id="import-inventory-btn" data-auth-act="cfgActImportInventory" data-auth-act-level="edit" accept=".csv,.txt,.xlsx,.xls" data-i18n-title="config.importInitialTitle" data-i18n-aria-label="config.importInitialTitle">
+          <div class="filter-actions" style="justify-content:flex-start;">
+            <button
+              type="button"
+              id="export-inventory-template-btn"
+              data-auth-act="cfgActExportTemplate"
+              data-auth-act-level="view"
+              class="btn inventory-asof-icon-btn config-template-icon-btn"
+              data-i18n-title="config.downloadBtn"
+              data-i18n-aria-label="config.downloadBtn"
+              title="Descargar plantilla XLSX"
+              aria-label="Descargar plantilla XLSX"
+            >
+              <svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><path d="M12 12v6"/><path d="M9.5 15.5 12 18l2.5-2.5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3 data-i18n="config.archiveTitle">Archivar movimientos antiguos</h3>
+          <div class="archive-row">
+            <label data-i18n="config.archiveBefore">Anteriores a:</label>
+            <input type="date" id="archive-date" class="filter-input">
+            <button type="button" id="archive-movements-btn" class="btn btn-warning" data-auth-act="cfgActArchive" data-auth-act-level="edit" data-i18n="config.archiveBtn">Archivar</button>
+            <button type="button" id="reimport-archive-btn" class="btn btn-secondary" data-auth-act="cfgActReimportArchive" data-auth-act-level="edit" data-i18n="config.reimportBtn">Reimportar archivo</button>
+            <input type="file" id="reimport-archive-input" accept=".json" style="display:none;">
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div id="config-backup-full-wrap">
+            <h3 data-i18n="config.backupSectionTitle">Respaldo general (JSON)</h3>
+            <button type="button" id="export-zip-btn" class="btn btn-secondary" data-auth-act="cfgActBackupExport" data-auth-act-level="edit" data-i18n="config.exportBackup">Exportar respaldo</button>
+            <button type="button" id="import-backup-btn" class="btn btn-secondary" data-auth-act="cfgActBackupImport" data-auth-act-level="edit" data-i18n="config.importBackup">Importar respaldo</button>
+            <input type="file" id="import-backup-input" accept=".json" style="display:none;" data-i18n-title="config.importBackup" data-i18n-aria-label="config.importBackup">
+          </div>
+          <div id="config-movements-merge-wrap">
+            <h4 class="config-subsection-title" data-i18n="config.movementsOnlySectionTitle">Solo movimientos (fusionar)</h4>
+            <button type="button" id="export-movements-only-btn" class="btn btn-secondary requires-movements-export" data-auth-act="cfgActMovementsExport" data-auth-act-level="edit" data-i18n="config.exportMovementsOnly">Exportar solo movimientos</button>
+            <button type="button" id="import-movements-merge-btn" class="btn btn-secondary" data-auth-act="cfgActMovementsMerge" data-auth-act-level="edit" data-i18n="config.importMovementsMerge">Importar y fusionar movimientos</button>
+            <input type="file" id="import-movements-merge-input" accept=".json" style="display:none;" data-i18n-title="config.importMovementsMerge" data-i18n-aria-label="config.importMovementsMerge">
+          </div>
+          <div id="config-transports-merge-wrap">
+            <h4 class="config-subsection-title" data-i18n="config.transportsOnlySectionTitle">Transportes expedidos (fusionar)</h4>
+            <button type="button" id="export-transports-shipped-only-btn" class="btn btn-secondary requires-movements-export" data-auth-act="cfgActTransportsExport" data-auth-act-level="edit" data-i18n="config.exportTransportsShippedOnly">Exportar solo transportes expedidos</button>
+            <button type="button" id="import-transports-merge-btn" class="btn btn-secondary" data-auth-act="cfgActTransportsMerge" data-auth-act-level="edit" data-i18n="config.importTransportsMerge">Importar y fusionar transportes</button>
+            <input type="file" id="import-transports-merge-input" accept=".json" style="display:none;" data-i18n-title="config.importTransportsMerge" data-i18n-aria-label="config.importTransportsMerge">
+          </div>
+          <button type="button" id="wipe-db-btn" class="btn btn-danger super-admin-only" data-auth-act="cfgActWipeDb" data-auth-act-level="edit" data-i18n="config.wipeDatabase">Borrar base de datos</button>
+        </div>
+
+        <div class="config-section admin-only" data-auth-act="cfgActRecipientsPreview" data-auth-act-level="view">
+          <h3 data-i18n="employees.previewTitle">Destinatarios (vista rápida)</h3>
+          <div id="config-employees-preview-body" class="config-employees-preview-body" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <!-- Edición de artículo (protegida) — solo administrador -->
+      <div id="config-itemedit" class="config-content admin-only">
+        <div id="item-edit-lock-panel" class="item-edit-lock" style="display:none;">
+          <h3 data-i18n="config.itemEditLockTitle">Edición de artículo</h3>
+          <div id="item-edit-setup-block" class="item-edit-pin-block" style="display:none;">
+            <p data-i18n="config.itemEditCreatePin">Cree una clave de acceso (mín. 4 caracteres):</p>
+            <input type="password" id="item-edit-pin-new" class="form-input" autocomplete="new-password" minlength="6">
+            <input type="password" id="item-edit-pin-new2" class="form-input" autocomplete="new-password" data-i18n-placeholder="config.itemEditPinRepeat">
+            <button type="button" id="item-edit-create-pin-btn" class="btn btn-primary" data-i18n="config.itemEditSavePin">Guardar clave</button>
+          </div>
+          <div id="item-edit-unlock-block" class="item-edit-pin-block">
+            <label data-i18n="config.itemEditPinLabel">Clave</label>
+            <input type="password" id="item-edit-pin-input" class="form-input" autocomplete="current-password">
+            <button type="button" id="item-edit-unlock-btn" class="btn btn-primary" data-i18n="config.itemEditUnlock">Desbloquear</button>
+          </div>
+        </div>
+        <div id="item-edit-unlocked" class="item-edit-unlocked" style="display:block;">
+        <h3 data-i18n="config.itemEditHeading">Editar artículos del inventario</h3>
+        <p class="item-edit-new-row" style="margin:0.5rem 0 1rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+          <button type="button" id="config-item-new-btn" class="btn btn-secondary btn-sm" data-i18n="config.newItem">Nuevo artículo</button>
+          <button type="button" id="config-item-delete-btn" class="btn btn-danger btn-sm" data-i18n="config.deleteItem" disabled>Eliminar artículo</button>
+        </p>
+        <div class="item-edit-change-pin-block" style="display:none;">
+          <h4 class="item-edit-subheading" data-i18n="config.itemEditChangePinHeading">Cambiar clave de acceso</h4>
+          <div class="form-group">
+            <label data-i18n="config.itemEditCurrentPin">Clave actual</label>
+            <input type="password" id="item-edit-pin-current-change" class="form-input" autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label data-i18n="config.itemEditNewPin">Nueva clave</label>
+            <input type="password" id="item-edit-pin-new-change" class="form-input" autocomplete="new-password" minlength="6">
+          </div>
+          <div class="form-group">
+            <label data-i18n="config.itemEditConfirmNewPin">Confirmar nueva clave</label>
+            <input type="password" id="item-edit-pin-new2-change" class="form-input" autocomplete="new-password" minlength="6">
+          </div>
+          <button type="button" id="item-edit-change-pin-btn" class="btn btn-secondary" data-i18n="config.itemEditUpdatePinBtn">Actualizar clave</button>
+        </div>
+        <input type="hidden" id="config-item-editor-id" value="">
+        <div class="form-group item-edit-search-wrap">
+          <label data-i18n="config.itemEditSearchLabel">Buscar artículo</label>
+          <div class="item-search-container item-edit-search-container">
+            <input type="search" id="config-item-search" class="search-input" autocomplete="off" data-i18n-placeholder="config.itemEditSearchPlaceholder" placeholder="Código, descripción, categoría o ubicación…">
+            <div id="config-item-search-results" class="search-results"></div>
+          </div>
+        </div>
+        <form id="item-edit-form" class="item-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.code">Código</label>
+              <input id="edit-code" type="text" required>
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.description">Descripción</label>
+              <input id="edit-description" type="text" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.category">Categoría</label>
+              <input id="edit-category" type="text">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.location">Ubicación</label>
+              <div class="filter-actions" style="justify-content:flex-start; margin-bottom:.35rem;">
+                <select id="edit-location-select" class="filter-select"></select>
+                <button type="button" id="edit-location-add-btn" class="btn btn-secondary btn-sm">Agregar</button>
+                <button type="button" id="edit-location-remove-btn" class="btn btn-secondary btn-sm">Quitar</button>
+              </div>
+              <textarea id="edit-location-values" class="form-textarea" rows="2" placeholder="Ubicaciones separadas por coma"></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.defaultPrice">Precio por defecto</label>
+              <input id="edit-default-price" type="number" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.priceCurrency">Moneda del precio</label>
+              <select id="edit-price-currency" class="filter-select">
+                <option value="CAD">CAD (C$)</option>
+                <option value="USD">USD (US$)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.mainStock">Stock principal</label>
+              <input id="edit-main-stock" type="number" step="0.0001">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.prodStock">Stock producción</label>
+              <input id="edit-prod-stock" type="number" step="0.0001">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.transStock">Stock transformación</label>
+              <input id="edit-trans-stock" type="number" step="0.0001">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.qtyPerBox">Cantidad por caja</label>
+              <input id="edit-qty-per-box" type="number" step="0.0001">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.numBoxes">Número de cajas</label>
+              <input id="edit-num-boxes" type="number" step="0.0001" readonly>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.expDate">Fecha expedición</label>
+              <input id="edit-exp-date" type="date">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.daysToExpire">Días para expirar</label>
+              <input id="edit-days-to-expire" type="number" step="1">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.expirationDate">Fecha expiración</label>
+              <input id="edit-expiration-date" type="date">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="table.supplier">Proveedor</label>
+              <input id="edit-supplier" type="text">
+            </div>
+            <div class="form-group">
+              <label data-i18n="table.lastOrder">Última orden</label>
+              <input id="edit-last-order" type="text">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="inventory.colMin">Mínimo por artículo</label>
+              <input id="edit-min-stock" type="number" min="0" step="1">
+            </div>
+            <div class="form-group">
+              <label data-i18n="inventory.colMax">Máximo por artículo</label>
+              <input id="edit-max-stock" type="number" min="0" step="1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label data-i18n="table.details">Detalles</label>
+            <textarea id="edit-details" class="form-textarea"></textarea>
+          </div>
+          <div class="form-group">
+            <label data-i18n="movements.notes">Notas</label>
+            <textarea id="edit-notes" class="form-textarea"></textarea>
+          </div>
+          <div class="form-group">
+            <label data-i18n="config.itemProblemsNoteLabel">Problemas con el artículo</label>
+            <textarea id="edit-item-problems-note" class="form-textarea" rows="3"></textarea>
+          </div>
+          <div class="form-group item-edit-inventory-consumable-block">
+            <label class="checkbox-label item-edit-checkbox-label">
+              <input type="checkbox" id="edit-inventory-consumable" />
+              <span data-i18n="config.inventoryConsumableToggle">Tratar como consumible de inventario</span>
+            </label>
+          </div>
+          <div class="form-group item-edit-low-stock-ignore-block">
+            <label class="checkbox-label item-edit-checkbox-label">
+              <input type="checkbox" id="edit-ignore-low-stock-alert" />
+              <span data-i18n="config.ignoreLowStockAlertToggle">Ignorar alertas de stock bajo para este artículo</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary" data-i18n="buttons.save">Guardar</button>
+        </form>
+        <div class="config-section" style="margin-top:1rem;">
+          <h3>Ubicaciones vigentes (catálogo)</h3>
+          <div class="filter-actions" style="justify-content:flex-start;">
+            <input id="config-location-catalog-input" type="text" class="filter-input" placeholder="Nueva ubicación (ej. ETOPR)">
+            <button type="button" id="config-location-catalog-add-btn" class="btn btn-secondary">Agregar</button>
+            <button type="button" id="config-location-catalog-reset-btn" class="btn btn-danger">Restablecer personalizadas</button>
+          </div>
+          <div class="inventory-table-container" style="margin-top:.5rem;">
+            <table class="inventory-table">
+              <thead>
+                <tr><th>Ubicación</th><th>Origen</th><th>Acciones</th></tr>
+              </thead>
+              <tbody id="config-location-catalog-body"></tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <!-- Expiraciones — administrador o Keith (integrado) / permiso expirationConfig -->
+      <div id="config-expirations" class="config-content requires-expiration-config">
+        <h3 data-i18n="config.expirationsTitle">Artículos con caducidad / vida útil</h3>
+        <div class="form-group">
+          <label data-i18n="config.expAlertDaysLabel">Días para alertar antes de vencer:</label>
+          <input id="exp-alert-days" type="number" min="1" value="30">
+        </div>
+        <h4 data-i18n="config.expirationSearchTitle">Vida útil por artículo</h4>
+        <div class="form-group item-search-container exp-search-container">
+          <label data-i18n="config.expirationSearchLabel">Buscar artículo</label>
+          <input type="text" id="exp-item-search" class="search-input" data-i18n-placeholder="config.expirationSearchPlaceholder" autocomplete="off">
+          <div id="exp-item-search-results" class="search-results"></div>
+        </div>
+        <div id="expiration-item-panel" class="expiration-item-panel" style="display:none;">
+          <div class="expiration-panel-head">
+            <strong id="exp-panel-code"></strong>
+            <span id="exp-panel-desc" class="exp-panel-desc"></span>
+          </div>
+          <dl class="expiration-dl">
+            <dt data-i18n="config.expPanelIssueDate">Fecha expedición (artículo)</dt>
+            <dd id="exp-panel-expdate">—</dd>
+          </dl>
+          <div class="form-group">
+            <label data-i18n="config.expShelfLifeMonths">Vida útil (meses)</label>
+            <input type="number" id="exp-shelf-life-months" min="0" step="1" value="0">
+          </div>
+          <p id="exp-panel-computed" class="form-hint exp-computed-hint" style="display:none;"></p>
+          <button type="button" class="btn btn-primary" id="exp-save-shelf-btn" data-i18n="buttons.save">Guardar</button>
+        </div>
+      </div>
+
+      <!-- Recepciones: lista editable (registro vía movimiento «Recepción material») -->
+      <!-- Usuarios (solo administrador real) -->
+      <div id="config-users" class="config-content super-admin-only">
+        <h3 data-i18n="auth.usersTitle">Gestión de usuarios</h3>
+
+        <div class="user-add-form">
+          <h4 data-i18n="auth.addUser">Añadir usuario</h4>
+          <div class="user-add-grid">
+            <input id="user-add-username" type="text" class="form-input" placeholder="Usuario" data-i18n-placeholder="auth.username" required minlength="2">
+            <input id="user-add-display" type="text" class="form-input" placeholder="Nombre visible" data-i18n-placeholder="auth.displayName">
+            <input id="user-add-password" type="password" class="form-input" placeholder="Contraseña" data-i18n-placeholder="auth.password" required minlength="6">
+            <select id="user-add-role" class="filter-select">
+              <option value="user" data-i18n="auth.roleUser">Usuario</option>
+              <option value="admin" data-i18n="auth.roleAdmin">Administrador</option>
+            </select>
+            <label class="user-add-edit-check"><input type="checkbox" id="user-add-canEdit"> <span data-i18n="auth.canEdit">Puede editar</span></label>
+            <button type="button" id="user-add-btn" class="btn btn-primary" data-i18n="auth.addUserBtn">Añadir</button>
+          </div>
+        </div>
+
+        <div id="users-table-wrap" class="users-admin-table"></div>
+
+        <div class="config-section" style="margin-top:1.5rem;">
+          <h4 data-i18n="auth.auditLogTitle">Registro de auditoría</h4>
+          <div class="audit-filters">
+            <input id="audit-filter-user" type="text" class="filter-input" data-i18n-placeholder="audit.filterUserPh" placeholder="Usuario…">
+            <input id="audit-filter-action" type="text" class="filter-input" data-i18n-placeholder="audit.filterActionPh" placeholder="Acción…">
+            <input id="audit-filter-date-from" type="date" class="filter-input" title="Desde">
+            <input id="audit-filter-date-to" type="date" class="filter-input" title="Hasta">
+            <button type="button" id="audit-filter-clear" class="btn btn-secondary btn-sm" data-i18n="buttons.clearFilters">Limpiar</button>
+          </div>
+          <div id="audit-log-wrap" class="audit-log-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Códigos de elevación temporal (solo administrador real; emite y copia; el usuario canjea sin ver la lista) -->
+      <div id="config-elevation" class="config-content super-admin-only">
+        <div class="config-section">
+          <h3 data-i18n="elevation.panelTitle">Códigos de elevación temporal</h3>
+          <div id="elevation-admin-panel" class="elevation-admin-panel"></div>
+        </div>
+      </div>
+
+      <div id="config-receptions" class="config-content">
+        <h3 data-i18n="config.receptionsTitle">Recepciones de material</h3>
+        <div class="receptions-config-toolbar">
+          <label class="receptions-search-label">
+            <span data-i18n="config.receptionsSearchLabel">Buscar recepciones</span>
+            <input type="search" id="receptions-config-search" class="search-input receptions-config-search-input" data-i18n-placeholder="config.receptionsSearchPlaceholder" autocomplete="off">
+          </label>
+          <button type="button" id="receptions-config-import-btn" class="btn btn-secondary btn-sm" data-i18n="config.importReceptions">Importar recepciones</button>
+          <input type="file" id="receptions-config-import-input" accept=".csv,.xlsx,.xls,.json" style="display:none">
+          <button type="button" id="receptions-config-print-btn" class="btn btn-secondary btn-sm" data-i18n="config.printReceptionsFiltered">Imprimir recepciones filtradas</button>
+          <button type="button" id="receptions-config-export-btn" class="btn btn-secondary btn-sm" data-i18n="config.exportReceptionsFiltered">Exportar recepciones filtradas</button>
+        </div>
+        <div id="receptions-config-table" class="receptions-table-wrap"></div>
+      </div>
+
+      <!-- Antecedentes del proyecto (origen Excel → Phoenix → G-NEEX) -->
+      <div id="config-employees" class="config-content admin-only">
+        <div class="config-section">
+          <h3 data-i18n="employees.staffTitle">Empleados de plantilla</h3>
+          <div class="employees-add-row form-row">
+            <div class="form-group employees-add-group">
+              <label for="employees-add-name" data-i18n="employees.addLabel">Nombre</label>
+              <input type="text" id="employees-add-name" class="form-input" maxlength="120" autocomplete="name" data-i18n-placeholder="employees.addPlaceholder" placeholder="Nombre y apellido">
+            </div>
+            <button type="button" id="employees-add-btn" class="btn btn-primary" data-i18n="employees.addBtn">Añadir</button>
+          </div>
+          <ul id="employees-config-list" class="employees-config-list" aria-live="polite"></ul>
+        </div>
+        <div class="config-section">
+          <h3 data-i18n="employees.occasionalTitle">Ocasionales / externos</h3>
+          <div class="employees-add-row form-row">
+            <div class="form-group employees-add-group">
+              <label for="employees-occasional-add-name" data-i18n="employees.addLabel">Nombre</label>
+              <input type="text" id="employees-occasional-add-name" class="form-input" maxlength="120" autocomplete="name" data-i18n-placeholder="employees.addPlaceholder" placeholder="Nombre y apellido">
+            </div>
+            <button type="button" id="employees-occasional-add-btn" class="btn btn-primary" data-i18n="employees.addBtn">Añadir</button>
+          </div>
+          <ul id="employees-occasional-config-list" class="employees-config-list" aria-live="polite"></ul>
+        </div>
+      </div>
+
+      <div id="config-suppliers" class="config-content admin-only">
+        <div class="config-section">
+          <h3 data-i18n="suppliers.title">Proveedores</h3>
+          <div class="employees-add-row form-row suppliers-add-row">
+            <div class="form-group employees-add-group">
+              <label for="suppliers-add-name" data-i18n="suppliers.addLabel">Nombre</label>
+              <input type="text" id="suppliers-add-name" class="form-input" maxlength="120" autocomplete="organization" data-i18n-placeholder="suppliers.addPlaceholder" placeholder="">
+            </div>
+            <button type="button" id="suppliers-add-btn" class="btn btn-primary" data-i18n="suppliers.addBtn">Añadir</button>
+          </div>
+          <ul id="suppliers-config-list" class="employees-config-list" aria-live="polite"></ul>
+        </div>
+      </div>
+
+      <div id="config-consumables" class="config-content admin-only">
+        <div class="config-section">
+          <h3 data-i18n="consumables.title">Consumibles</h3>
+          <div class="employees-add-row form-row">
+            <div class="form-group employees-add-group">
+              <label for="consumables-add-name" data-i18n="consumables.addLabel">Nombre</label>
+              <input type="text" id="consumables-add-name" class="form-input" maxlength="140" autocomplete="off" />
+            </div>
+            <button type="button" id="consumables-add-btn" class="btn btn-primary" data-i18n="consumables.addBtn">Añadir</button>
+          </div>
+          <ul id="consumables-config-list" class="employees-config-list" aria-live="polite"></ul>
+        </div>
+      </div>
+
+      <div id="config-about" class="config-content config-about-panel">
+        <h3 data-i18n="config.aboutTitle">Origen y propósito del proyecto</h3>
+        <div class="config-about-body">
+          <p data-i18n="config.aboutP1"></p>
+          <p data-i18n="config.aboutP2"></p>
+          <p data-i18n="config.aboutP3"></p>
+          <p data-i18n="config.aboutP4"></p>
+          <p data-i18n="config.aboutP5"></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL DETALLE HISTORIAL ========== -->
+<div id="movement-detail-modal" class="modal">
+  <div class="modal-content modal-large">
+    <div class="modal-header modal-header--history-detail">
+      <h2 data-i18n="history.movementDetail">Detalle del movimiento</h2>
+      <div class="modal-header-tools">
+      <button type="button" id="movement-detail-print-btn" class="btn inventory-asof-icon-btn" data-i18n-title="history.printMovementDetail" data-i18n-aria-label="history.printMovementDetail"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+      <button type="button" id="movement-detail-export-csv-btn" class="btn inventory-asof-icon-btn" data-i18n-title="history.exportMovementCsv" data-i18n-aria-label="history.exportMovementCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+      <button type="button" id="annul-movement-btn" class="btn btn-danger btn-sm" data-i18n="buttons.annulMovement">Anular Movimiento</button>
+      <button type="button" id="close-movement-detail" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="movement-detail-content"></div>
+  </div>
+</div>
+
+<!-- Ayuda por tipo de movimiento -->
+<div id="mov-type-help-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mov-type-help-title">
+  <div class="modal-content mov-type-help-modal-content">
+    <div class="modal-header">
+      <h2 id="mov-type-help-title"></h2>
+      <button type="button" id="close-mov-type-help" class="modal-close" data-i18n-aria-label="movements.movTypeHelpCloseAria" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="mov-type-help-body" class="mov-type-help-body"></p>
+    </div>
+  </div>
+</div>
+
+            <div id="movement-form-window" class="modal movement-form-window" role="dialog" aria-modal="true" aria-labelledby="movement-form-window-title">
+            <div class="modal-content modal-large movement-form-modal-sheet">
+            <div class="modal-header">
+              <h2 id="movement-form-window-title" class="movement-form-window-title"></h2>
+              <div class="modal-header-actions">
+                <button type="button" id="movement-form-window-minimize" class="modal-minimize-btn" data-i18n-aria-label="movements.formWindowMinimizeAria" data-i18n-title="movements.formWindowMinimizeAria" aria-label="">
+                  <span class="modal-minimize-icon" aria-hidden="true"></span>
+                </button>
+              <button type="button" id="movement-form-window-close" class="modal-close" data-i18n-aria-label="movements.formWindowCloseAria" aria-label="Cerrar">&times;</button>
+              </div>
+            </div>
+            <div class="modal-body movement-form-modal-body">
+            <div id="standby-editing-badge" class="status-badge valid" style="display:none; margin:0.5rem 0;"></div>
+
+            <div id="movement-details" class="movement-details" style="display:none;">
+                <div class="form-row">
+                    <div class="form-group" id="movement-project-group">
+                        <label data-i18n="movements.projectId">ID Proyecto:</label>
+                        <input id="project-id" type="text" class="form-input">
+                        <span id="project-id-hint" class="field-hint"></span>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="movements.notes">Notas:</label>
+                        <textarea id="movement-notes" class="form-textarea"></textarea>
+                    </div>
+                </div>
+                <div id="standby-release-config" class="form-row" style="display:none;">
+                    <div class="form-group">
+                        <label data-i18n="movements.standbyReleaseAs">Liberar Stand-By como:</label>
+                        <select id="standby-release-type" class="filter-select"></select>
+                    </div>
+                </div>
+
+                <div id="movement-compra-fields" class="form-row mov-special-block" style="display:none;">
+                    <div class="form-group">
+                        <label data-i18n="movCompra.po">PO / Orden de compra *</label>
+                        <input id="mov-compra-po" type="text" class="form-input" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="movCompra.packingSlip">Packing slip</label>
+                        <input id="mov-compra-slip" type="text" class="form-input" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="reception.supplier">Proveedor</label>
+                        <input id="mov-compra-supplier" type="text" class="form-input" list="mov-compra-supplier-datalist" autocomplete="off" data-i18n-placeholder="orderLines.supplierPh" placeholder="Opcional; lista de proveedores">
+                        <datalist id="mov-compra-supplier-datalist"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="mov-compra-receipt-historical-date" data-i18n="movements.receiptHistoricalDateLabel">Fecha real de recepción (opcional)</label>
+                        <input id="mov-compra-receipt-historical-date" type="date" class="form-input" autocomplete="off" />
+                    </div>
+                </div>
+                <div id="mov-compra-consumible-extra" class="form-row mov-compra-consumible-extra" style="display:none;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="checkbox-label" style="display:flex;align-items:center;gap:0.5rem;">
+                            <input type="checkbox" id="mov-compra-consumible-only" />
+                            <span data-i18n="movements.compraConsumableOnlyToggle">Recepción de consumible (solo constancia, no inventario)</span>
+                        </label>
+                    </div>
+                </div>
+                <div id="mov-compra-consumible-fields" class="form-row mov-compra-consumible-fields" style="display:none;">
+                    <div class="form-group">
+                        <label data-i18n="consumables.consumibleLabelShort">Consumible</label>
+                        <select id="mov-compra-consumible-select" class="filter-select" style="display:none;"></select>
+                        <input type="text" id="mov-compra-consumible-name" class="form-input" list="mov-compra-consumible-datalist" autocomplete="off" placeholder="" />
+                        <datalist id="mov-compra-consumible-datalist"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="table.quantity">Cantidad</label>
+                        <input type="number" id="mov-compra-consumible-qty" class="form-input" min="0" step="0.01" value="1">
+                    </div>
+                </div>
+
+                <div id="movement-recepcion-fields" class="mov-recepcion-block" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="reception.materialCategory">Tipo de material</label>
+                            <select id="mov-rec-category" class="filter-select">
+                                <option value="MARMOL" data-i18n="reception.mat.MARMOL">Mármol</option>
+                                <option value="VIDRIO_PLANO" data-i18n="reception.mat.VIDRIO_PLANO">Vidrio plano</option>
+                                <option value="VIDRIO_CURVO" data-i18n="reception.mat.VIDRIO_CURVO">Vidrio curvo</option>
+                                <option value="VIDRIO_PINTADO" data-i18n="reception.mat.VIDRIO_PINTADO">Vidrio pintado</option>
+                                <option value="GRANITO" data-i18n="reception.mat.GRANITO">Granito</option>
+                                <option value="GRANITO_LACROIX" data-i18n="reception.mat.GRANITO_LACROIX">Granito Lacroix</option>
+                                <option value="ESPECIAL" data-i18n="reception.mat.ESPECIAL">Material especial</option>
+                                <option value="OTRO" data-i18n="reception.mat.OTRO">Otro / inventario</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="reception.purchaseOrder">Orden de compra (PO)</label>
+                            <input id="mov-rec-po" type="text" class="form-input" autocomplete="off">
+                        </div>
+                    </div>
+                    <div id="mov-rec-lines-wrap" class="mov-rec-lines-wrap"></div>
+                    <div class="mov-rec-lines-actions">
+                        <button type="button" id="mov-rec-add-line-btn" class="btn btn-secondary btn-sm" data-i18n="reception.addLineBtn">+ Añadir artículo en esta recepción</button>
+                    </div>
+                    <div class="form-row mov-rec-glass-packing-wrap" id="mov-rec-glass-packing-wrap" style="display:none;">
+                        <div class="form-group" style="flex:1;min-width:12rem;">
+                            <label for="mov-rec-glass-packing" data-i18n="reception.glassPackingLabel">Presentación (vidrio plano, curvo o pintado)</label>
+                            <select id="mov-rec-glass-packing" class="filter-select">
+                                <option value="" data-i18n="reception.glassPackingUnspecified">— Elegir —</option>
+                                <option value="standard_box" data-i18n="reception.glassPackingStandard">Caja estándar</option>
+                                <option value="loose_mixed" data-i18n="reception.glassPackingLoose">Suelto / combinar (pocas piezas, sin caja asignada)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="reception.supplier">Proveedor</label>
+                            <input id="mov-rec-supplier" type="text" class="form-input" list="mov-rec-supplier-datalist" autocomplete="off" data-i18n-placeholder="orderLines.supplierPh" placeholder="Opcional; lista de proveedores">
+                            <datalist id="mov-rec-supplier-datalist"></datalist>
+                        </div>
+                        <div class="form-group reception-prov-row">
+                            <label><input type="checkbox" id="mov-rec-provisional" /> <span data-i18n="reception.provisionalCheck">Stock provisional</span></label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mov-rec-receipt-historical-date" data-i18n="movements.receiptHistoricalDateLabel">Fecha real de recepción (opcional)</label>
+                            <input id="mov-rec-receipt-historical-date" type="date" class="form-input" autocomplete="off" />
+                        </div>
+                    </div>
+                    <div class="mov-recepcion-actions">
+                        <button type="button" id="process-recepcion-movement" class="btn btn-primary" data-i18n="buttons.processRecepcion">Procesar recepción</button>
+                    </div>
+                </div>
+
+                <div id="movement-inventory-lines">
+                <div id="mov-standard-item-search-wrap" class="form-group">
+                    <label id="mov-item-search-label">Buscar Artículos:</label>
+                    <div class="item-search-container">
+                        <input id="item-search" class="search-input" 
+                               data-i18n-placeholder="movements.searchPlaceholder"
+                               placeholder="Código o descripción...">
+                        <div id="item-search-results" class="search-results"></div>
+                    </div>
+                </div>
+                <div id="mov-tf-stock-tables-wrap" class="mov-tf-stock-tables-wrap" style="display:none;" aria-label="Stock transformación y producción">
+                    <div class="mov-tf-stock-grid">
+                        <div class="mov-tf-stock-panel">
+                            <h4 class="mov-tf-stock-panel-title" data-i18n="movements.transformationStockTableTransTitle">Stock transformación</h4>
+                            <div class="mov-tf-stock-table-scroll">
+                                <table class="inventory-table mov-tf-stock-table">
+                                    <thead>
+                                        <tr>
+                                            <th data-i18n="table.code">Código</th>
+                                            <th data-i18n="table.description">Descripción</th>
+                                            <th data-i18n="table.transStock">Cant.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="mov-tf-stock-trans-body"></tbody>
+                                </table>
+                            </div>
+                            <p id="mov-tf-stock-trans-empty" class="muted mov-tf-stock-empty" style="display:none;" data-i18n="movements.transformationStockEmptyTrans"></p>
+                        </div>
+                        <div class="mov-tf-stock-panel">
+                            <h4 class="mov-tf-stock-panel-title" data-i18n="movements.transformationStockTableProdTitle">Stock producción</h4>
+                            <div class="mov-tf-stock-table-scroll">
+                                <table class="inventory-table mov-tf-stock-table">
+                                    <thead>
+                                        <tr>
+                                            <th data-i18n="table.code">Código</th>
+                                            <th data-i18n="table.description">Descripción</th>
+                                            <th data-i18n="table.prodStock">Cant.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="mov-tf-stock-prod-body"></tbody>
+                                </table>
+                            </div>
+                            <p id="mov-tf-stock-prod-empty" class="muted mov-tf-stock-empty" style="display:none;" data-i18n="movements.transformationStockEmptyProd"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="selected-items-section">
+                    <h3 id="mov-selected-items-title">Artículos Seleccionados</h3>
+                    <div class="selected-items-table-container">
+                        <table class="selected-items-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="table.code">Código</th>
+                                    <th data-i18n="table.description">Descripción</th>
+                                    <th id="mov-recipient-th" style="display:none;" data-i18n="movements.recipientName">Destinatario</th>
+                                    <th id="mov-selected-qty-th" data-i18n="table.quantity">Cantidad</th>
+                                    <th id="mov-selected-box-th" style="display:none;" data-i18n="movements.stockSourceColumn">Origen stock</th>
+                                    <th id="mov-selected-target-col">Destino</th>
+                                    <th id="mov-compra-dest-th" style="display:none;" data-i18n="movCompra.stockPlacement">Ingreso físico</th>
+                                    <th data-i18n="table.stockChange">Stock</th>
+                                    <th data-i18n="table.status">Estado</th>
+                                    <th data-i18n="table.actions">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="selected-items-body"></tbody>
+                        </table>
+                    </div>
+                    <datalist id="mov-compra-loc-datalist"></datalist>
+                </div>
+
+                <div id="movement-transformacion-fields" class="mov-transformacion-block" style="display:none;">
+                    <h4 class="mov-tf-section-title" data-i18n="movements.transformationSectionTaller"></h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="movements.transformationVendor">Empresa / taller de transformación</label>
+                            <input id="mov-transformacion-vendor" type="text" class="form-input" autocomplete="organization">
+                        </div>
+                    </div>
+                    <h4 class="mov-tf-section-title" data-i18n="movements.transformationSectionResultado"></h4>
+                    <div class="form-group mov-tf-target-section">
+                        <label data-i18n="movements.transformationTarget">Transformar a (resultado)</label>
+                        <div class="mov-tf-mode-row">
+                            <label class="mov-tf-mode-label">
+                                <input type="radio" name="mov-tf-target-mode" value="existing" checked />
+                                <span data-i18n="movements.transformationModeExisting">Artículo del inventario</span>
+                            </label>
+                            <label class="mov-tf-mode-label">
+                                <input type="radio" name="mov-tf-target-mode" value="new" />
+                                <span data-i18n="movements.transformationModeNew">Crear artículo nuevo</span>
+                            </label>
+                        </div>
+                        <div id="mov-tf-target-existing-wrap">
+                            <div class="item-search-container mov-tf-target-search-wrap">
+                                <input id="mov-tf-target-search" class="search-input" data-i18n-placeholder="movements.transformationTargetSearchPh" placeholder="Buscar código o descripción…" autocomplete="off" />
+                                <div id="mov-tf-target-results" class="search-results"></div>
+                            </div>
+                            <div id="mov-tf-target-selected" class="mov-tf-selected-chip" style="display:none;" role="status"></div>
+                        </div>
+                        <div id="mov-tf-target-new-wrap" style="display:none;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label data-i18n="table.code">Código</label>
+                                    <input id="mov-tf-new-code" type="text" class="form-input" autocomplete="off" />
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="table.description">Descripción</label>
+                                    <input id="mov-tf-new-desc" type="text" class="form-input" autocomplete="off" />
+                                </div>
+                                <div class="form-group">
+                                    <label data-i18n="table.category">Categoría</label>
+                                    <input id="mov-tf-new-category" type="text" class="form-input" autocomplete="off" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h4 class="mov-tf-section-title" data-i18n="movements.transformationSectionCantidad"></h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label data-i18n="movements.transformationOutputQty">Cantidad del artículo final (stock principal)</label>
+                            <input type="number" id="mov-transformacion-output-qty" class="form-input" step="any" min="0" value="1" />
+                        </div>
+                    </div>
+                </div>
+
+                <datalist id="consumo-recipient-datalist"></datalist>
+
+                <div class="movement-actions">
+                    <button type="button" id="cancel-movement" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+                    <button type="button" id="process-movement" class="btn btn-primary" data-i18n="buttons.process">Procesar Movimiento</button>
+                </div>
+                </div><!-- movement-inventory-lines -->
+            </div>
+            </div>
+            </div>
+            </div>
+
+<!-- Sobregiro: confirmación + motivo (obligatorio) -->
+<div id="overdraft-confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="overdraft-modal-title">
+  <div class="modal-content modal-small">
+    <div class="modal-header">
+      <h2 id="overdraft-modal-title" data-i18n="movements.overdraftModalTitle">Confirmar sobregiro</h2>
+      <button type="button" id="overdraft-modal-close" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="overdraft-reason-input" data-i18n="movements.overdraftReasonLabel">Motivo (obligatorio)</label>
+        <textarea id="overdraft-reason-input" class="form-input" rows="4" data-i18n-placeholder="movements.overdraftReasonPlaceholder" placeholder="Ej.: Autorizado por… Urgencia obra…"></textarea>
+      </div>
+      <div class="modal-actions overdraft-modal-actions">
+        <button type="button" id="overdraft-cancel-btn" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+        <button type="button" id="overdraft-confirm-btn" class="btn btn-danger" data-i18n="movements.overdraftConfirmBtn">Confirmar con sobregiro</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== CONFIG: matriz de permisos por usuario ========== -->
+<div id="user-permission-matrix-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="user-permission-matrix-title">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="user-permission-matrix-title"></h2>
+      <button type="button" id="close-user-permission-matrix" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="user-permission-matrix-form">
+        <div id="user-permission-matrix-fields" class="user-matrix-form-wrap"></div>
+        <div class="modal-actions user-matrix-modal-actions">
+          <button type="button" id="user-permission-matrix-cancel" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+          <button type="submit" class="btn btn-primary" data-i18n="buttons.save">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DASHBOARD: todas las alertas ========== -->
+<div id="dashboard-alerts-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-alerts-title">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="dashboard-alerts-title" data-i18n="dashboard.alertsModalTitle">Todas las alertas activas</h2>
+      <button type="button" id="close-dashboard-alerts" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body dashboard-alerts-modal-body" id="dashboard-alerts-body"></div>
+  </div>
+</div>
+
+<!-- ========== INVENTARIO: resumen por caja (ubicación) ========== -->
+<div id="inventory-box-summary-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-box-summary-heading">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="inventory-box-summary-heading" data-i18n="inventory.boxSummaryTitle">Resumen por caja</h2>
+      <button type="button" id="close-inventory-box-summary" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body" id="inventory-box-summary-body"></div>
+  </div>
+</div>
+
+<div id="inventory-zero-boxes-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-zero-boxes-heading">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="inventory-zero-boxes-heading" data-i18n="inventory.zeroBoxesTitle">Cajas con cantidad 0</h2>
+      <button type="button" id="close-inventory-zero-boxes" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body" id="inventory-zero-boxes-body"></div>
+  </div>
+</div>
+
+<div id="inventory-box-zero-total-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-box-zero-total-heading">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="inventory-box-zero-total-heading" data-i18n="inventory.boxZeroTotalTitle">Cajas sin unidades (total)</h2>
+      <button type="button" id="close-inventory-box-zero-total" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body" id="inventory-box-zero-total-body"></div>
+  </div>
+</div>
+
+<div id="inventory-box-manager-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-box-manager-heading">
+  <div class="modal-content inventory-box-manager-content">
+    <div class="modal-header">
+      <h2 id="inventory-box-manager-heading" data-i18n="inventory.boxManagerTitle">Gestión de stock por caja</h2>
+      <button type="button" id="close-inventory-box-manager" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group inventory-box-item-search-group">
+          <label for="inventory-box-item-search" data-i18n="inventory.boxManagerItemLabel">Artículo</label>
+          <div class="inventory-box-item-search-row">
+            <div class="item-search-container">
+              <input id="inventory-box-item-search" class="search-input" type="text" data-i18n-placeholder="search.placeholder" placeholder="Buscar por código, descripción, categoría o ubicación..." autocomplete="off">
+              <div id="inventory-box-item-search-results" class="search-results"></div>
+            </div>
+            <button type="button" id="inventory-box-clear-article-btn" class="btn btn-secondary btn-sm inventory-box-clear-article-btn" data-i18n="inventory.boxMgrClearArticle" disabled>Quitar artículo</button>
+          </div>
+        </div>
+      </div>
+      <h4 id="inventory-box-item-title" class="inventory-box-item-title"></h4>
+      <div class="inventory-table-container inventory-table-container--nested">
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th data-i18n="inventory.boxColNumber">Caja n.º</th>
+              <th data-i18n="inventory.boxMgrColUbicacion">Ubicación</th>
+              <th data-i18n="table.quantity">Cantidad</th>
+              <th data-i18n="inventory.boxColQtyBoxes">Cajas</th>
+              <th data-i18n="movements.notes">Notas</th>
+              <th data-i18n="inventory.boxColUpdated">Actualizado</th>
+              <th data-i18n="table.actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-box-item-body"></tbody>
+        </table>
+      </div>
+      <h4 class="inventory-box-mgr-section-title" data-i18n="inventory.boxMgrSectionForm">Añadir o editar caja</h4>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="inventory-box-number" data-i18n="inventory.boxColNumber">Caja n.º</label>
+          <input id="inventory-box-number" class="form-input" type="number" min="1" step="1">
+        </div>
+        <div class="form-group">
+          <label for="inventory-box-qty" data-i18n="table.quantity">Cantidad</label>
+          <input id="inventory-box-qty" class="form-input" type="number" min="0" step="any" value="0">
+        </div>
+        <div class="form-group">
+          <label for="inventory-box-qty-boxes" data-i18n="inventory.boxColQtyBoxes">Cajas</label>
+          <input id="inventory-box-qty-boxes" class="form-input" type="number" min="0" step="1" value="0">
+        </div>
+        <div class="form-group">
+          <label for="inventory-box-location" data-i18n="inventory.boxMgrCatalogSlotLabel" data-i18n-title="inventory.boxMgrCatalogSlotTitle" title="">Ranura catálogo (opcional)</label>
+          <input id="inventory-box-location" class="form-input" type="text" list="inventory-box-location-datalist" data-i18n-placeholder="inventory.boxMgrLocationPlaceholder" placeholder="">
+          <datalist id="inventory-box-location-datalist"></datalist>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="inventory-box-notes" data-i18n="movements.notes">Notas</label>
+          <input id="inventory-box-notes" class="form-input" type="text">
+        </div>
+        <div class="form-group inventory-box-mark-empty-wrap">
+          <label class="inventory-box-checkbox-label">
+            <input type="checkbox" id="inventory-box-mark-empty">
+            <span data-i18n="inventory.boxMgrMarkEmpty">Marcar como no tocar</span>
+          </label>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button type="button" id="inventory-box-cancel-edit-btn" class="btn btn-secondary" data-i18n="inventory.boxMgrCancelEdit" hidden>Cancelar edición</button>
+        <button type="button" id="inventory-box-save-btn" class="btn btn-primary">Guardar caja</button>
+      </div>
+      <hr>
+      <h4 data-i18n="inventory.boxTransferTitle">Repartir stock entre cajas y columnas</h4>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="inventory-box-transfer-from" data-i18n="inventory.boxTransferFrom">Desde caja</label>
+          <select id="inventory-box-transfer-from" class="filter-select"></select>
+        </div>
+        <div class="form-group">
+          <label for="inventory-box-transfer-to" data-i18n="inventory.boxTransferTo">Hacia caja</label>
+          <select id="inventory-box-transfer-to" class="filter-select"></select>
+        </div>
+        <div class="form-group">
+          <label for="inventory-box-transfer-qty" data-i18n="table.quantity">Cantidad</label>
+          <input id="inventory-box-transfer-qty" class="form-input" type="number" min="0" step="any" value="0">
+        </div>
+        <div class="form-group" id="inventory-box-transfer-location-wrap" hidden>
+          <label for="inventory-box-transfer-location" data-i18n="inventory.boxTransferLocation">Ubicación destino (si destino es caja o ubicación directa)</label>
+          <input id="inventory-box-transfer-location" class="form-input" type="text" list="inventory-box-transfer-location-datalist">
+          <datalist id="inventory-box-transfer-location-datalist"></datalist>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button type="button" id="inventory-box-transfer-btn" class="btn btn-secondary" data-i18n="inventory.boxTransferBtn">Transferir</button>
+        <button type="button" id="inventory-box-template-btn" class="btn btn-secondary" data-i18n="inventory.boxTemplateBtn">Descargar plantilla cajas</button>
+        <button type="button" id="inventory-box-export-btn" class="btn inventory-asof-icon-btn" data-i18n-title="inventory.boxExportBtn" data-i18n-aria-label="inventory.boxExportBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+        <button type="button" id="inventory-box-import-btn" class="btn btn-secondary" data-i18n="inventory.boxImportBtn">Importar stock por caja</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== INVENTARIO: detalle alertas ========== -->
+<div id="inventory-insight-modal" class="modal">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="inventory-insight-title">—</h2>
+      <button type="button" id="close-inventory-insight" class="modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="inventory-insight-body"></div>
+  </div>
+</div>
+
+<!-- ========== INVENTARIO: notas del artículo (desde la tabla) ========== -->
+<div id="inventory-item-notes-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inv-notes-modal-heading">
+  <div class="modal-content" style="max-width:520px">
+    <div class="modal-header">
+      <h2 id="inv-notes-modal-heading" data-i18n="inventory.notesModalTitle">Notas del artículo</h2>
+      <button type="button" id="close-inv-notes-modal" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="inv-notes-modal-sub" class="config-section-intro muted"></p>
+      <div class="form-group">
+        <label for="inv-notes-textarea" data-i18n="movements.notes">Notas</label>
+        <textarea id="inv-notes-textarea" class="form-input inv-notes-textarea" rows="8" autocomplete="off"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="inv-notes-save" class="btn btn-primary" data-i18n="buttons.save">Guardar</button>
+        <button type="button" id="inv-notes-cancel" class="btn btn-secondary" data-i18n="buttons.close">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="inventory-item-quick-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inv-quick-modal-heading">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="inv-quick-modal-heading" data-i18n="inventory.quickViewTitle">Ficha rápida del artículo</h2>
+      <button type="button" id="close-inv-quick-modal" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="inv-quick-modal-sub" class="config-section-intro muted"></p>
+      <div id="inventory-item-quick-body"></div>
+      <div class="modal-actions">
+        <button type="button" id="inv-quick-close" class="btn btn-secondary" data-i18n="buttons.close">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="inventory-export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-export-heading">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="inventory-export-heading" data-i18n="inventory.exportModeTitle">Exportar inventario</h2>
+      <button type="button" id="close-inventory-export-modal" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label data-i18n="inventory.exportModeLabel">Modo de exportación</label>
+        <div class="report-col-opt">
+          <input type="radio" id="inventory-export-mode-default" name="inventory-export-mode" value="default" checked>
+          <label for="inventory-export-mode-default" data-i18n="inventory.exportModeDefault">Por defecto (plantilla import/export)</label>
+        </div>
+        <div class="report-col-opt">
+          <input type="radio" id="inventory-export-mode-custom" name="inventory-export-mode" value="custom">
+          <label for="inventory-export-mode-custom" data-i18n="inventory.exportModeCustom">Personalizado (elegir columnas)</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="reports.columnsLabel">Columnas a exportar</label>
+        <div class="filter-actions" style="margin:.35rem 0 .4rem;">
+          <button type="button" id="inventory-export-columns-all" class="btn btn-secondary btn-sm" data-i18n="reports.columnsAll">Seleccionar todo</button>
+          <button type="button" id="inventory-export-columns-none" class="btn btn-secondary btn-sm" data-i18n="reports.columnsNone">Quitar todo</button>
+        </div>
+        <div id="inventory-export-columns-list" class="report-columns-list"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="inventory-export-cancel" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+        <button type="button" id="inventory-export-run" class="btn inventory-asof-icon-btn" data-i18n-title="reports.download" data-i18n-aria-label="reports.download"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmación (estilo app, sustituye window.confirm) -->
+<div id="confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+  <div class="modal-content modal-small">
+    <div class="modal-header">
+      <h2 id="confirm-modal-title" data-i18n="confirm.title">Confirmar</h2>
+      <button type="button" id="close-confirm" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-message" class="confirm-modal-message"></p>
+      <div class="modal-actions overdraft-modal-actions">
+        <button type="button" id="confirm-cancel" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+        <button type="button" id="confirm-accept" class="btn btn-primary" data-i18n="buttons.confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Entrada de texto / fecha (sustituye window.prompt) -->
+<div id="app-prompt-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="app-prompt-title">
+  <div class="modal-content modal-small">
+    <div class="modal-header">
+      <h2 id="app-prompt-title" data-i18n="confirm.title">Confirmar</h2>
+      <button type="button" id="app-prompt-close" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p id="app-prompt-message" class="confirm-modal-message"></p>
+      <div class="form-group">
+        <input type="text" id="app-prompt-input" class="form-input" autocomplete="off">
+      </div>
+      <div class="modal-actions overdraft-modal-actions">
+        <button type="button" id="app-prompt-cancel" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+        <button type="button" id="app-prompt-ok" class="btn btn-primary" data-i18n="buttons.confirm">Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MENSAJES TOAST ========== -->
+<div id="toast-container" class="toast-container"></div>
+
+<p class="app-creator-credit" data-i18n="app.creatorCredit" data-i18n-title="app.creatorCreditTitle" title="">Luis Goire</p>
+
+<!-- ========== INFORMES XLSX ========== -->
+<div id="report-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 data-i18n="reports.title">Informes XLSX</h2>
+      <button type="button" id="close-report-modal" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body report-modal-body">
+      <div class="form-group">
+        <label for="report-type" data-i18n="reports.typeLabel">Tipo de informe</label>
+        <select id="report-type" class="filter-select">
+          <option value="transports" data-i18n="reports.typeTransports">Transportes (resumen)</option>
+          <option value="transports_lines" data-i18n="reports.typeTransportsLines">Transportes (líneas)</option>
+          <option value="consumo_recipient_all" data-i18n="reports.typeConsumoRecipientAll">Consumo diario por destinatario (todas las líneas)</option>
+          <option value="movements_filtered" data-i18n="reports.typeMovementsFiltered">Movimientos (filtros del historial)</option>
+          <option value="movements_lines_filtered" data-i18n="reports.typeMovementsLinesFiltered">Movimientos filtrados (una fila por artículo)</option>
+          <option value="movements_all" data-i18n="reports.typeMovementsAll">Movimientos (todos)</option>
+          <option value="item_consumption" data-i18n="reports.typeItemConsumption">Líneas por artículo (código o texto)</option>
+        </select>
+      </div>
+      <div id="report-item-wrap" class="form-group" style="display:none;">
+        <label for="report-item-needle" data-i18n="reports.itemNeedleLabel">Código o descripción contiene</label>
+        <div class="item-search-container report-item-search-wrap">
+          <input id="report-item-needle" type="text" class="form-input" autocomplete="off" data-i18n-placeholder="reports.itemNeedlePh" placeholder="Ej. ABC-12 o tornillo">
+          <div id="report-item-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div id="report-columns-wrap" class="form-group">
+        <label data-i18n="reports.columnsLabel">Columnas a exportar</label>
+        <div id="report-columns-actions" class="filter-actions" style="margin:.35rem 0 .4rem;">
+          <button type="button" id="report-columns-all" class="btn btn-secondary btn-sm" data-i18n="reports.columnsAll">Seleccionar todo</button>
+          <button type="button" id="report-columns-none" class="btn btn-secondary btn-sm" data-i18n="reports.columnsNone">Quitar todo</button>
+        </div>
+        <div id="report-columns-list" class="report-columns-list"></div>
+      </div>
+      <div class="filter-actions" style="margin-top:1rem;">
+        <button type="button" id="report-export-btn" class="btn inventory-asof-icon-btn" data-i18n-title="reports.download" data-i18n-aria-label="reports.download"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vista ampliada: consumo por destinatario (mismo bloque DOM que en Historial) -->
+<div id="consumo-ledger-fs-overlay" class="consumo-ledger-fs-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="consumo-ledger-fs-heading">
+    <div class="consumo-ledger-fs-backdrop" id="consumo-ledger-fs-backdrop"></div>
+    <div class="consumo-ledger-fs-sheet">
+        <div class="consumo-ledger-fs-header">
+            <h3 id="consumo-ledger-fs-heading" data-i18n="history.consumoRecipientLedgerTitle">Consumo diario por destinatario</h3>
+            <button type="button" id="consumo-ledger-fs-close" class="modal-close" data-i18n-aria-label="history.consumoLedgerCloseExpanded" aria-label="Cerrar">&times;</button>
+        </div>
+        <div id="consumo-ledger-fs-slot" class="consumo-ledger-fs-slot"></div>
+    </div>
+</div>
+
+<!-- ========== SCRIPTS ========== -->
+<script src="vendor/xlsx-js-style.min.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/employees.js"></script>
+    <script src="js/suppliers.js"></script>
+    <script src="js/consumables.js"></script>
+    <script src="js/movements.js"></script>
+<script src="js/history.js"></script>
+<script src="js/transport.js"></script>
+<script src="js/meLegacyPending.js"></script>
+<script src="js/receptions.js"></script>
+<script src="js/config.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/reminders.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/orderLines.js"></script>
+<script src="js/float-fab-drag.js"></script>
+<script src="js/help-coach.js"></script>
+<script src="js/help-ui.js"></script>
+<script src="js/layout-tools.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
+
