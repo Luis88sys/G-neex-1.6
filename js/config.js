@@ -148,7 +148,7 @@ const ConfigManager = {
     const pane = document.getElementById("config-modal")?.querySelector(".config-content.active");
     if (!pane) return false;
 
-    const skipScanIds = new Set(["receptions-config-search"]);
+    const skipScanIds = new Set(["receptions-adv-search"]);
     const knownSet = new Set(knownIds);
     const textInputs = pane.querySelectorAll(
       'input:not([type="file"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"])'
@@ -1834,14 +1834,8 @@ const ConfigManager = {
 
     this.setupItemEditorSearch();
 
-    const recSearch = document.getElementById("receptions-config-search");
-    if (recSearch) {
-      recSearch.addEventListener("input", () => {
-        this._receptionListFilter = (recSearch.value || "").trim().toLowerCase();
-        this.renderReceptionList();
-      });
-    }
     [
+      "receptions-adv-search",
       "receptions-adv-project",
       "receptions-adv-supplier",
       "receptions-adv-category",
@@ -1880,12 +1874,12 @@ const ConfigManager = {
     });
     document.getElementById("receptions-config-print-btn")?.addEventListener("click", () => {
       const filtered = this.getFilteredReceptions();
-      const q = (document.getElementById("receptions-config-search")?.value || "").trim();
+      const q = (document.getElementById("receptions-adv-search")?.value || "").trim();
       void this.printReceptionsFiltered(filtered, q || I18n.t("history.filterAll"));
     });
     document.getElementById("receptions-config-export-btn")?.addEventListener("click", async () => {
       const filtered = this.getFilteredReceptions();
-      const q = (document.getElementById("receptions-config-search")?.value || "").trim();
+      const q = (document.getElementById("receptions-adv-search")?.value || "").trim();
       const headers = this._buildReceptionsPrintExportHeaders();
       const selectedHeaders = await Utils.pickColumns(headers, I18n.t("config.exportReceptionsFiltered"));
       if (!selectedHeaders || !selectedHeaders.length) return;
@@ -2650,6 +2644,9 @@ const ConfigManager = {
   },
 
   _syncReceptionAdvancedFiltersFromDom() {
+    this._receptionListFilter = (document.getElementById("receptions-adv-search")?.value || "")
+      .trim()
+      .toLowerCase();
     this._receptionAdvancedFilter = {
       project: (document.getElementById("receptions-adv-project")?.value || "").trim().toLowerCase(),
       supplier: (document.getElementById("receptions-adv-supplier")?.value || "").trim().toLowerCase(),
@@ -2664,6 +2661,7 @@ const ConfigManager = {
 
   _clearReceptionAdvancedFilters() {
     [
+      "receptions-adv-search",
       "receptions-adv-project",
       "receptions-adv-supplier",
       "receptions-adv-category",
@@ -2705,7 +2703,7 @@ const ConfigManager = {
   },
 
   getFilteredReceptions() {
-    const searchEl = document.getElementById("receptions-config-search");
+    const searchEl = document.getElementById("receptions-adv-search");
     const q = (searchEl && searchEl.value !== undefined ? searchEl.value : this._receptionListFilter || "")
       .trim()
       .toLowerCase();

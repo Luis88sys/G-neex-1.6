@@ -27,6 +27,13 @@
     if (typeof HelpCoach !== "undefined" && HelpCoach.syncToggleButtonLabel) {
       HelpCoach.syncToggleButtonLabel();
     }
+    try {
+      var pBlock = document.getElementById("help-presentations-block");
+      if (pBlock) {
+        var isAdmin = typeof Auth !== "undefined" && Auth.isAdmin && Auth.isAdmin();
+        pBlock.hidden = !isAdmin;
+      }
+    } catch (e3) {}
   }
 
   function close() {

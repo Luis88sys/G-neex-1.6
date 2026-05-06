@@ -248,7 +248,7 @@ const App = {
     bringToFront(wraps[0].el);
   },
 
-  _allowedMainTabs: new Set(["dashboard", "reminders", "inventory", "movements", "history", "transport", "orderlines"]),
+  _allowedMainTabs: new Set(["dashboard", "reminders", "inventory", "movements", "history", "transport", "orderlines", "receptions"]),
   _allowedOpenViews: new Set([
     "config",
     "reports-movements",
@@ -434,7 +434,8 @@ const App = {
           "movements",
           "history",
           "transport",
-          "orderlines"
+          "orderlines",
+          "receptions"
         ];
         const alt = order.find(t => Auth.matrixTabVisible(t));
         tab = alt || "dashboard";
@@ -462,6 +463,10 @@ const App = {
     if (tab === "history") HistoryManager.render();
     if (tab === "transport") TransportManager.render();
     if (tab === "orderlines" && typeof OrderLinesManager !== "undefined") OrderLinesManager.render();
+    if (tab === "receptions" && typeof ConfigManager !== "undefined" && ConfigManager.renderReceptionList) {
+      ConfigManager._receptionEditId = null;
+      ConfigManager.renderReceptionList();
+    }
     if (tab === "reminders" && typeof RemindersManager !== "undefined" && RemindersManager.refreshAll) {
       RemindersManager.refreshAll();
     }

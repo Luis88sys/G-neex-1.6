@@ -692,8 +692,9 @@ const Auth = {
       setAct("cfgModalOpen", "edit");
       setAct("cfgTabImport", "edit");
       setAct("cfgTabReceptions", "edit");
-      setAct("cfgActExportCsv", "edit");
-      setAct("cfgActExportMov", "edit");
+      setAct("cfgActExportTemplate", "edit");
+      setAct("cfgActMovementsExport", "edit");
+      setAct("cfgActTransportsExport", "edit");
       setAct("cfgActBackupExport", "edit");
       setAct("movAnnul", "edit");
       this.TAB_FEATURE_ACTION_KEYS
@@ -884,7 +885,8 @@ const Auth = {
       movements: "tabMovements",
       history: "tabHistory",
       transport: "tabTransport",
-      orderlines: "tabOrderlines"
+      orderlines: "tabOrderlines",
+      receptions: "receptionsEdit"
     };
     const k = map[tabId];
     if (!k) return true;
@@ -2121,7 +2123,8 @@ const Auth = {
       ["movements", "tabMovements"],
       ["history", "tabHistory"],
       ["transport", "tabTransport"],
-      ["orderlines", "tabOrderlines"]
+      ["orderlines", "tabOrderlines"],
+      ["receptions", "receptionsEdit"]
     ];
     tabIds.forEach(([tid, key]) => {
       document.body.classList.toggle(`auth-tab-hide-${tid}`, mx[key] === "none");

@@ -2568,6 +2568,44 @@ const MovementManager = {
         return this._validateQuantitiesNonZero(this.selectedItems);
     },
 
+    _validateStockSourcesAvailability(items) {
+        const list = Array.isArray(items) ? items : [];
+        for (const it of list) {
+            if (!it || !it.itemId) continue;
+            const qty = Math.abs(parseFloat(it.quantity) || 0);
+            if (qty <= 0) continue;
+            const tgt = this._resolveStockTargetForLine(it);
+            if (tgt !== "main" || (parseFloat(it.quantity) || 0) >= 0) continue;
+            const src = this._getLineStockSourceId(it);
+            if (!src || src === "main") continue;
+            if (src.startsWith("box:")) {
+                const boxId = src.slice(4);
+                if (!boxId) {
+                    Utils.showToast(I18n.t("msg.stockSourceUnavailable"), "error");
+                    return false;
+                }
+            } else if (src.startsWith("ibox:")) {
+                const n = parseInt(src.slice(5), 10);
+                if (!Number.isFinite(n) || n < 1) {
+                    Utils.showToast(I18n.t("msg.stockSourceUnavailable"), "error");
+                    return false;
+                }
+            } else if (src.startsWith("loc:")) {
+                let raw = "";
+                try {
+                    raw = decodeURIComponent(src.slice(4));
+                } catch (e) {
+                    raw = "";
+                }
+                if (!String(raw || "").trim()) {
+                    Utils.showToast(I18n.t("msg.stockSourceUnavailable"), "error");
+                    return false;
+                }
+            }
+        }
+        return true;
+    },
+
     _getDefaultTransferEndpoints(itemId) {
         const stock = {
             main:
@@ -3481,6 +3519,7 @@ const MovementManager = {
            processMovement abre el modal de motivo y permite continuar. */
 
         if (!this._validateCartHasNoZeroQuantities()) return false;
+        if (!this._validateStockSourcesAvailability(this.selectedItems)) return false;
 
         return true;
         }

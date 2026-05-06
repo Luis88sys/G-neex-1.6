@@ -2,6 +2,7 @@
 
 const STORAGE_KEYS = {
     INVENTORY: 'phoenix-inventory',
+    STANDALONE_BOXES: 'phoenix-standalone-boxes',
     PURCHASES: 'phoenix-purchases',
     MOVEMENTS: 'phoenix-movements',
     TRANSPORT: 'phoenix-transport',

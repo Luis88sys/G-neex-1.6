@@ -167,7 +167,7 @@
             <button type="button" class="nav-btn requires-movements-perm" data-tab="orderlines" data-help-key="helpCoach.navOrderlines" data-i18n-title="nav.orderlines" title="Pedidos a proveedor">
                 📋 <span data-i18n="nav.orderlines">Pedidos</span>
             </button>
-            <button type="button" class="nav-btn" data-open-config-tab="receptions" data-i18n-title="nav.receptions" title="Recepciones">
+            <button type="button" class="nav-btn" data-tab="receptions" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n-title="nav.receptions" title="Recepciones">
                 📥 <span data-i18n="nav.receptions">Recepciones</span>
             </button>
 
@@ -266,6 +266,15 @@
           <a href="user-manual/MANUAL_DE_USUARIO.html" target="_blank" rel="noopener" class="btn btn-primary btn-sm help-manual-link" data-i18n="help.manualEs" data-i18n-aria-label="help.manualOpenEs">Español</a>
           <a href="user-manual/USER_MANUAL.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm help-manual-link" data-i18n="help.manualEn" data-i18n-aria-label="help.manualOpenEn">English</a>
           <a href="user-manual/MANUEL_UTILISATEUR.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm help-manual-link" data-i18n="help.manualFr" data-i18n-aria-label="help.manualOpenFr">Français</a>
+        </div>
+      </div>
+      <div id="help-presentations-block" class="help-manual-block" role="region" aria-labelledby="help-presentations-h" hidden>
+        <h3 id="help-presentations-h" class="help-section-title" data-i18n="help.hPresentations">Presentaciones</h3>
+        <p class="help-manual-lead" data-i18n="help.pPresentations">Disponible solo para administrador.</p>
+        <div class="help-manual-links" role="group" data-i18n-aria-label="help.hPresentations">
+          <a href="user-manual/PRESENTACION_GNEEX.html" target="_blank" rel="noopener" class="btn btn-primary btn-sm help-manual-link" data-i18n="help.presentationEs">Presentación ES</a>
+          <a href="user-manual/PRESENTATION_GNEEX.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm help-manual-link" data-i18n="help.presentationEn">Presentation EN</a>
+          <a href="user-manual/PRESENTATION_GNEEX_FR.html" target="_blank" rel="noopener" class="btn btn-secondary btn-sm help-manual-link" data-i18n="help.presentationFr">Présentation FR</a>
         </div>
       </div>
       <h3 class="help-section-title" data-i18n="help.hAdmin"></h3>
@@ -488,10 +497,6 @@
                       <span class="inventory-header-tools-menu-ico" aria-hidden="true">🧰</span>
                       <span data-i18n="inventory.toolsItemBoxSummary">Resumen por caja</span>
                     </button>
-                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-zero-boxes-btn">
-                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">0️⃣</span>
-                      <span data-i18n="inventory.toolsItemZeroBoxes">Cajas con cantidad 0</span>
-                    </button>
                     <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-box-zero-total-btn">
                       <span class="inventory-header-tools-menu-ico" aria-hidden="true">📭</span>
                       <span data-i18n="inventory.toolsItemZeroTotal">Cajas sin unidades (suma)</span>
@@ -538,7 +543,6 @@
                   <button type="button" id="inventory-export-csv" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.exportCsv" data-i18n-aria-label="inventory.exportCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
                   <button type="button" id="inventory-print-list" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.printList" data-i18n-aria-label="inventory.printList"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
                   <button type="button" id="inventory-box-summary-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxSummaryBtnTitle" data-i18n-aria-label="inventory.boxSummaryBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧰</span></button>
-                  <button type="button" id="inventory-zero-boxes-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.zeroBoxesBtnTitle" data-i18n-aria-label="inventory.zeroBoxesBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">0️⃣</span></button>
                   <button type="button" id="inventory-box-zero-total-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxZeroTotalBtnTitle" data-i18n-aria-label="inventory.boxZeroTotalBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">📭</span></button>
                   <button type="button" id="inventory-box-manager-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.boxManagerBtnTitle" data-i18n-aria-label="inventory.boxManagerBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🗃</span></button>
                 </div>
@@ -947,6 +951,78 @@
     </div>
   </section>
 
+  <!-- ========== RECEPCIONES ========== -->
+  <section id="receptions-tab" class="tab-content" data-auth-act="cfgTabReceptions" data-auth-act-level="view">
+    <div class="history-container">
+      <div class="config-section">
+        <h3 data-i18n="config.receptionsTitle">Recepciones de material</h3>
+        <h4 class="config-subsection-title" data-i18n="config.receptionsAdvancedFiltersTitle">Filtros avanzados</h4>
+        <div class="filters-grid">
+          <div class="filter-group">
+            <label for="receptions-adv-search" data-i18n="config.receptionsSearchLabel">Buscar recepciones</label>
+            <input type="search" id="receptions-adv-search" class="filter-input" data-i18n-placeholder="config.receptionsSearchPlaceholder" autocomplete="off">
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-project" data-i18n="reception.project">Proyecto</label>
+            <input type="text" id="receptions-adv-project" class="filter-input" autocomplete="off">
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-supplier" data-i18n="reception.supplier">Proveedor</label>
+            <input type="text" id="receptions-adv-supplier" class="filter-input" autocomplete="off">
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-category" data-i18n="reception.materialCategory">Tipo de material</label>
+            <select id="receptions-adv-category" class="filter-select">
+              <option value="" data-i18n="history.filterAll">Todos</option>
+              <option value="MARMOL" data-i18n="reception.mat.MARMOL">Mármol</option>
+              <option value="VIDRIO_PLANO" data-i18n="reception.mat.VIDRIO_PLANO">Vidrio plano</option>
+              <option value="VIDRIO_CURVO" data-i18n="reception.mat.VIDRIO_CURVO">Vidrio curvo</option>
+              <option value="VIDRIO_PINTADO" data-i18n="reception.mat.VIDRIO_PINTADO">Vidrio pintado</option>
+              <option value="GRANITO" data-i18n="reception.mat.GRANITO">Granito</option>
+              <option value="GRANITO_LACROIX" data-i18n="reception.mat.GRANITO_LACROIX">Granito Lacroix</option>
+              <option value="ESPECIAL" data-i18n="reception.mat.ESPECIAL">Material especial</option>
+              <option value="OTRO" data-i18n="reception.mat.OTRO">Otro / inventario</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-provisional" data-i18n="reception.provisionalCheck">Stock provisional</label>
+            <select id="receptions-adv-provisional" class="filter-select">
+              <option value="" data-i18n="history.filterAll">Todos</option>
+              <option value="yes" data-i18n="reception.provisional">Provisional</option>
+              <option value="no" data-i18n="config.receptionsFilterNoProvisional">No provisional</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-date-from" data-i18n="history.dateFrom">Desde</label>
+            <input type="date" id="receptions-adv-date-from" class="filter-input">
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-date-to" data-i18n="history.dateTo">Hasta</label>
+            <input type="date" id="receptions-adv-date-to" class="filter-input">
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-qty-min" data-i18n="history.filterQtyMin">Cant. mín.</label>
+            <input type="number" id="receptions-adv-qty-min" class="filter-input" min="0" step="0.01">
+          </div>
+          <div class="filter-group">
+            <label for="receptions-adv-qty-max" data-i18n="history.filterQtyMax">Cant. máx.</label>
+            <input type="number" id="receptions-adv-qty-max" class="filter-input" min="0" step="0.01">
+          </div>
+        </div>
+        <div class="filter-actions" style="margin-top:0.5rem;">
+          <button type="button" id="receptions-adv-clear-btn" class="btn btn-secondary btn-sm" data-i18n="buttons.clearFilters">Limpiar Filtros</button>
+        </div>
+      </div>
+      <div class="receptions-config-toolbar">
+        <button type="button" id="receptions-config-import-btn" class="btn btn-secondary btn-sm" data-auth-act="cfgTabReceptions" data-auth-act-level="edit" data-i18n="config.importReceptions">Importar recepciones</button>
+        <input type="file" id="receptions-config-import-input" accept=".csv,.xlsx,.xls,.json" style="display:none" data-auth-act="cfgTabReceptions" data-auth-act-level="edit">
+        <button type="button" id="receptions-config-print-btn" class="btn btn-secondary btn-sm" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n="config.printReceptionsFiltered">Imprimir recepciones filtradas</button>
+        <button type="button" id="receptions-config-export-btn" class="btn btn-secondary btn-sm" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n="config.exportReceptionsFiltered">Exportar recepciones filtradas</button>
+      </div>
+      <div id="receptions-config-table" class="receptions-table-wrap"></div>
+    </div>
+  </section>
+
   <!-- ========== RECORDATORIOS — permiso dedicado (admin, Keith y Alex integrados) ========== -->
   <section id="reminders-tab" class="tab-content requires-reminders-perm">
     <div class="reminders-page" data-auth-act="remPanel" data-auth-act-level="view">
@@ -987,7 +1063,6 @@
       <div class="config-tabs">
         <button type="button" class="config-tab-btn active" data-auth-act="cfgTabImport" data-auth-act-level="view" data-config-tab="import" data-i18n="config.tab.import">Import/Export</button>
         <button type="button" class="config-tab-btn requires-expiration-config" data-auth-act="cfgTabExpirations" data-auth-act-level="view" data-config-tab="expirations" data-i18n="config.tab.expirations">Expiraciones</button>
-        <button type="button" class="config-tab-btn" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-config-tab="receptions" data-i18n="config.tab.receptions">Recepciones</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-employees-btn" data-auth-act="cfgTabEmployees" data-auth-act-level="view" data-config-tab="employees" data-i18n="config.tab.employees">Empleados</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-suppliers-btn" data-auth-act="cfgTabSuppliers" data-auth-act-level="view" data-config-tab="suppliers" data-i18n="config.tab.suppliers">Proveedores</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-consumables-btn" data-auth-act="cfgTabConsumables" data-auth-act-level="view" data-config-tab="consumables" data-i18n="config.tab.consumables">Consumibles</button>
@@ -1319,75 +1394,6 @@
           <h3 data-i18n="elevation.panelTitle">Códigos de elevación temporal</h3>
           <div id="elevation-admin-panel" class="elevation-admin-panel"></div>
         </div>
-      </div>
-
-      <div id="config-receptions" class="config-content">
-        <h3 data-i18n="config.receptionsTitle">Recepciones de material</h3>
-        <div class="config-section">
-          <h4 class="config-subsection-title" data-i18n="config.receptionsAdvancedFiltersTitle">Filtros avanzados</h4>
-          <div class="filters-grid">
-            <div class="filter-group">
-              <label for="receptions-adv-project" data-i18n="reception.project">Proyecto</label>
-              <input type="text" id="receptions-adv-project" class="filter-input" autocomplete="off">
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-supplier" data-i18n="reception.supplier">Proveedor</label>
-              <input type="text" id="receptions-adv-supplier" class="filter-input" autocomplete="off">
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-category" data-i18n="reception.materialCategory">Tipo de material</label>
-              <select id="receptions-adv-category" class="filter-select">
-                <option value="" data-i18n="history.filterAll">Todos</option>
-                <option value="MARMOL" data-i18n="reception.mat.MARMOL">Mármol</option>
-                <option value="VIDRIO_PLANO" data-i18n="reception.mat.VIDRIO_PLANO">Vidrio plano</option>
-                <option value="VIDRIO_CURVO" data-i18n="reception.mat.VIDRIO_CURVO">Vidrio curvo</option>
-                <option value="VIDRIO_PINTADO" data-i18n="reception.mat.VIDRIO_PINTADO">Vidrio pintado</option>
-                <option value="GRANITO" data-i18n="reception.mat.GRANITO">Granito</option>
-                <option value="GRANITO_LACROIX" data-i18n="reception.mat.GRANITO_LACROIX">Granito Lacroix</option>
-                <option value="ESPECIAL" data-i18n="reception.mat.ESPECIAL">Material especial</option>
-                <option value="OTRO" data-i18n="reception.mat.OTRO">Otro / inventario</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-provisional" data-i18n="reception.provisionalCheck">Stock provisional</label>
-              <select id="receptions-adv-provisional" class="filter-select">
-                <option value="" data-i18n="history.filterAll">Todos</option>
-                <option value="yes" data-i18n="reception.provisional">Provisional</option>
-                <option value="no" data-i18n="config.receptionsFilterNoProvisional">No provisional</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-date-from" data-i18n="history.dateFrom">Desde</label>
-              <input type="date" id="receptions-adv-date-from" class="filter-input">
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-date-to" data-i18n="history.dateTo">Hasta</label>
-              <input type="date" id="receptions-adv-date-to" class="filter-input">
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-qty-min" data-i18n="history.filterQtyMin">Cant. mín.</label>
-              <input type="number" id="receptions-adv-qty-min" class="filter-input" min="0" step="0.01">
-            </div>
-            <div class="filter-group">
-              <label for="receptions-adv-qty-max" data-i18n="history.filterQtyMax">Cant. máx.</label>
-              <input type="number" id="receptions-adv-qty-max" class="filter-input" min="0" step="0.01">
-            </div>
-          </div>
-          <div class="filter-actions" style="margin-top:0.5rem;">
-            <button type="button" id="receptions-adv-clear-btn" class="btn btn-secondary btn-sm" data-i18n="buttons.clearFilters">Limpiar Filtros</button>
-          </div>
-        </div>
-        <div class="receptions-config-toolbar">
-          <label class="receptions-search-label">
-            <span data-i18n="config.receptionsSearchLabel">Buscar recepciones</span>
-            <input type="search" id="receptions-config-search" class="search-input receptions-config-search-input" data-i18n-placeholder="config.receptionsSearchPlaceholder" autocomplete="off">
-          </label>
-          <button type="button" id="receptions-config-import-btn" class="btn btn-secondary btn-sm" data-i18n="config.importReceptions">Importar recepciones</button>
-          <input type="file" id="receptions-config-import-input" accept=".csv,.xlsx,.xls,.json" style="display:none">
-          <button type="button" id="receptions-config-print-btn" class="btn btn-secondary btn-sm" data-i18n="config.printReceptionsFiltered">Imprimir recepciones filtradas</button>
-          <button type="button" id="receptions-config-export-btn" class="btn btn-secondary btn-sm" data-i18n="config.exportReceptionsFiltered">Exportar recepciones filtradas</button>
-        </div>
-        <div id="receptions-config-table" class="receptions-table-wrap"></div>
       </div>
 
       <!-- Antecedentes del proyecto (origen Excel → Phoenix → G-NEEX) -->
@@ -1819,16 +1825,6 @@
       <button type="button" id="close-inventory-box-summary" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
     </div>
     <div class="modal-body" id="inventory-box-summary-body"></div>
-  </div>
-</div>
-
-<div id="inventory-zero-boxes-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-zero-boxes-heading">
-  <div class="modal-content modal-large">
-    <div class="modal-header">
-      <h2 id="inventory-zero-boxes-heading" data-i18n="inventory.zeroBoxesTitle">Cajas con cantidad 0</h2>
-      <button type="button" id="close-inventory-zero-boxes" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
-    </div>
-    <div class="modal-body" id="inventory-zero-boxes-body"></div>
   </div>
 </div>
 

@@ -15,17 +15,26 @@ const BOX_STOCK_SHEET_HEADERS = Object.freeze([
 const BOX_TRANSFER_PROD_ID = "__PROD_STOCK__";
 const BOX_TRANSFER_TRANS_ID = "__TRANS_STOCK__";
 const BOX_TRANSFER_LOCATION_ID = "__ITEM_LOCATION__";
+const BOX_TRANSFER_MAIN_POOL_ID = "__MAIN_POOL__";
 
 function _boxXferKind(id) {
   if (!id) return "";
+  if (id === BOX_TRANSFER_MAIN_POOL_ID) return "mainpool";
   if (id === BOX_TRANSFER_PROD_ID) return "prod";
   if (id === BOX_TRANSFER_TRANS_ID) return "trans";
   if (id === BOX_TRANSFER_LOCATION_ID) return "loc";
+  if (String(id).startsWith("loc:")) return "locrow";
   return "box";
 }
 
 function _boxXferIsSpecial(id) {
-  return id === BOX_TRANSFER_PROD_ID || id === BOX_TRANSFER_TRANS_ID || id === BOX_TRANSFER_LOCATION_ID;
+  return (
+    id === BOX_TRANSFER_MAIN_POOL_ID ||
+    id === BOX_TRANSFER_PROD_ID ||
+    id === BOX_TRANSFER_TRANS_ID ||
+    id === BOX_TRANSFER_LOCATION_ID ||
+    String(id).startsWith("loc:")
+  );
 }
 
 const INV_ICONS = {
@@ -42,6 +51,7 @@ const INV_ICONS = {
 const InventoryManager = {
 
   items: [],
+  standaloneBoxes: [], // cajas reservadas sin artículo asociado
   purchaseList: [],   // productos a comprar
   expAlertDays: 30,   // umbral para aviso de vencimiento (días)
   /** Última lista mostrada en la tabla (completa o filtrada por buscador). */
@@ -77,6 +87,8 @@ const InventoryManager = {
     try {
       this.items = JSON.parse(localStorage.getItem(STORAGE_KEYS.INVENTORY) || "[]");
       this._normalizeBoxStocksForAllItems();
+      this.standaloneBoxes = JSON.parse(localStorage.getItem(STORAGE_KEYS.STANDALONE_BOXES) || "[]");
+      this._normalizeStandaloneBoxes();
       this.purchaseList = JSON.parse(localStorage.getItem(STORAGE_KEYS.PURCHASES) || "[]");
       const expSaved = localStorage.getItem(STORAGE_KEYS.EXP_ALERT);
       if (expSaved) this.expAlertDays = parseInt(expSaved, 10) || 30;
@@ -90,7 +102,51 @@ const InventoryManager = {
 
   save() {
     localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(this.items));
+    localStorage.setItem(STORAGE_KEYS.STANDALONE_BOXES, JSON.stringify(this.standaloneBoxes || []));
     localStorage.setItem(STORAGE_KEYS.PURCHASES, JSON.stringify(this.purchaseList));
+  },
+
+  _normalizeStandaloneBoxes() {
+    const src = Array.isArray(this.standaloneBoxes) ? this.standaloneBoxes : [];
+    const byNumber = new Map();
+    for (const raw of src) {
+      const n = parseInt(raw?.boxNumber, 10);
+      if (!this._isValidBoxNumber(n)) continue;
+      byNumber.set(n, {
+        boxNumber: n,
+        locationLabel: String(raw?.locationLabel || "").trim(),
+        notes: String(raw?.notes || "").trim(),
+        updatedAt: raw?.updatedAt || new Date().toISOString()
+      });
+    }
+    this.standaloneBoxes = [...byNumber.values()].sort((a, b) => a.boxNumber - b.boxNumber);
+  },
+
+  _findStandaloneBoxIndex(boxNumber) {
+    const n = parseInt(boxNumber, 10);
+    if (!this._isValidBoxNumber(n) || !Array.isArray(this.standaloneBoxes)) return -1;
+    return this.standaloneBoxes.findIndex(b => Number(b.boxNumber) === n);
+  },
+
+  upsertStandaloneBox(payload) {
+    const n = parseInt(payload?.boxNumber, 10);
+    if (!this._isValidBoxNumber(n)) return { ok: false, reason: "invalid-box-number" };
+    this._normalizeStandaloneBoxes();
+    const next = {
+      boxNumber: n,
+      locationLabel: String(payload?.locationLabel || "").trim(),
+      notes: String(payload?.notes || "").trim(),
+      updatedAt: new Date().toISOString()
+    };
+    const idx = this._findStandaloneBoxIndex(n);
+    if (idx >= 0) this.standaloneBoxes[idx] = next;
+    else this.standaloneBoxes.push(next);
+    this._normalizeStandaloneBoxes();
+    this.save();
+    this.populateInventoryBoxFilter();
+    this._refreshBoxManagerLocationDatalists();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return { ok: true, box: next };
   },
 
   _normalizePriceCurrency(rawCurrency) {
@@ -887,7 +943,8 @@ const InventoryManager = {
   /**
    * Cantidad máxima para una línea con origen `ibox:` (caja citada en texto pero sin opción `box:`).
    * - Si existe fila CajasJson con cantidad &gt; 0 para esa caja → 0 aquí (se usa solo `box:id`; stock propio por caja, sin reparto).
-   * - Si solo está en el texto (o la fila tiene 0 unidades) → el movimiento sigue descontando del **principal**; el tope es el **stock principal entero**, no main/N entre varias cajas.
+   * - Si solo está en el texto (o la fila tiene 0 unidades) → el movimiento sigue descontando del **principal sin caja**
+   *   (pool = principal − cajas), para no duplicar cantidades entre cajas/ubicaciones.
    */
   getMovementInferredBoxAvailableQty(itemId, boxNumber) {
     const item = this.getItemById(itemId);
@@ -900,7 +957,9 @@ const InventoryManager = {
     const row = rows.find(b => Number(b.boxNumber) === n);
     const rowQty = row ? this._parseBoxStockQtyValue(row.qty) : 0;
     if (row && rowQty > 0) return 0;
-    return Math.max(0, Utils.roundDecimal(parseFloat(item.mainStock) || 0));
+    // Caja inferida solo desde texto (sin fila de caja): no debe reclamar todo el principal.
+    // Se limita al pool sin caja para mantener la jerarquía global > ubicación > caja > sin caja.
+    return Math.max(0, this._getMainLocationPoolQty(item));
   },
 
   /** Fragmento(s) del texto Ubicación del artículo que mencionan esta caja (p. ej. «BOX3, E1R»). */
@@ -1055,6 +1114,144 @@ const InventoryManager = {
     item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
     this._incrementItemLocationStock(item, token, q);
     this._appendItemLocation(item, token);
+    this.save();
+    return { ok: true };
+  },
+
+  transferMainPoolToBox(itemId, toBoxId, qty, toLocationLabel = "") {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    if (this._getMainLocationPoolQty(item) < q) return { ok: false, reason: "insufficient-pool" };
+    const toIdx = this._findBoxIndex(item, toBoxId);
+    if (toIdx < 0) return { ok: false, reason: "box-not-found" };
+    const rawLab = String(toLocationLabel || "").trim();
+    const locLab = Utils.strictEffectiveWarehouseLocationText(rawLab);
+    if (rawLab && !locLab) return { ok: false, reason: "invalid-location-catalog" };
+    item.boxStocks[toIdx].qty = Utils.roundDecimal(this._parseBoxStockQtyValue(item.boxStocks[toIdx].qty) + q);
+    item.boxStocks[toIdx].empty = false;
+    item.boxStocks[toIdx].updatedAt = new Date().toISOString();
+    if (locLab) {
+      item.boxStocks[toIdx].locationLabel = locLab;
+      this._syncItemLocationFromBox(item, item.boxStocks[toIdx].boxId, locLab);
+    }
+    this.save();
+    return { ok: true };
+  },
+
+  transferBoxToMainPool(itemId, fromBoxId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const fromIdx = this._findBoxIndex(item, fromBoxId);
+    if (fromIdx < 0) return { ok: false, reason: "box-not-found" };
+    if (item.boxStocks[fromIdx].empty) return { ok: false, reason: "box-empty" };
+    const fromCur = this._parseBoxStockQtyValue(item.boxStocks[fromIdx].qty);
+    if (fromCur < q) return { ok: false, reason: "box-overdraft" };
+    item.boxStocks[fromIdx].qty = Utils.roundDecimal(fromCur - q);
+    item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
+    this.save();
+    return { ok: true };
+  },
+
+  _consumeLocationStock(item, fromLocationKey, qty) {
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    item.locationStocks = this._normalizeItemLocationStocks(item);
+    const idx = this._findLocationStockRowIndex(item, fromLocationKey);
+    if (idx < 0) return { ok: false, reason: "location-not-found" };
+    const cur = parseFloat(item.locationStocks[idx].qty) || 0;
+    if (cur < q) return { ok: false, reason: "location-overdraft" };
+    const next = Utils.roundDecimal(cur - q);
+    if (next <= 0) item.locationStocks.splice(idx, 1);
+    else {
+      item.locationStocks[idx].qty = next;
+      item.locationStocks[idx].updatedAt = new Date().toISOString();
+    }
+    return { ok: true };
+  },
+
+  transferLocationToBox(itemId, fromLocationKey, toBoxId, qty, toLocationLabel = "") {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const toIdx = this._findBoxIndex(item, toBoxId);
+    if (toIdx < 0) return { ok: false, reason: "box-not-found" };
+    const rawLab = String(toLocationLabel || "").trim();
+    const locLab = Utils.strictEffectiveWarehouseLocationText(rawLab);
+    if (rawLab && !locLab) return { ok: false, reason: "invalid-location-catalog" };
+    const c = this._consumeLocationStock(item, fromLocationKey, q);
+    if (!c.ok) return c;
+    item.boxStocks[toIdx].qty = Utils.roundDecimal(this._parseBoxStockQtyValue(item.boxStocks[toIdx].qty) + q);
+    item.boxStocks[toIdx].empty = false;
+    item.boxStocks[toIdx].updatedAt = new Date().toISOString();
+    if (locLab) {
+      item.boxStocks[toIdx].locationLabel = locLab;
+      this._syncItemLocationFromBox(item, item.boxStocks[toIdx].boxId, locLab);
+    }
+    this.save();
+    return { ok: true };
+  },
+
+  transferLocationToLocation(itemId, fromLocationKey, toLocationLabel, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const dest = String(toLocationLabel || "").trim();
+    if (!dest) return { ok: false, reason: "location-required" };
+    const destStrict = Utils.strictEffectiveWarehouseLocationText(dest);
+    if (!destStrict) return { ok: false, reason: "invalid-location-catalog" };
+    const fromCanon = Utils.strictEffectiveWarehouseLocationText(fromLocationKey) || String(fromLocationKey || "").trim();
+    if (this._locationLabelEquals(fromCanon, destStrict)) return { ok: false, reason: "invalid-transfer" };
+    const c = this._consumeLocationStock(item, fromLocationKey, q);
+    if (!c.ok) return c;
+    this._incrementItemLocationStock(item, destStrict, q);
+    this._appendItemLocation(item, destStrict);
+    this.save();
+    return { ok: true };
+  },
+
+  transferLocationToProdStock(itemId, fromLocationKey, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const c = this._consumeLocationStock(item, fromLocationKey, q);
+    if (!c.ok) return c;
+    item.prodStock = Utils.roundDecimal((parseFloat(item.prodStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  transferLocationToTransStock(itemId, fromLocationKey, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    const c = this._consumeLocationStock(item, fromLocationKey, q);
+    if (!c.ok) return c;
+    item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
+    this.save();
+    return { ok: true };
+  },
+
+  transferMainPoolToLocation(itemId, toLocationLabel, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    if (this._getMainLocationPoolQty(item) < q) return { ok: false, reason: "insufficient-pool" };
+    const dest = String(toLocationLabel || "").trim();
+    if (!dest) return { ok: false, reason: "location-required" };
+    const destStrict = Utils.strictEffectiveWarehouseLocationText(dest);
+    if (!destStrict) return { ok: false, reason: "invalid-location-catalog" };
+    this._incrementItemLocationStock(item, destStrict, q);
+    this._appendItemLocation(item, destStrict);
     this.save();
     return { ok: true };
   },
@@ -1677,6 +1874,16 @@ const InventoryManager = {
     this._inventorySearchQuery =
       list != null ? (document.getElementById("inventory-search")?.value || "").trim() : "";
     this._updateAsOfUi();
+    const activeDistributionFilter = this._getActiveDistributionFilter
+      ? this._getActiveDistributionFilter()
+      : null;
+    const mainHeader = document.querySelector('.inventory-table--main thead th[data-i18n="table.mainStock"]');
+    if (mainHeader) {
+      const hint = activeDistributionFilter
+        ? "Stock principal mostrado como reparticion del filtro activo (ubicacion/caja). El total global sigue en principal/produccion/transformacion."
+        : "";
+      mainHeader.setAttribute("title", hint);
+    }
 
     if(!arr.length){
       const boxF = (document.getElementById("inventory-box-filter")?.value || "all") !== "all";
@@ -1695,7 +1902,6 @@ const InventoryManager = {
       this._syncInventoryProblemsMenuItemUi();
       this._syncInventoryLowStockIgnoredMenuItemUi();
       this._syncInventoryHeaderFiltersCollapseBtn();
-      this._syncZeroBoxesToolbarBtn();
       this._syncZeroTotalBoxToolbarBtn();
       return;
     }
@@ -1803,16 +2009,19 @@ const InventoryManager = {
       const hasChips = boxNums.length > 0 || slotIds.length > 0;
       const hasLocationQty = locQtyChipsHtml.length > 0;
       const locHtml = hasChips || hasLocationQty
-        ? `<span class="inv-location-text">${this.esc(it.location || "-")}</span><span class="inv-box-chips">${chipsHtml}${slotChipsHtml}${locQtyChipsHtml}</span>`
+        ? `<span class="inv-box-chips">${chipsHtml}${slotChipsHtml}${locQtyChipsHtml}</span>`
         : this.esc(it.location || "-");
       const rowCons = it.inventoryConsumable ? " inv-row--inventory-consumable" : "";
+      const mainQtyShown = activeDistributionFilter
+        ? this._getItemDistributedQtyForFilter(it, activeDistributionFilter)
+        : (it.mainStock || 0);
       return `
         <tr data-id="${Utils.escapeAttr(it.id)}" class="inv-row inv-row--${cls}${rowCons}">
           <td class="${codeCellClass}"${codeTitle}>${lowIgnoredBadge}${codeInner}${consumableBadge}</td>
           ${descTd}
           <td>${this.esc(it.category||'-')}</td>
           <td>${this._formatPriceDisplay(it.defaultPrice ?? 0, it.priceCurrency)}</td>
-          <td class="inv-main-cell"><span class="inv-main-qty ${mainCls}">${fmt(it.mainStock||0)}</span></td>
+          <td class="inv-main-cell"><span class="inv-main-qty ${mainCls}">${fmt(mainQtyShown)}</span></td>
           <td>${fmt(it.prodStock||0)}</td>
           <td>${fmt(it.transStock||0)}</td>
           <td title="${tdTitle}">${locHtml}</td>
@@ -1828,7 +2037,6 @@ const InventoryManager = {
     this._syncInventoryProblemsMenuItemUi();
     this._syncInventoryLowStockIgnoredMenuItemUi();
     this._syncInventoryHeaderFiltersCollapseBtn();
-    this._syncZeroBoxesToolbarBtn();
     this._syncZeroTotalBoxToolbarBtn();
   },
 
@@ -3190,6 +3398,7 @@ const InventoryManager = {
   _applyBoxManagerItemSelection() {
     this._renderBoxManagerRows();
     this._syncBoxManagerArticleClearBtn();
+    const canEdit = this._canManageBoxMutations();
     const item = this.getItemById(this._boxMgrItemId);
     const boxes = item && Array.isArray(item.boxStocks) ? item.boxStocks : [];
     const opts = boxes
@@ -3200,21 +3409,50 @@ const InventoryManager = {
           )}</option>`
       )
       .join("");
+    const itemBoxNums = new Set(
+      boxes
+        .map(b => parseInt(b?.boxNumber, 10))
+        .filter(n => this._isValidBoxNumber(n))
+    );
+    const globalBoxCreateOpts = canEdit
+      ? this._getKnownBoxNumbers()
+          .filter(n => !itemBoxNums.has(n))
+          .map(
+            n =>
+              `<option value="${Utils.escapeAttr(`gbox:${n}`)}">${this.esc(
+                `${I18n.t("inventory.boxFilterOption").replace("{n}", String(n))} (+)`
+              )}</option>`
+          )
+          .join("")
+      : "";
+    const locRows = item ? this._normalizeItemLocationStocks(item) : [];
+    const locOpts = locRows
+      .map(ls => {
+        const raw = String(ls.location || "").trim();
+        if (!raw) return "";
+        const val = `loc:${encodeURIComponent(raw)}`;
+        const qty = Utils.formatDecimalDisplay(parseFloat(ls.qty) || 0);
+        return `<option value="${Utils.escapeAttr(val)}">${this.esc(`${raw} · ${qty}`)}</option>`;
+      })
+      .join("");
+    const mainPoolQ = item ? this._getMainLocationPoolQty(item) : 0;
+    const mainPoolOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_MAIN_POOL_ID)}">${this.esc(
+      `${I18n.t("inventory.boxTransferPrincipalPool")} · ${Utils.formatDecimalDisplay(mainPoolQ)}`
+    )}</option>`;
     const prodOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_PROD_ID)}">${this.esc(I18n.t("table.prodStock"))}</option>`;
     const transOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_TRANS_ID)}">${this.esc(I18n.t("table.transStock"))}</option>`;
     const locationOpt = `<option value="${Utils.escapeAttr(BOX_TRANSFER_LOCATION_ID)}">${this.esc(I18n.t("inventory.boxTransferToLocationDirect"))}</option>`;
-    const fromSpecialOpts = `${prodOpt}${transOpt}`;
-    const toSpecialOpts = `${prodOpt}${transOpt}${locationOpt}`;
+    const fromSpecialOpts = `${mainPoolOpt}${prodOpt}${transOpt}${locOpts}`;
+    const toSpecialOpts = `${mainPoolOpt}${prodOpt}${transOpt}${locationOpt}${locOpts}`;
     const phFrom = this.esc(I18n.t("inventory.boxTransferPlaceholderFrom"));
     const phTo = this.esc(I18n.t("inventory.boxTransferPlaceholderTo"));
     const fromSel = document.getElementById("inventory-box-transfer-from");
     const toSel = document.getElementById("inventory-box-transfer-to");
     if (fromSel) fromSel.innerHTML = `<option value="">${phFrom}</option>${fromSpecialOpts}${opts}`;
-    if (toSel) toSel.innerHTML = `<option value="">${phTo}</option>${toSpecialOpts}${opts}`;
+    if (toSel) toSel.innerHTML = `<option value="">${phTo}</option>${toSpecialOpts}${opts}${globalBoxCreateOpts}`;
     this._refreshBoxManagerLocationDatalists();
     this._syncBoxTransferLocationVisibility();
     this._syncBoxManagerAccessUi();
-    this._syncZeroBoxesToolbarBtn();
     this._syncZeroTotalBoxToolbarBtn();
   },
 
@@ -3460,7 +3698,27 @@ const InventoryManager = {
     const item = this.getItemById(this._boxMgrItemId);
     if (title) title.textContent = item ? `${item.code || "—"} — ${item.description || ""}` : I18n.t("inventory.boxMgrNoItem");
     if (!item) {
-      tbody.innerHTML = `<tr><td colspan="7" class="muted">${this.esc(I18n.t("inventory.boxMgrNoItem"))}</td></tr>`;
+      const rows = (this.standaloneBoxes || []).slice().sort((a, b) => a.boxNumber - b.boxNumber);
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">${this.esc(I18n.t("inventory.boxMgrNoItem"))}</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = rows
+        .map(b => {
+          const selected = String(document.getElementById("inventory-box-number")?.value || "") === String(b.boxNumber)
+            ? " inv-box-mgr-row--selected"
+            : "";
+          return `<tr class="inv-box-mgr-row${selected}" data-standalone-box="${Utils.escapeAttr(String(b.boxNumber))}" tabindex="0" role="button" title="${this.esc(I18n.t("inventory.boxMgrRowClickHint"))}">
+        <td><strong>${b.boxNumber}</strong><span class="inv-box-empty-badge">${this.esc(I18n.t("inventory.boxMgrBadgeEmpty"))}</span></td>
+        <td class="inv-box-mgr-ubic-cell">${this.esc(String(b.locationLabel || "").trim() || "—")}</td>
+        <td>0</td>
+        <td>0</td>
+        <td>${this.esc(String(b.notes || "").trim() || "-")}</td>
+        <td>${this.esc(b.updatedAt ? Utils.formatDateTime(b.updatedAt) : "-")}</td>
+        <td class="inv-box-mgr-actions-cell">—</td>
+      </tr>`;
+        })
+        .join("");
       return;
     }
     const rows = this._normalizeItemBoxStocks(item).boxStocks || [];
@@ -3730,22 +3988,27 @@ const InventoryManager = {
       return;
     }
     const itemId = this._boxMgrItemId;
-    if (!itemId) return;
     const boxNumber = parseInt(document.getElementById("inventory-box-number")?.value, 10);
     const qty = parseFloat(document.getElementById("inventory-box-qty")?.value) || 0;
     const qtyBoxes = parseInt(document.getElementById("inventory-box-qty-boxes")?.value, 10) || 0;
     const locationLabel = document.getElementById("inventory-box-location")?.value || "";
     const notes = document.getElementById("inventory-box-notes")?.value || "";
     const empty = !!document.getElementById("inventory-box-mark-empty")?.checked;
-    const res = this.upsertItemBoxStock(itemId, {
-      boxId: this._boxMgrEditBoxId || undefined,
-      boxNumber,
-      qty,
-      qtyBoxes,
-      empty,
-      locationLabel,
-      notes
-    });
+    const res = itemId
+      ? this.upsertItemBoxStock(itemId, {
+          boxId: this._boxMgrEditBoxId || undefined,
+          boxNumber,
+          qty,
+          qtyBoxes,
+          empty,
+          locationLabel,
+          notes
+        })
+      : this.upsertStandaloneBox({
+          boxNumber,
+          locationLabel,
+          notes
+        });
     if (!res.ok) {
       Utils.showToast(
         I18n.t(
@@ -3805,7 +4068,26 @@ const InventoryManager = {
       e.stopPropagation();
     }
     const row = !del && e.target.closest("tr.inv-box-mgr-row[data-box-id]");
-    if (!del && !row) return;
+    const standaloneRow = !del && e.target.closest("tr.inv-box-mgr-row[data-standalone-box]");
+    if (!del && !row && !standaloneRow) return;
+    if (standaloneRow && !this._boxMgrItemId) {
+      const n = parseInt(standaloneRow.getAttribute("data-standalone-box"), 10);
+      if (!this._isValidBoxNumber(n)) return;
+      const b = (this.standaloneBoxes || []).find(x => Number(x.boxNumber) === n);
+      if (!b) return;
+      this._boxMgrEditBoxId = null;
+      document.getElementById("inventory-box-number").value = String(b.boxNumber || "");
+      document.getElementById("inventory-box-qty").value = "0";
+      document.getElementById("inventory-box-qty-boxes").value = "0";
+      document.getElementById("inventory-box-location").value = b.locationLabel || "";
+      document.getElementById("inventory-box-notes").value = b.notes || "";
+      const cb = document.getElementById("inventory-box-mark-empty");
+      if (cb) cb.checked = true;
+      this._syncEmptyCheckboxUi();
+      this._syncBoxManagerFormUi();
+      this._renderBoxManagerRows();
+      return;
+    }
     const item = this.getItemById(this._boxMgrItemId);
     if (!item) return;
     const boxId = (del || row).getAttribute("data-box-id");
@@ -3851,18 +4133,84 @@ const InventoryManager = {
       return;
     }
     let res;
+    let toIdResolved = toId;
+    const parseLocRow = id => {
+      try {
+        return decodeURIComponent(String(id || "").slice(4));
+      } catch (e) {
+        return "";
+      }
+    };
+    if (String(toIdResolved).startsWith("gbox:")) {
+      const n = parseInt(String(toIdResolved).slice(5), 10);
+      if (!this._isValidBoxNumber(n)) {
+        Utils.showToast(I18n.t("inventory.boxTransferInvalid"), "error");
+        return;
+      }
+      const item = this.getItemById(itemId);
+      const exists = (item?.boxStocks || []).find(b => Number(b.boxNumber) === n);
+      if (exists && exists.boxId) {
+        toIdResolved = String(exists.boxId);
+      } else {
+        const created = this.upsertItemBoxStock(
+          itemId,
+          {
+            boxNumber: n,
+            qty: 0,
+            qtyBoxes: 0,
+            empty: false,
+            locationLabel: toLocation || "",
+            notes: ""
+          },
+          { silent: true }
+        );
+        if (!created?.ok || !created?.box?.boxId) {
+          Utils.showToast(I18n.t("inventory.boxTransferInvalid"), "error");
+          return;
+        }
+        toIdResolved = String(created.box.boxId);
+      }
+    }
+
     if (fk === "box" && tk === "box") {
-      res = this.transferBetweenBoxes(itemId, fromId, toId, qty, toLocation);
+      res = this.transferBetweenBoxes(itemId, fromId, toIdResolved, qty, toLocation);
+    } else if (fk === "mainpool" && tk === "box") {
+      res = this.transferMainPoolToBox(itemId, toIdResolved, qty, toLocation);
+    } else if (fk === "box" && tk === "mainpool") {
+      res = this.transferBoxToMainPool(itemId, fromId, qty);
+    } else if (fk === "mainpool" && tk === "loc") {
+      res = this.transferMainPoolToLocation(itemId, toLocation, qty);
+    } else if (fk === "mainpool" && tk === "locrow") {
+      res = this.transferMainPoolToLocation(itemId, parseLocRow(toId), qty);
+    } else if (fk === "locrow" && tk === "mainpool") {
+      res = this._consumeLocationStock(this.getItemById(itemId), parseLocRow(fromId), qty);
     } else if (fk === "box" && tk === "loc") {
       res = this.transferBoxToLocation(itemId, fromId, qty, toLocation);
+    } else if (fk === "box" && tk === "locrow") {
+      res = this.transferBoxToLocation(itemId, fromId, qty, parseLocRow(toId));
     } else if (fk === "box" && tk === "prod") {
       res = this.transferBoxToProdStock(itemId, fromId, qty);
     } else if (fk === "prod" && tk === "box") {
-      res = this.transferProdStockToBox(itemId, toId, qty, toLocation);
+      res = this.transferProdStockToBox(itemId, toIdResolved, qty, toLocation);
+    } else if (fk === "prod" && tk === "locrow") {
+      // Paso intermedio: prod -> caja no aplica para ubicación directa.
+      res = { ok: false, reason: "invalid-transfer" };
     } else if (fk === "box" && tk === "trans") {
       res = this.transferBoxToTransStock(itemId, fromId, qty);
     } else if (fk === "trans" && tk === "box") {
-      res = this.transferTransStockToBox(itemId, toId, qty, toLocation);
+      res = this.transferTransStockToBox(itemId, toIdResolved, qty, toLocation);
+    } else if (fk === "trans" && tk === "locrow") {
+      res = { ok: false, reason: "invalid-transfer" };
+    } else if (fk === "locrow" && tk === "box") {
+      res = this.transferLocationToBox(itemId, parseLocRow(fromId), toIdResolved, qty, toLocation);
+    } else if (fk === "locrow" && tk === "loc") {
+      res = this.transferLocationToLocation(itemId, parseLocRow(fromId), toLocation, qty);
+    } else if (fk === "locrow" && tk === "locrow") {
+      res = this.transferLocationToLocation(itemId, parseLocRow(fromId), parseLocRow(toId), qty);
+    } else if (fk === "locrow" && tk === "prod") {
+      res = this.transferLocationToProdStock(itemId, parseLocRow(fromId), qty);
+    } else if (fk === "locrow" && tk === "trans") {
+      res = this.transferLocationToTransStock(itemId, parseLocRow(fromId), qty);
     } else if (fk === "prod" && tk === "trans") {
       res = this.transferProdToTransStock(itemId, qty);
     } else if (fk === "trans" && tk === "prod") {
@@ -3883,6 +4231,8 @@ const InventoryManager = {
                   ? "inventory.boxTransferLocationRequired"
                   : res.reason === "invalid-location-catalog"
                     ? "inventory.boxTransferLocationNotInCatalog"
+                    : res.reason === "insufficient-pool" || res.reason === "location-overdraft" || res.reason === "location-not-found"
+                      ? "inventory.boxTransferInsufficientPool"
                     : res.reason === "box-empty"
                       ? "inventory.boxTransferBoxEmpty"
                       : "inventory.boxTransferInvalid";
@@ -4483,6 +4833,10 @@ const InventoryManager = {
 
   _getKnownBoxNumbers() {
     const set = new Set();
+    for (const b of this.standaloneBoxes || []) {
+      const n = parseInt(b?.boxNumber, 10);
+      if (this._isValidBoxNumber(n)) set.add(n);
+    }
     for (const it of this.items || []) {
       for (const n of this._collectWarehouseBoxesFromItem(it)) {
         if (this._isValidBoxNumber(n)) set.add(n);
@@ -4674,6 +5028,55 @@ const InventoryManager = {
     return arr.filter(it => this._collectWarehouseBoxesFromItem(it).includes(n));
   },
 
+  _getActiveDistributionFilter() {
+    const sel = document.getElementById("inventory-box-filter");
+    const v = sel?.value ?? "all";
+    if (!v || v === "all" || v === "none") return null;
+    if (String(v).startsWith("slot:")) {
+      let slot = "";
+      try {
+        slot = decodeURIComponent(String(v).slice(5));
+      } catch (e) {
+        slot = String(v).slice(5);
+      }
+      return slot ? { kind: "slot", slot } : null;
+    }
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n)) return null;
+    return { kind: "box", boxNumber: n };
+  },
+
+  _getItemDistributedQtyForFilter(item, filter) {
+    if (!item || !filter) return Utils.roundDecimal(parseFloat(item?.mainStock) || 0);
+    if (filter.kind === "box") {
+      const n = parseInt(filter.boxNumber, 10);
+      const rows = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+      let sum = 0;
+      for (const b of rows) {
+        if (parseInt(b?.boxNumber, 10) !== n) continue;
+        sum += this._parseBoxStockQtyValue(b?.qty);
+      }
+      return Math.max(0, Utils.roundDecimal(sum));
+    }
+    if (filter.kind === "slot") {
+      const slot = String(filter.slot || "").trim();
+      if (!slot) return 0;
+      let sum = 0;
+      const rows = Array.isArray(item.boxStocks) ? item.boxStocks : [];
+      for (const b of rows) {
+        if (!this._locationLabelEquals(b?.locationLabel || "", slot)) continue;
+        sum += this._parseBoxStockQtyValue(b?.qty);
+      }
+      const locRows = this._normalizeItemLocationStocks(item);
+      for (const ls of locRows) {
+        if (!this._locationLabelEquals(ls?.location || "", slot)) continue;
+        sum += Utils.roundDecimal(parseFloat(ls?.qty) || 0);
+      }
+      return Math.max(0, Utils.roundDecimal(sum));
+    }
+    return Utils.roundDecimal(parseFloat(item.mainStock) || 0);
+  },
+
   _filterInventoryDepotPreset(arr) {
     if (!Array.isArray(arr)) return [];
     const sel = document.getElementById("inventory-depot-preset");
@@ -4805,8 +5208,7 @@ const InventoryManager = {
       } else {
         Utils.showToast(`${slotId}: ${Utils.formatDecimalDisplay(est.qty)}`, "info");
       }
-      const ok = this._setInventoryBoxFilterBySlot(slotId);
-      if (!ok && itemId) this._openBoxManagerAtItemBox(itemId, NaN);
+      // Solo informar cantidad en ubicación: no alterar filtros/vista.
       return true;
     }
     if (kind === "locqty") {
@@ -4823,12 +5225,24 @@ const InventoryManager = {
       } else {
         Utils.showToast(`${locationKey}: ${Utils.formatDecimalDisplay(est.qty)}`, "info");
       }
-      const slots = Utils.parseWarehouseSlotsFromLocation(locationKey);
-      if (slots.length) return this._setInventoryBoxFilterBySlot(slots[0]);
-      this._openBoxManagerAtItemBox(itemId, NaN);
+      // Solo informar cantidad en ubicación: no alterar filtros/vista.
       return true;
     }
     return false;
+  },
+
+  _focusInventorySearchSoon() {
+    setTimeout(() => {
+      const inp = document.getElementById("inventory-search");
+      if (!inp) return;
+      inp.focus({ preventScroll: true });
+      const len = String(inp.value || "").length;
+      try {
+        inp.setSelectionRange(len, len);
+      } catch (e) {
+        // no-op for unsupported inputs
+      }
+    }, 0);
   },
 
   /**
@@ -5583,9 +5997,13 @@ const InventoryManager = {
   setupEventListeners(){
     const s=document.getElementById("inventory-search");
     if(s){
-      s.addEventListener("input",Utils.debounce(e=>{
-        this.render(this.search(e.target.value));
-      },300));
+      const runSearch = e => {
+        this.render(this.search(e?.target?.value ?? s.value ?? ""));
+      };
+      s.addEventListener("input", Utils.debounce(runSearch, 300));
+      // Respaldo no-debounced: evita sensación de bloqueo tras acciones de clic/filtros.
+      s.addEventListener("search", runSearch);
+      s.addEventListener("change", runSearch);
     }
     document.getElementById("inventory-search-reset-btn")?.addEventListener("click", () => {
       this.resetInventorySearchAndFilters();
@@ -5686,31 +6104,10 @@ const InventoryManager = {
     });
     document.getElementById("inventory-print-list")?.addEventListener("click", () => this.printCurrentInventoryView());
     document.getElementById("inventory-box-summary-btn")?.addEventListener("click", () => this.openWarehouseBoxSummaryModal());
-    document.getElementById("inventory-zero-boxes-btn")?.addEventListener("click", () => this.openZeroQtyBoxesModal());
     document.getElementById("inventory-box-zero-total-btn")?.addEventListener("click", () =>
       this.openZeroTotalStockByBoxModal()
     );
     document.getElementById("inventory-box-manager-btn")?.addEventListener("click", () => this.openBoxManagerModal());
-    document.getElementById("close-inventory-zero-boxes")?.addEventListener("click", () => this.closeZeroQtyBoxesModal());
-    document.getElementById("inventory-zero-boxes-modal")?.addEventListener("click", e => {
-      if (e.target.id === "inventory-zero-boxes-modal") {
-        this.closeZeroQtyBoxesModal();
-        return;
-      }
-      const tr = e.target.closest("tr.inv-zero-box-row[data-item-id]");
-      if (!tr) return;
-      const itemId = tr.getAttribute("data-item-id");
-      const boxNum = parseInt(tr.getAttribute("data-box-number") || "", 10);
-      if (!itemId || !this._isValidBoxNumber(boxNum)) return;
-      this.closeZeroQtyBoxesModal();
-      this._openBoxManagerAtItemBox(itemId, boxNum);
-    });
-    document.getElementById("inventory-zero-boxes-modal")?.addEventListener("keydown", e => {
-      const tr = e.target.closest("tr.inv-zero-box-row[data-item-id]");
-      if (!tr || (e.key !== "Enter" && e.key !== " ")) return;
-      e.preventDefault();
-      tr.click();
-    });
     document.getElementById("close-inventory-box-zero-total")?.addEventListener("click", () =>
       this.closeZeroTotalStockByBoxModal()
     );

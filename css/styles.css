@@ -7490,7 +7490,8 @@ body.auth-tab-hide-inventory .nav-btn[data-tab="inventory"],
 body.auth-tab-hide-movements .nav-btn[data-tab="movements"],
 body.auth-tab-hide-history .nav-btn[data-tab="history"],
 body.auth-tab-hide-transport .nav-btn[data-tab="transport"],
-body.auth-tab-hide-orderlines .nav-btn[data-tab="orderlines"] {
+body.auth-tab-hide-orderlines .nav-btn[data-tab="orderlines"],
+body.auth-tab-hide-receptions .nav-btn[data-tab="receptions"] {
     display: none !important;
 }
 
