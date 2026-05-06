@@ -186,6 +186,32 @@ const TransportManager = {
     localStorage.setItem(STORAGE_KEYS.PENDING_ELEC_PROD, JSON.stringify(this.pendingElecProd));
   },
 
+  removePendingElectricalRef(movementId, kind = "") {
+    const mid = String(movementId || "").trim();
+    if (!mid) return false;
+    const k = String(kind || "").trim().toLowerCase();
+    let changed = false;
+    const stripFrom = map => {
+      Object.keys(map || {}).forEach(pid => {
+        const list = Array.isArray(map[pid]) ? map[pid] : [];
+        const next = list.filter(r => r && r.movementId !== mid);
+        if (next.length !== list.length) {
+          changed = true;
+          if (next.length) map[pid] = next;
+          else delete map[pid];
+        }
+      });
+    };
+    if (k === "obra") stripFrom(this.pendingElecObra);
+    else if (k === "prod") stripFrom(this.pendingElecProd);
+    else {
+      stripFrom(this.pendingElecObra);
+      stripFrom(this.pendingElecProd);
+    }
+    if (changed) this.savePending();
+    return changed;
+  },
+
   mergePendingObraInto(t) {
     const keysToMerge = Object.keys(this.pendingElecObra || {}).filter(k =>
       Utils.projectIdsEquivalent(k, t.projectId)
@@ -587,9 +613,17 @@ const TransportManager = {
     }
   },
 
-  _normalizeReceptionCategoryForTransport(rawCategory) {
+  _normalizeReceptionCategoryForTransport(rawCategory, recLike = null) {
     const raw = String(rawCategory || "").trim();
-    if (!raw) return "OTRO";
+    const itemNameNorm = String(recLike?.itemName || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+    const itemCompact = itemNameNorm.replace(/[^A-Z0-9]/g, "");
+    const looksLikeBaseTop =
+      itemCompact.includes("BASETOP") ||
+      /\bBASE\s*\/?\s*TOP\b/i.test(itemNameNorm);
+    if (!raw) return looksLikeBaseTop ? "BASE_TOP" : "OTRO";
     const up = raw
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -602,8 +636,18 @@ const TransportManager = {
     if (up === "VIDRIO PINTADO") return "VIDRIO_PINTADO";
     if (up === "GRANITO") return "GRANITO";
     if (up === "GRANITO LACROIX" || up === "GRANITO_LACROIX") return "GRANITO_LACROIX";
+    if (up === "BASE TOP" || up === "BASE/TOP" || up === "BASE_TOP" || up === "BASETOP")
+      return "BASE_TOP";
     if (up === "ESPECIAL" || up === "MATERIAL ESPECIAL" || up === "ARTICULO ESPECIAL") return "ESPECIAL";
-    if (up === "OTRO" || up === "OTHER") return "OTRO";
+    if (
+      up === "OTRO" ||
+      up === "OTHER" ||
+      up === "OTRO / INVENTARIO" ||
+      up === "OTRO/INVENTARIO" ||
+      up === "INVENTARIO"
+    ) {
+      return looksLikeBaseTop ? "BASE_TOP" : "OTRO";
+    }
     return up.replace(/\s+/g, "_");
   },
 
@@ -620,7 +664,7 @@ const TransportManager = {
     /** Claves con las que se indexan recepciones: deben alinear con `line.id` o átomos en líneas fusionadas. */
     const byCat = {};
     allRecs.forEach(r => {
-      const raw = this._normalizeReceptionCategoryForTransport(r.materialCategory || "OTRO");
+      const raw = this._normalizeReceptionCategoryForTransport(r.materialCategory || "OTRO", r);
       const keys = [raw];
       if (raw === "ESPECIAL") keys.push("ARTICULO_ESPECIAL");
       else if (raw === "VIDRIO") keys.push("VIDRIO_PLANO");
@@ -906,6 +950,21 @@ const TransportManager = {
       t.updated = new Date().toISOString();
       this.save();
       this.render();
+    }
+    if (action === "remove-queued-me") {
+      if (typeof Auth !== "undefined" && !Auth.guardTransportMutation()) return;
+      const mid = btn.getAttribute("data-mid") || "";
+      const kind = btn.getAttribute("data-kind") || "";
+      const ref = btn.getAttribute("data-ref") || "";
+      if (!mid) return;
+      const msg = I18n.t("transport.queueRemoveConfirm").replace("{ref}", ref ? ref : mid);
+      App.showConfirm(msg, () => {
+        const ok = this.removePendingElectricalRef(mid, kind);
+        if (typeof Auth !== "undefined" && Auth.logAudit) Auth.logAudit("transport.queue.remove", `${kind || "me"}:${ref || mid}`);
+        Utils.showToast(I18n.t(ok ? "transport.queueRemovedOk" : "transport.queueRemoveMissing"), ok ? "success" : "warning");
+        this.render();
+        if (typeof Dashboard !== "undefined" && Dashboard._updatePendingTransports) Dashboard._updatePendingTransports();
+      });
     }
   },
 
@@ -2111,19 +2170,28 @@ const TransportManager = {
       })
       .join("");
 
+    const rmBtn = (r, kind) =>
+      `<button type="button" class="btn btn-xs btn-danger" data-transport-action="remove-queued-me" data-kind="${Utils.escapeAttr(
+        kind
+      )}" data-mid="${Utils.escapeAttr(r.movementId)}" data-ref="${Utils.escapeAttr(r.ref || "")}" title="${Utils.escapeAttr(
+        I18n.t("transport.queueRemoveBtn")
+      )}">${this.esc(I18n.t("transport.queueRemoveBtn"))}</button>`;
+    const renderRefs = (arr, kind) =>
+      (arr || [])
+        .filter(r => r && r.movementId)
+        .map(r => `<span class="transport-queued-ref">${this.esc(r.ref || r.movementId)} ${rmBtn(r, kind)}</span>`)
+        .join(" ");
+
     const queueLines = queueGroupsPrepared.map(g => {
-      const o = g.obra.map(r => this.esc(r.ref)).filter(Boolean);
-      const p = g.prod.map(r => this.esc(r.ref)).filter(Boolean);
+      const o = renderRefs(g.obra, "obra");
+      const p = renderRefs(g.prod, "prod");
       const parts = [];
-      if (o.length) parts.push(`${this.esc(I18n.t("transport.elecObra"))} ${o.join(", ")}`);
-      if (p.length) parts.push(`${this.esc(I18n.t("transport.elecProd"))} ${p.join(", ")}`);
+      if (o) parts.push(`${this.esc(I18n.t("transport.elecObra"))} ${o}`);
+      if (p) parts.push(`${this.esc(I18n.t("transport.elecProd"))} ${p}`);
       return `<li><strong>${this.esc(g.displayPid)}</strong> — ${parts.join(" · ")}</li>`;
     });
 
-    const stockMeObra =
-      typeof MELegacyPendingManager !== "undefined" && MELegacyPendingManager.renderStockBlockHtml
-        ? MELegacyPendingManager.renderStockBlockHtml()
-        : "";
+    const stockMeObra = "";
 
     if (!rowHtml && !queueLines.length && !stockMeObra) return "";
 

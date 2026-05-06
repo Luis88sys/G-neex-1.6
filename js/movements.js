@@ -1364,9 +1364,13 @@ const MovementManager = {
             const extra =
                 type === 'COMPRA_STOCK' ? ' mov-type-compra' : type === 'RECEPCION_MATERIAL' ? ' mov-type-recepcion' : '';
             const label = I18n.t(`movType.${type}`);
+            const canUseType =
+                typeof Auth === "undefined" || !Auth.hasMovementTypeProcess
+                    ? true
+                    : Auth.hasMovementTypeProcess(type);
             return `
                 <div class="movement-type-cell">
-                    <button type="button" class="movement-type-btn${extra}" data-type="${type}" 
+                    <button type="button" class="movement-type-btn${extra}" data-type="${type}" ${canUseType ? "" : "disabled"}
                             style="border-color:${conf.color}"
                             title="${escAttr(label)}">
                         <span class="mov-type-btn-icon" aria-hidden="true">${conf.icon}</span>${escHtml(label)}
@@ -1550,6 +1554,7 @@ const MovementManager = {
         const ct = this.currentType;
         const ok = !!(ct && MOVEMENT_TYPES[ct]);
         wrap.hidden = !(this._movementFormMinimized && ok);
+        wrap.classList.toggle("draft-float-bar-wrap--active", !!(this._movementFormMinimized && ok));
         subtype.textContent = this._movementFormMinimized && ok && typeof I18n !== "undefined" && I18n.t ? I18n.t(`movType.${ct}`) : "";
     },
 
@@ -1581,6 +1586,7 @@ const MovementManager = {
 
     selectType(type) {
         if (!MOVEMENT_TYPES[type]) return;
+        if (typeof Auth !== "undefined" && Auth.guardMovementTypeProcess && !Auth.guardMovementTypeProcess(type)) return;
         if (this._movementFormMinimized) {
             if (type !== this.currentType) {
                 Utils.showToast(I18n.t("movements.draftSwitchBlockedHint"), "info");
@@ -3743,6 +3749,7 @@ const MovementManager = {
 
     async processMovement() {
         if (!Auth.guardPerm("movements")) return;
+        if (typeof Auth !== "undefined" && Auth.guardMovementTypeProcess && !Auth.guardMovementTypeProcess(this.currentType)) return;
 
         if (this.currentType === 'MAT_ELEC_OBRA') {
             void this._processMovementElecObraWithBoxPrompt();
@@ -3776,6 +3783,7 @@ const MovementManager = {
     /** Pregunta las cajas totales del movimiento M.E. obra y luego procesa (incl. sobregiro). */
     async _processMovementElecObraWithBoxPrompt() {
         if (!Auth.guardPerm("movements")) return;
+        if (typeof Auth !== "undefined" && Auth.guardMovementTypeProcess && !Auth.guardMovementTypeProcess(this.currentType)) return;
         this.syncSelectedItemQuantitiesFromDom();
         if (!this.validateMovement()) return;
 
@@ -4465,6 +4473,7 @@ const MovementManager = {
         const movement = this.movements.find(m => m.id === movementId);
         if (!movement || movement.annulled || movement.type !== 'STANDBY') return;
         const targetType = movement.standbyReleaseType;
+        if (typeof Auth !== "undefined" && Auth.guardMovementTypeProcess && !Auth.guardMovementTypeProcess(targetType)) return;
         if (!MOVEMENT_TYPES[targetType] || targetType === 'STANDBY') {
             Utils.showToast(I18n.t('msg.standbyInvalidReleaseType'), 'warning');
             return;

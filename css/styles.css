@@ -3060,6 +3060,22 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     color: white;
 }
 
+.btn-success {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #fff;
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.btn-success:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .btn-primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.4);
@@ -5015,6 +5031,17 @@ body.auth-no-movements #movement-draft-float-wrap {
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
+@keyframes draft-gold-pulse {
+    0% { box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 0 rgba(245,158,11,0); }
+    50% { box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 22px rgba(245,158,11,0.65); }
+    100% { box-shadow: 0 12px 30px rgba(0,0,0,0.5), 0 0 0 rgba(245,158,11,0); }
+}
+
+.draft-float-bar-wrap--active .draft-float-bar {
+    border-color: rgba(245, 158, 11, 0.85);
+    animation: draft-gold-pulse 1.2s ease-in-out infinite;
+}
+
 .draft-float-bar-label {
     font-size: 0.85rem;
     color: var(--text-primary);
@@ -5598,7 +5625,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
 /* ===== Toast Notifications ===== */
 .toast-container {
     position: fixed;
-    bottom: var(--spacing-lg);
+    top: var(--spacing-lg);
     right: var(--spacing-lg);
     display: flex;
     flex-direction: column;
@@ -5608,14 +5635,38 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
 }
 
 .toast {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: 0.5rem 0.65rem;
     border-radius: var(--radius-md);
     color: white;
-    font-weight: 500;
+    font-weight: 600;
     box-shadow: 0 4px 20px var(--shadow-color);
-    animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
-    max-width: 350px;
+    animation: slideInRight 0.25s ease;
+    max-width: 320px;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
+
+.toast .toast-msg {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.toast .toast-close {
+    background: transparent;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 0.15rem;
+    opacity: 0.9;
+}
+.toast.warning .toast-close { color: #000; }
+.toast .toast-close:hover { opacity: 1; }
 
 @keyframes slideInRight {
     from { transform: translateX(100%); opacity: 0; }

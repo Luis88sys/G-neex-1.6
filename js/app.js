@@ -703,6 +703,13 @@ const App = {
         this._showNavContextMenu(e.clientX, e.clientY, tab, null);
       });
     });
+    document.querySelectorAll("[data-open-config-tab]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tab = btn.getAttribute("data-open-config-tab");
+        if (!tab || typeof ConfigManager === "undefined" || !ConfigManager.openModalAtTab) return;
+        ConfigManager.openModalAtTab(tab);
+      });
+    });
 
     document.querySelectorAll("[data-open-tab]").forEach(btn => {
       btn.addEventListener("contextmenu", e => {

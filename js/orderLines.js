@@ -375,10 +375,6 @@ const OrderLinesManager = {
     if (typeof Auth !== "undefined" && !Auth.guardFineAction("ordLineMutations")) return;
     const line = this.getLine(id);
     if (!line || line.status === this.STATUS.CANCELADA || line.status === this.STATUS.RECEPCION_TOTAL) return;
-    if (line.receivedQty > 0) {
-      Utils.showToast(I18n.t("orderLines.msgCannotCancelReceived"), "warning");
-      return;
-    }
     App.showConfirm(I18n.t("orderLines.confirmCancel"), () => {
       const now = new Date().toISOString();
       line.status = this.STATUS.CANCELADA;
@@ -1434,11 +1430,6 @@ const OrderLinesManager = {
       if (typeof Auth !== "undefined" && !Auth.guardFineAction("ordPrint", "view")) return;
       this.printFilteredTable();
     });
-    document.getElementById("orderlines-purge-old-btn")?.addEventListener("click", () => {
-      if (typeof Auth !== "undefined" && !Auth.guardFineAction("ordPurgeOld")) return;
-      this.purgeReceivedOlderThanOneYear();
-    });
-
     const fSearch = document.getElementById("orderlines-filter-search");
     const fStatus = document.getElementById("orderlines-filter-status");
     const fFrom = document.getElementById("orderlines-filter-date-from");

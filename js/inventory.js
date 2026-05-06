@@ -502,7 +502,13 @@ const InventoryManager = {
   },
 
   getItemAvailableBoxes(itemId) {
-    return this.getItemBoxStocks(itemId).filter(b => !b.empty && (parseFloat(b.qty) || 0) > 0);
+    return this.getItemBoxStocks(itemId).filter(b => {
+      if (b.empty) return false;
+      const qty = parseFloat(b.qty) || 0;
+      const qtyBoxes = parseInt(b.qtyBoxes, 10) || 0;
+      // Permite considerar cajas "contables por cantidad de cajas" aunque no se declare unidad exacta.
+      return qty > 0 || qtyBoxes > 0;
+    });
   },
 
   _findBoxIndex(item, boxId) {

@@ -2466,7 +2466,7 @@ th.print-cell-code,td.print-cell-code{
     },
 
     // Toasts y debounce igual que antes
-    showToast(msg,type='info',durationMs=7500){
+    showToast(msg,type='info',durationMs=6500){
         let c=document.getElementById('toast-container');
         if(!c){
             c=document.createElement('div');
@@ -2476,9 +2476,19 @@ th.print-cell-code,td.print-cell-code{
         }
         const t=document.createElement('div');
         t.className=`toast ${type}`;
-        t.textContent=msg;
+        const m=document.createElement('div');
+        m.className='toast-msg';
+        m.textContent=String(msg ?? '');
+        const x=document.createElement('button');
+        x.type='button';
+        x.className='toast-close';
+        x.setAttribute('aria-label','Close');
+        x.textContent='×';
+        x.addEventListener('click',()=>t.remove());
+        t.appendChild(m);
+        t.appendChild(x);
         c.appendChild(t);
-        const ms=typeof durationMs==='number'&&durationMs>0?durationMs:7500;
+        const ms=typeof durationMs==='number'&&durationMs>0?durationMs:6500;
         setTimeout(()=>t.remove(),ms);
     },
     debounce(fn,w=300){let tm;return(...a)=>{clearTimeout(tm);tm=setTimeout(()=>fn(...a),w);}},

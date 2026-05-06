@@ -167,6 +167,9 @@
             <button type="button" class="nav-btn requires-movements-perm" data-tab="orderlines" data-help-key="helpCoach.navOrderlines" data-i18n-title="nav.orderlines" title="Pedidos a proveedor">
                 📋 <span data-i18n="nav.orderlines">Pedidos</span>
             </button>
+            <button type="button" class="nav-btn" data-open-config-tab="receptions" data-i18n-title="nav.receptions" title="Recepciones">
+                📥 <span data-i18n="nav.receptions">Recepciones</span>
+            </button>
 
         </nav>
     </div>
@@ -178,10 +181,7 @@
             <option value="fr">🇫🇷 FR</option>
         </select>
 
-        <button type="button" id="gneex-help-open" class="gneex-help-open-btn" data-help-key="helpCoach.btnHelp" data-i18n-title="ui.helpTitle" title="">
-            <span class="gneex-help-open-icon" aria-hidden="true">❓</span>
-            <span class="gneex-help-open-text" data-i18n="help.modalTitle">Ayuda</span>
-        </button>
+        <!-- Botón Ayuda movido a Configuración → Acerca de -->
 
         <div class="test-mode-control" data-help-key="helpCoach.testMode" data-i18n-title="ui.testModeTitle" title="Modo demostración: tema azul. Al desactivar se restauran los datos anteriores; tema e idioma no cambian.">
             <label class="test-mode-switch">
@@ -191,9 +191,7 @@
             <span class="test-mode-label" data-i18n="ui.testMode">Prueba</span>
         </div>
 
-        <button type="button" id="theme-toggle" class="theme-toggle" data-help-key="helpCoach.btnTheme" data-i18n-title="ui.themeTitle" title="Cambiar tema">
-            <span class="theme-icon">🌙</span>
-        </button>
+        <!-- Tema (claro/oscuro) movido a Configuración → Acerca de -->
 
         <button type="button" id="config-btn" class="config-btn" data-auth-act="cfgModalOpen" data-auth-act-level="view" data-open-view="config" data-help-key="helpCoach.btnConfig" data-i18n-title="ui.configTitle" title="Configuración">
             ⚙️
@@ -313,6 +311,10 @@
         <div class="form-group">
           <label data-i18n="auth.newPassword">Nueva contraseña</label>
           <input id="profile-new-pw" type="password" class="form-input" minlength="6" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label data-i18n="auth.userTemplate">Plantilla</label>
+          <select id="profile-template" class="filter-select"></select>
         </div>
         <div id="profile-error" style="display:none;color:#e74c3c;margin:0.5rem 0;font-size:0.85rem;"></div>
         <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem" data-i18n="buttons.save">Guardar</button>
@@ -803,7 +805,7 @@
       <div class="transport-tab-actions orderlines-header-actions">
         <button type="button" id="orderlines-export-btn" class="btn inventory-asof-icon-btn" data-auth-act="ordExportXlsx" data-auth-act-level="view" data-i18n-title="orderLines.exportTableBtn" data-i18n-aria-label="orderLines.exportTableBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
         <button type="button" id="orderlines-print-btn" class="btn inventory-asof-icon-btn" data-auth-act="ordPrint" data-auth-act-level="view" data-i18n-title="orderLines.printTableBtn" data-i18n-aria-label="orderLines.printTableBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
-        <button type="button" id="orderlines-purge-old-btn" class="btn btn-secondary btn-sm requires-orderlines-edit" data-auth-act="ordPurgeOld" data-auth-act-level="edit" data-i18n="orderLines.purgeOldReceivedBtn">Limpiar recibidos +1 año</button>
+        <!-- Botón eliminado: limpieza masiva de recibidos antiguos -->
       </div>
     </div>
 
@@ -1030,9 +1032,9 @@
 
         <div class="config-section">
           <div id="config-backup-full-wrap">
-            <h3 data-i18n="config.backupSectionTitle">Respaldo general (JSON)</h3>
-            <button type="button" id="export-zip-btn" class="btn btn-secondary" data-auth-act="cfgActBackupExport" data-auth-act-level="edit" data-i18n="config.exportBackup">Exportar respaldo</button>
-            <button type="button" id="import-backup-btn" class="btn btn-secondary" data-auth-act="cfgActBackupImport" data-auth-act-level="edit" data-i18n="config.importBackup">Importar respaldo</button>
+            <h3 data-i18n="config.backupSectionTitle">Respaldo general</h3>
+            <button type="button" id="export-zip-btn" class="btn btn-success" data-auth-act="cfgActBackupExport" data-auth-act-level="edit" data-i18n="config.exportBackup">Exportar respaldo</button>
+            <button type="button" id="import-backup-btn" class="btn btn-success" data-auth-act="cfgActBackupImport" data-auth-act-level="edit" data-i18n="config.importBackup">Importar respaldo</button>
             <input type="file" id="import-backup-input" accept=".json" style="display:none;" data-i18n-title="config.importBackup" data-i18n-aria-label="config.importBackup">
           </div>
           <div id="config-movements-merge-wrap">
@@ -1286,6 +1288,7 @@
             <input id="user-add-username" type="text" class="form-input" placeholder="Usuario" data-i18n-placeholder="auth.username" required minlength="2">
             <input id="user-add-display" type="text" class="form-input" placeholder="Nombre visible" data-i18n-placeholder="auth.displayName">
             <input id="user-add-password" type="password" class="form-input" placeholder="Contraseña" data-i18n-placeholder="auth.password" required minlength="6">
+            <select id="user-add-template" class="filter-select"></select>
             <select id="user-add-role" class="filter-select">
               <option value="user" data-i18n="auth.roleUser">Usuario</option>
               <option value="admin" data-i18n="auth.roleAdmin">Administrador</option>
@@ -1320,6 +1323,60 @@
 
       <div id="config-receptions" class="config-content">
         <h3 data-i18n="config.receptionsTitle">Recepciones de material</h3>
+        <div class="config-section">
+          <h4 class="config-subsection-title" data-i18n="config.receptionsAdvancedFiltersTitle">Filtros avanzados</h4>
+          <div class="filters-grid">
+            <div class="filter-group">
+              <label for="receptions-adv-project" data-i18n="reception.project">Proyecto</label>
+              <input type="text" id="receptions-adv-project" class="filter-input" autocomplete="off">
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-supplier" data-i18n="reception.supplier">Proveedor</label>
+              <input type="text" id="receptions-adv-supplier" class="filter-input" autocomplete="off">
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-category" data-i18n="reception.materialCategory">Tipo de material</label>
+              <select id="receptions-adv-category" class="filter-select">
+                <option value="" data-i18n="history.filterAll">Todos</option>
+                <option value="MARMOL" data-i18n="reception.mat.MARMOL">Mármol</option>
+                <option value="VIDRIO_PLANO" data-i18n="reception.mat.VIDRIO_PLANO">Vidrio plano</option>
+                <option value="VIDRIO_CURVO" data-i18n="reception.mat.VIDRIO_CURVO">Vidrio curvo</option>
+                <option value="VIDRIO_PINTADO" data-i18n="reception.mat.VIDRIO_PINTADO">Vidrio pintado</option>
+                <option value="GRANITO" data-i18n="reception.mat.GRANITO">Granito</option>
+                <option value="GRANITO_LACROIX" data-i18n="reception.mat.GRANITO_LACROIX">Granito Lacroix</option>
+                <option value="ESPECIAL" data-i18n="reception.mat.ESPECIAL">Material especial</option>
+                <option value="OTRO" data-i18n="reception.mat.OTRO">Otro / inventario</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-provisional" data-i18n="reception.provisionalCheck">Stock provisional</label>
+              <select id="receptions-adv-provisional" class="filter-select">
+                <option value="" data-i18n="history.filterAll">Todos</option>
+                <option value="yes" data-i18n="reception.provisional">Provisional</option>
+                <option value="no" data-i18n="config.receptionsFilterNoProvisional">No provisional</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-date-from" data-i18n="history.dateFrom">Desde</label>
+              <input type="date" id="receptions-adv-date-from" class="filter-input">
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-date-to" data-i18n="history.dateTo">Hasta</label>
+              <input type="date" id="receptions-adv-date-to" class="filter-input">
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-qty-min" data-i18n="history.filterQtyMin">Cant. mín.</label>
+              <input type="number" id="receptions-adv-qty-min" class="filter-input" min="0" step="0.01">
+            </div>
+            <div class="filter-group">
+              <label for="receptions-adv-qty-max" data-i18n="history.filterQtyMax">Cant. máx.</label>
+              <input type="number" id="receptions-adv-qty-max" class="filter-input" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="filter-actions" style="margin-top:0.5rem;">
+            <button type="button" id="receptions-adv-clear-btn" class="btn btn-secondary btn-sm" data-i18n="buttons.clearFilters">Limpiar Filtros</button>
+          </div>
+        </div>
         <div class="receptions-config-toolbar">
           <label class="receptions-search-label">
             <span data-i18n="config.receptionsSearchLabel">Buscar recepciones</span>
@@ -1390,6 +1447,14 @@
       <div id="config-about" class="config-content config-about-panel">
         <h3 data-i18n="config.aboutTitle">Origen y propósito del proyecto</h3>
         <div class="config-about-body">
+          <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+            <button type="button" id="theme-toggle" class="btn btn-secondary btn-sm" data-help-key="helpCoach.btnTheme" data-i18n-title="ui.themeTitle" title="Cambiar tema">
+              <span class="theme-icon">🌙</span> <span data-i18n="ui.themeTitle">Tema</span>
+            </button>
+            <button type="button" id="gneex-help-open" class="btn btn-primary btn-sm" data-help-key="helpCoach.btnHelp" data-i18n-title="ui.helpTitle" title="">
+              ❓ <span data-i18n="help.modalTitle">Ayuda</span>
+            </button>
+          </div>
           <p data-i18n="config.aboutP1"></p>
           <p data-i18n="config.aboutP2"></p>
           <p data-i18n="config.aboutP3"></p>

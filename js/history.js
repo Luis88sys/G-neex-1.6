@@ -1527,11 +1527,17 @@ const HistoryManager = {
                                     }
                                 </span>
                                 <span class="detail-stock-result muted">${this._esc(I18n.t('history.stockAfter'))} <strong>${fmtStock(stockAfterList[index])}</strong></span>
-                                ${!movement.annulled && !item.annulled ? `
+                                ${
+                                  !movement.annulled &&
+                                  !item.annulled &&
+                                  (typeof Auth === "undefined" || !Auth.hasMovementAnnul || Auth.hasMovementAnnul())
+                                    ? `
                                     <button class="annul-item-btn" data-index="${index}">
                                         ${this._esc(I18n.t('buttons.annulItem'))}
                                     </button>
-                                ` : ''}
+                                `
+                                    : ""
+                                }
                             </div>
                         </div>
                     </div>
@@ -1542,7 +1548,9 @@ const HistoryManager = {
         // Mostrar/ocultar botón de anular
         const annulBtn = document.getElementById('annul-movement-btn');
         if (annulBtn) {
-            annulBtn.style.display = movement.annulled ? 'none' : 'block';
+            const canAnnul =
+                typeof Auth === "undefined" || !Auth.hasMovementAnnul ? true : Auth.hasMovementAnnul();
+            annulBtn.style.display = !canAnnul || movement.annulled ? 'none' : 'block';
         }
 
         document.getElementById('movement-detail-modal').classList.add('active');
@@ -1676,6 +1684,7 @@ const HistoryManager = {
         if (annulMovementBtn) {
             annulMovementBtn.addEventListener('click', () => {
                 if (!this.currentMovement) return;
+                if (typeof Auth !== "undefined" && Auth.guardMovementAnnul && !Auth.guardMovementAnnul()) return;
                 App.showConfirm(I18n.t('confirm.annulMovement'), () => {
                     /* Una sola confirmación: si annulMovement pide otra, hideConfirm() la borra antes de aceptar. */
                     MovementManager.annulMovement(this.currentMovement.id, true);
@@ -1732,6 +1741,7 @@ const HistoryManager = {
                 }
                 const annulItemBtn = e.target.closest('.annul-item-btn');
                 if (annulItemBtn && this.currentMovement) {
+                    if (typeof Auth !== "undefined" && Auth.guardMovementAnnul && !Auth.guardMovementAnnul()) return;
                     const index = parseInt(annulItemBtn.dataset.index);
                     App.showConfirm(I18n.t('confirm.annulItem'), () => {
                         MovementManager.annulMovementItem(this.currentMovement.id, index, true);

@@ -209,6 +209,23 @@ const Auth = {
     "dashToday",
     "movPicker",
     "movRecent",
+    "movAnnul",
+    "movType_AJUSTE",
+    "movType_CONSUMO_DIARIO",
+    "movType_FERRETERIA",
+    "movType_ESPECIAL",
+    "movType_LISTA_CHEQUEO",
+    "movType_MERMA",
+    "movType_RETORNO",
+    "movType_DESMANTELAR",
+    "movType_TRANSFERENCIA",
+    "movType_TRANSFORMACION",
+    "movType_ENVIAR_PRODUCCION",
+    "movType_MAT_ELEC_PROD",
+    "movType_MAT_ELEC_OBRA",
+    "movType_COMPRA_STOCK",
+    "movType_RECEPCION_MATERIAL",
+    "movType_STANDBY",
     "histExports",
     "histFilters",
     "histLedger",
@@ -225,7 +242,28 @@ const Auth = {
   TAB_FEATURE_MATRIX_SECTIONS: [
     { titleKey: "auth.matrixSectionInventoryFeat", keys: ["invBrowse", "invTools"] },
     { titleKey: "auth.matrixSectionDashboardFeat", keys: ["dashHero", "dashOverview", "dashToday"] },
-    { titleKey: "auth.matrixSectionMovementsFeat", keys: ["movPicker", "movRecent"] },
+    { titleKey: "auth.matrixSectionMovementsFeat", keys: ["movPicker", "movRecent", "movAnnul"] },
+    {
+      titleKey: "auth.matrixSectionMovementsTypes",
+      keys: [
+        "movType_AJUSTE",
+        "movType_CONSUMO_DIARIO",
+        "movType_FERRETERIA",
+        "movType_ESPECIAL",
+        "movType_LISTA_CHEQUEO",
+        "movType_MERMA",
+        "movType_RETORNO",
+        "movType_DESMANTELAR",
+        "movType_TRANSFERENCIA",
+        "movType_TRANSFORMACION",
+        "movType_ENVIAR_PRODUCCION",
+        "movType_MAT_ELEC_PROD",
+        "movType_MAT_ELEC_OBRA",
+        "movType_COMPRA_STOCK",
+        "movType_RECEPCION_MATERIAL",
+        "movType_STANDBY"
+      ]
+    },
     { titleKey: "auth.matrixSectionHistoryFeat", keys: ["histExports", "histFilters", "histLedger", "histResults"] },
     { titleKey: "auth.matrixSectionRemindersFeat", keys: ["remPanel"] },
     { titleKey: "auth.matrixSectionTransportFeat", keys: ["trnToolbar", "trnMain"] }
@@ -454,6 +492,8 @@ const Auth = {
         return tabMov;
       case "movRecent":
         return tabMov === "none" ? "none" : "view";
+      case "movAnnul":
+        return tabMov;
       case "histExports":
       case "histFilters":
       case "histLedger":
@@ -467,8 +507,45 @@ const Auth = {
         if (tabTrn === "edit") return "edit";
         return "view";
       default:
+        if (String(key || "").startsWith("movType_")) return tabMov;
         return "none";
     }
+  },
+
+  _movementTypeActionKey(type) {
+    const t = String(type || "").trim().toUpperCase();
+    return t ? `movType_${t}` : "";
+  },
+
+  hasMovementTypeProcess(type) {
+    const key = this._movementTypeActionKey(type);
+    if (!key) return false;
+    return this._fineActionMeets(key, "edit");
+  },
+
+  guardMovementTypeProcess(type) {
+    const key = this._movementTypeActionKey(type);
+    if (!key) {
+      this.denyEditToast();
+      return false;
+    }
+    if (!this._fineActionMeets(key, "edit")) {
+      this.denyEditToast();
+      return false;
+    }
+    return true;
+  },
+
+  hasMovementAnnul() {
+    return this._fineActionMeets("movAnnul", "edit");
+  },
+
+  guardMovementAnnul() {
+    if (!this.hasMovementAnnul()) {
+      this.denyEditToast();
+      return false;
+    }
+    return true;
   },
 
   getSessionConfigActionLevel(key) {
@@ -535,6 +612,169 @@ const Auth = {
       m[k] = k === "tabDashboard" ? "edit" : "none";
     });
     return m;
+  },
+
+  _emptyActionMatrix() {
+    const out = {};
+    [...this.CONFIG_ACTION_KEYS, ...this.ORDER_ACTION_KEYS, ...this.TAB_FEATURE_ACTION_KEYS].forEach(k => {
+      out[k] = "none";
+    });
+    return out;
+  },
+
+  _buildUserTemplatePayload(templateKey) {
+    const key = String(templateKey || "").trim();
+    if (!key) return null;
+    const matrix = this.defaultPermissionMatrix();
+    Object.keys(matrix).forEach(k => {
+      matrix[k] = "none";
+    });
+    const actions = this._emptyActionMatrix();
+    const setTab = (k, lvl = "view") => {
+      if (k in matrix) matrix[k] = lvl;
+    };
+    const setMx = (k, lvl = "view") => {
+      if (k in matrix) matrix[k] = lvl;
+    };
+    const setAct = (k, lvl = "view") => {
+      if (k in actions) actions[k] = lvl;
+    };
+    const allowMovementType = t => setAct(`movType_${String(t || "").trim().toUpperCase()}`, "edit");
+
+    setAct("cfgModalOpen", "view");
+    setAct("cfgTabAbout", "view");
+
+    if (key === "operario_picker") {
+      setTab("tabInventory", "view");
+      setTab("tabMovements", "edit");
+      setTab("tabHistory", "view");
+      setAct("invBrowse", "view");
+      setAct("movPicker", "edit");
+      setAct("movRecent", "view");
+      ["CONSUMO_DIARIO", "AJUSTE", "TRANSFERENCIA", "STANDBY", "MERMA", "RETORNO"].forEach(allowMovementType);
+    } else if (key === "operario_recepcion") {
+      setTab("tabMovements", "edit");
+      setTab("tabHistory", "view");
+      setMx("receptionsEdit", "edit");
+      setAct("cfgModalOpen", "edit");
+      setAct("cfgTabReceptions", "edit");
+      setAct("movPicker", "edit");
+      allowMovementType("RECEPCION_MATERIAL");
+      allowMovementType("MAT_ELEC_OBRA");
+      allowMovementType("LISTA_CHEQUEO");
+    } else if (key === "operario_produccion") {
+      setTab("tabMovements", "edit");
+      setTab("tabHistory", "view");
+      setAct("movPicker", "edit");
+      setAct("movRecent", "view");
+      ["ENVIAR_PRODUCCION", "MAT_ELEC_PROD", "TRANSFORMACION", "DESMANTELAR", "LISTA_CHEQUEO", "STANDBY"].forEach(
+        allowMovementType
+      );
+    } else if (key === "operario_transporte") {
+      setTab("tabTransport", "edit");
+      setTab("tabHistory", "view");
+      setAct("trnToolbar", "edit");
+      setAct("trnMain", "edit");
+      setAct("histResults", "view");
+    } else if (key === "supervisor") {
+      setTab("tabDashboard", "edit");
+      setTab("tabReminders", "edit");
+      setTab("tabInventory", "edit");
+      setTab("tabMovements", "edit");
+      setTab("tabHistory", "edit");
+      setTab("tabTransport", "edit");
+      setTab("tabOrderlines", "edit");
+      setMx("inventoryEdit", "edit");
+      setMx("receptionsEdit", "edit");
+      setMx("orderLinesEdit", "edit");
+      setMx("movementsExport", "edit");
+      setMx("dashboardAlerts", "edit");
+      setAct("cfgModalOpen", "edit");
+      setAct("cfgTabImport", "edit");
+      setAct("cfgTabReceptions", "edit");
+      setAct("cfgActExportCsv", "edit");
+      setAct("cfgActExportMov", "edit");
+      setAct("cfgActBackupExport", "edit");
+      setAct("movAnnul", "edit");
+      this.TAB_FEATURE_ACTION_KEYS
+        .filter(k => String(k).startsWith("movType_"))
+        .forEach(k => setAct(k, "edit"));
+    } else if (key === "operario_pedidos") {
+      setTab("tabDashboard", "view");
+      setTab("tabOrderlines", "edit");
+      setTab("tabMovements", "edit");
+      setTab("tabInventory", "view");
+      setAct("dashOverview", "view");
+      setMx("dashboardAlerts", "view");
+      ["ordSuggestions", "ordFormNewLine", "ordLineMutations", "ordBatchReceive", "ordFilters", "ordPrint"].forEach(k =>
+        setAct(k, "edit")
+      );
+      setAct("movPicker", "edit");
+      allowMovementType("COMPRA_STOCK");
+    } else if (key === "operario_recepcion_expedicion") {
+      setTab("tabMovements", "edit");
+      setTab("tabTransport", "edit");
+      setTab("tabHistory", "view");
+      setMx("receptionsEdit", "edit");
+      setAct("cfgModalOpen", "edit");
+      setAct("cfgTabReceptions", "edit");
+      setAct("trnToolbar", "edit");
+      setAct("trnMain", "edit");
+      setAct("movPicker", "edit");
+      ["RECEPCION_MATERIAL", "MAT_ELEC_OBRA", "MAT_ELEC_PROD", "LISTA_CHEQUEO"].forEach(allowMovementType);
+    } else if (key === "operario_consultante") {
+      setTab("tabDashboard", "view");
+      setTab("tabReminders", "view");
+      setTab("tabInventory", "view");
+      setTab("tabMovements", "view");
+      setTab("tabHistory", "view");
+      setTab("tabTransport", "view");
+      setTab("tabOrderlines", "view");
+      [
+        "invBrowse",
+        "invTools",
+        "dashHero",
+        "dashOverview",
+        "dashToday",
+        "movRecent",
+        "histExports",
+        "histFilters",
+        "histLedger",
+        "histResults",
+        "remPanel",
+        "trnToolbar",
+        "trnMain",
+        "ordSuggestions",
+        "ordFilters",
+        "ordPrint",
+        "cfgTabImport",
+        "cfgTabReceptions"
+      ].forEach(k => setAct(k, "view"));
+      setAct("cfgActBackupExport", "view");
+      setMx("dashboardAlerts", "view");
+    } else {
+      return null;
+    }
+
+    return {
+      role: "user",
+      canEdit: true,
+      permissionMatrix: this._normalizePermissionMatrix(matrix),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(actions)
+    };
+  },
+
+  getUserCreationTemplates() {
+    return [
+      { key: "operario_picker", i18nKey: "auth.template.operario_picker" },
+      { key: "operario_recepcion", i18nKey: "auth.template.operario_recepcion" },
+      { key: "operario_produccion", i18nKey: "auth.template.operario_produccion" },
+      { key: "operario_transporte", i18nKey: "auth.template.operario_transporte" },
+      { key: "supervisor", i18nKey: "auth.template.supervisor" },
+      { key: "operario_pedidos", i18nKey: "auth.template.operario_pedidos" },
+      { key: "operario_recepcion_expedicion", i18nKey: "auth.template.operario_recepcion_expedicion" },
+      { key: "operario_consultante", i18nKey: "auth.template.operario_consultante" }
+    ];
   },
 
   /** Plantilla invitada: lectura en inventario/historial/pedidos/transporte sin mutaciones sensibles. */
@@ -1655,7 +1895,7 @@ const Auth = {
     window.location.reload();
   },
 
-  async addUser({ username, displayName, password, role, canEdit }) {
+  async addUser({ username, displayName, password, role, canEdit, templateKey }) {
     if (!this.isAdmin()) return { ok: false, msg: "forbidden" };
     const un = (username || "").trim();
     if (this.reservedBuiltinUsername(un)) return { ok: false, msg: "reserved" };
@@ -1676,7 +1916,14 @@ const Auth = {
       permissions: r2 === "admin" ? this.defaultPermsForRole("admin") : {}
     };
     if (r2 !== "admin") {
-      if (canEdit) {
+      const tpl = this._buildUserTemplatePayload(templateKey);
+      if (templateKey && !tpl) return { ok: false, msg: "bad-template" };
+      if (tpl) {
+        user.role = tpl.role;
+        user.canEdit = !!tpl.canEdit;
+        user.permissionMatrix = tpl.permissionMatrix;
+        user.permissionActionMatrix = tpl.permissionActionMatrix;
+      } else if (canEdit) {
         const full = {};
         this.MATRIX_KEYS.forEach(k => {
           full[k] = "edit";
@@ -1787,6 +2034,17 @@ const Auth = {
     document.getElementById("profile-username").value = target.username || "";
     document.getElementById("profile-display").value = target.displayName || "";
     document.getElementById("profile-new-pw").value = "";
+    const tplSel = document.getElementById("profile-template");
+    if (tplSel && this.getUserCreationTemplates) {
+      const opts = this.getUserCreationTemplates();
+      tplSel.innerHTML =
+        `<option value="">${Utils.escapeHtml(I18n.t("auth.template.none"))}</option>` +
+        opts
+          .map(t => `<option value="${Utils.escapeAttr(t.key)}">${Utils.escapeHtml(I18n.t(t.i18nKey))}</option>`)
+          .join("");
+      tplSel.value = "";
+      tplSel.disabled = target.role === "admin";
+    }
     const errEl = document.getElementById("profile-error");
     if (errEl) { errEl.textContent = ""; errEl.style.display = "none"; }
     const titleEl = modal.querySelector("[data-i18n='auth.editProfile']");
@@ -1821,6 +2079,20 @@ const Auth = {
       this._pushPasswordHistoryBeforeChange(u);
       u.salt = this._salt();
       u.passwordHash = await this._hash(newPassword, u.salt);
+    }
+
+    if (arguments?.[1] && Object.prototype.hasOwnProperty.call(arguments[1], "templateKey")) {
+      const templateKey = arguments[1].templateKey;
+      if (u.role === "admin") return { ok: false, msg: "forbidden" };
+      if (templateKey) {
+        const tpl = this._buildUserTemplatePayload(templateKey);
+        if (!tpl) return { ok: false, msg: "bad-template" };
+        u.role = tpl.role;
+        u.canEdit = !!tpl.canEdit;
+        u.permissionMatrix = tpl.permissionMatrix;
+        u.permissionActionMatrix = tpl.permissionActionMatrix;
+        u.permissions = this.deriveLegacyPermissionsFromMatrix(u.permissionMatrix);
+      }
     }
 
     this.saveUsers();
@@ -1998,9 +2270,11 @@ const Auth = {
         const username = document.getElementById("profile-username")?.value || "";
         const displayName = document.getElementById("profile-display")?.value || "";
         const newPw = document.getElementById("profile-new-pw")?.value || "";
+        const templateKey = document.getElementById("profile-template")?.value || "";
 
         const patch = { username, displayName };
         if (newPw) patch.newPassword = newPw;
+        if (templateKey) patch.templateKey = templateKey;
 
         const r = await this.updateUserProfile(targetId, patch);
         if (!r.ok) {
@@ -2010,7 +2284,8 @@ const Auth = {
             "short": "auth.fieldsInvalid",
             "not-found": "auth.error",
             "password-reuse": "auth.passwordReuse",
-            "reserved": "auth.reservedUsername"
+            "reserved": "auth.reservedUsername",
+            "bad-template": "auth.userTemplateInvalid"
           };
           showErr(I18n.t(msgs[r.msg] || "auth.error"));
           return;

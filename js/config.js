@@ -5,6 +5,16 @@ const ConfigManager = {
   expirationSelectedId: null,
   _receptionEditId: null,
   _receptionListFilter: "",
+  _receptionAdvancedFilter: {
+    project: "",
+    supplier: "",
+    category: "",
+    provisional: "",
+    dateFrom: "",
+    dateTo: "",
+    qtyMin: "",
+    qtyMax: ""
+  },
   /** Modal de configuración minimizado pero formularios vivos en el DOM */
   _configDraftMinimized: false,
   _userMatrixTargetId: null,
@@ -80,6 +90,7 @@ const ConfigManager = {
     const wrap = document.getElementById("config-draft-float-wrap");
     if (!wrap) return;
     wrap.hidden = !this._configDraftMinimized;
+    wrap.classList.toggle("draft-float-bar-wrap--active", !!this._configDraftMinimized);
   },
 
   minimizeConfigModal() {
@@ -368,6 +379,7 @@ const ConfigManager = {
   renderUsersTable() {
     const wrap = document.getElementById("users-table-wrap");
     if (!wrap || typeof Auth === "undefined") return;
+    this.renderUserTemplateOptions();
     if (!Auth.isAdmin()) {
       wrap.innerHTML = "";
       return;
@@ -483,6 +495,21 @@ const ConfigManager = {
           <tbody>${rows}</tbody>
         </table>
       </div>`;
+  },
+
+  renderUserTemplateOptions() {
+    const sel = document.getElementById("user-add-template");
+    if (!sel || typeof Auth === "undefined" || !Auth.getUserCreationTemplates) return;
+    const templates = Auth.getUserCreationTemplates();
+    const firstLabel = this.esc(I18n.t("auth.template.none"));
+    sel.innerHTML =
+      `<option value="">${firstLabel}</option>` +
+      templates
+        .map(t => {
+          const label = this.esc(I18n.t(t.i18nKey));
+          return `<option value="${Utils.escapeAttr(t.key)}">${label}</option>`;
+        })
+        .join("");
   },
 
   renderAuditLog() {
@@ -1421,7 +1448,7 @@ const ConfigManager = {
     if (exportMovementsOnlyBtn) {
       exportMovementsOnlyBtn.addEventListener("click", () => {
         if (typeof Auth !== "undefined" && !Auth.guardMovementsExport()) return;
-        void Utils.exportMovementsJSON();
+        App.showConfirm(I18n.t("confirm.exportMovementsOnly"), () => void Utils.exportMovementsJSON());
       });
     }
     const importMovementsMergeBtn = document.getElementById("import-movements-merge-btn");
@@ -1448,7 +1475,10 @@ const ConfigManager = {
     if (exportTransportsShippedOnlyBtn) {
       exportTransportsShippedOnlyBtn.addEventListener("click", () => {
         if (typeof Auth !== "undefined" && !Auth.guardTransportsExportJson()) return;
-        void Utils.exportTransportsJSON({ shippedOnly: true });
+        App.showConfirm(
+          I18n.t("confirm.exportTransportsShippedOnly"),
+          () => void Utils.exportTransportsJSON({ shippedOnly: true })
+        );
       });
     }
     const importTransportsMergeBtn = document.getElementById("import-transports-merge-btn");
@@ -1551,6 +1581,20 @@ const ConfigManager = {
     }
 
     const userAddBtn = document.getElementById("user-add-btn");
+    this.renderUserTemplateOptions();
+    const userTplSel = document.getElementById("user-add-template");
+    if (userTplSel && !this._userTemplatePresetBound) {
+      this._userTemplatePresetBound = true;
+      userTplSel.addEventListener("change", () => {
+        const roleEl = document.getElementById("user-add-role");
+        const canEditEl = document.getElementById("user-add-canEdit");
+        if (!roleEl || !canEditEl) return;
+        if ((userTplSel.value || "").trim()) {
+          roleEl.value = "user";
+          canEditEl.checked = true;
+        }
+      });
+    }
     if (userAddBtn && !this._userAddBtnBound) {
       this._userAddBtnBound = true;
       userAddBtn.addEventListener("click", async () => {
@@ -1561,9 +1605,10 @@ const ConfigManager = {
         const username = document.getElementById("user-add-username")?.value ?? "";
         const displayName = document.getElementById("user-add-display")?.value ?? "";
         const password = document.getElementById("user-add-password")?.value ?? "";
+        const templateKey = document.getElementById("user-add-template")?.value ?? "";
         const role = document.getElementById("user-add-role")?.value || "user";
         const canEdit = !!document.getElementById("user-add-canEdit")?.checked;
-        const r = await Auth.addUser({ username, displayName, password, role, canEdit });
+        const r = await Auth.addUser({ username, displayName, password, role, canEdit, templateKey });
         if (!r.ok) {
           const key =
             r.msg === "reserved"
@@ -1574,6 +1619,8 @@ const ConfigManager = {
                   ? "auth.fieldsInvalid"
                   : r.msg === "forbidden"
                     ? "auth.noPermission"
+                    : r.msg === "bad-template"
+                      ? "auth.userTemplateInvalid"
                     : "auth.error";
           Utils.showToast(I18n.t(key), "error");
           return;
@@ -1582,11 +1629,13 @@ const ConfigManager = {
         const uEl = document.getElementById("user-add-username");
         const dEl = document.getElementById("user-add-display");
         const pEl = document.getElementById("user-add-password");
+        const tEl = document.getElementById("user-add-template");
         const rEl = document.getElementById("user-add-role");
         const cEl = document.getElementById("user-add-canEdit");
         if (uEl) uEl.value = "";
         if (dEl) dEl.value = "";
         if (pEl) pEl.value = "";
+        if (tEl) tEl.value = "";
         if (rEl) rEl.value = "user";
         if (cEl) cEl.checked = false;
         this.renderUsersTable();
@@ -1792,6 +1841,29 @@ const ConfigManager = {
         this.renderReceptionList();
       });
     }
+    [
+      "receptions-adv-project",
+      "receptions-adv-supplier",
+      "receptions-adv-category",
+      "receptions-adv-provisional",
+      "receptions-adv-date-from",
+      "receptions-adv-date-to",
+      "receptions-adv-qty-min",
+      "receptions-adv-qty-max"
+    ].forEach(id => {
+      document.getElementById(id)?.addEventListener("input", () => {
+        this._syncReceptionAdvancedFiltersFromDom();
+        this.renderReceptionList();
+      });
+      document.getElementById(id)?.addEventListener("change", () => {
+        this._syncReceptionAdvancedFiltersFromDom();
+        this.renderReceptionList();
+      });
+    });
+    document.getElementById("receptions-adv-clear-btn")?.addEventListener("click", () => {
+      this._clearReceptionAdvancedFilters();
+      this.renderReceptionList();
+    });
     document.getElementById("receptions-config-import-btn")?.addEventListener("click", () => {
       if (typeof Auth !== "undefined" && !Auth.guardReceptionsEdit()) return;
       const inp = document.getElementById("receptions-config-import-input");
@@ -1807,19 +1879,13 @@ const ConfigManager = {
       e.target.value = "";
     });
     document.getElementById("receptions-config-print-btn")?.addEventListener("click", () => {
-      const q = (document.getElementById("receptions-config-search")?.value || "")
-        .trim()
-        .toLowerCase();
-      const ordered = (ReceptionsManager.receptions || []).slice().reverse();
-      const filtered = ordered.filter(r => this.receptionRowMatchesFilter(r, q));
+      const filtered = this.getFilteredReceptions();
+      const q = (document.getElementById("receptions-config-search")?.value || "").trim();
       void this.printReceptionsFiltered(filtered, q || I18n.t("history.filterAll"));
     });
     document.getElementById("receptions-config-export-btn")?.addEventListener("click", async () => {
-      const q = (document.getElementById("receptions-config-search")?.value || "")
-        .trim()
-        .toLowerCase();
-      const ordered = (ReceptionsManager.receptions || []).slice().reverse();
-      const filtered = ordered.filter(r => this.receptionRowMatchesFilter(r, q));
+      const filtered = this.getFilteredReceptions();
+      const q = (document.getElementById("receptions-config-search")?.value || "").trim();
       const headers = this._buildReceptionsPrintExportHeaders();
       const selectedHeaders = await Utils.pickColumns(headers, I18n.t("config.exportReceptionsFiltered"));
       if (!selectedHeaders || !selectedHeaders.length) return;
@@ -2583,24 +2649,83 @@ const ConfigManager = {
     return tokens.every(tok => hay.indexOf(tok) >= 0);
   },
 
-  renderReceptionList() {
-    const wrap = document.getElementById("receptions-config-table");
-    if (!wrap) return;
+  _syncReceptionAdvancedFiltersFromDom() {
+    this._receptionAdvancedFilter = {
+      project: (document.getElementById("receptions-adv-project")?.value || "").trim().toLowerCase(),
+      supplier: (document.getElementById("receptions-adv-supplier")?.value || "").trim().toLowerCase(),
+      category: (document.getElementById("receptions-adv-category")?.value || "").trim().toUpperCase(),
+      provisional: (document.getElementById("receptions-adv-provisional")?.value || "").trim().toLowerCase(),
+      dateFrom: (document.getElementById("receptions-adv-date-from")?.value || "").trim(),
+      dateTo: (document.getElementById("receptions-adv-date-to")?.value || "").trim(),
+      qtyMin: (document.getElementById("receptions-adv-qty-min")?.value || "").trim(),
+      qtyMax: (document.getElementById("receptions-adv-qty-max")?.value || "").trim()
+    };
+  },
+
+  _clearReceptionAdvancedFilters() {
+    [
+      "receptions-adv-project",
+      "receptions-adv-supplier",
+      "receptions-adv-category",
+      "receptions-adv-provisional",
+      "receptions-adv-date-from",
+      "receptions-adv-date-to",
+      "receptions-adv-qty-min",
+      "receptions-adv-qty-max"
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === "SELECT") el.value = "";
+      else el.value = "";
+    });
+    this._syncReceptionAdvancedFiltersFromDom();
+  },
+
+  _receptionRowMatchesAdvanced(r) {
+    const f = this._receptionAdvancedFilter || {};
+    if (f.project && !String(r.projectId || "").toLowerCase().includes(f.project)) return false;
+    if (f.supplier && !String(r.supplier || "").toLowerCase().includes(f.supplier)) return false;
+    if (f.category && String(r.materialCategory || "").toUpperCase() !== f.category) return false;
+    if (f.provisional === "yes" && !r.provisional) return false;
+    if (f.provisional === "no" && !!r.provisional) return false;
+    if (f.dateFrom) {
+      const day = String(r.dateReceived || "").slice(0, 10);
+      if (!day || day < f.dateFrom) return false;
+    }
+    if (f.dateTo) {
+      const day = String(r.dateReceived || "").slice(0, 10);
+      if (!day || day > f.dateTo) return false;
+    }
+    const qty = parseFloat(r.quantity) || 0;
+    const qMin = parseFloat(f.qtyMin);
+    const qMax = parseFloat(f.qtyMax);
+    if (Number.isFinite(qMin) && qty < qMin) return false;
+    if (Number.isFinite(qMax) && qty > qMax) return false;
+    return true;
+  },
+
+  getFilteredReceptions() {
     const searchEl = document.getElementById("receptions-config-search");
     const q = (searchEl && searchEl.value !== undefined ? searchEl.value : this._receptionListFilter || "")
       .trim()
       .toLowerCase();
     if (searchEl) this._receptionListFilter = q;
+    this._syncReceptionAdvancedFiltersFromDom();
+    const ordered = (ReceptionsManager.receptions || []).slice().reverse();
+    return ordered.filter(r => this.receptionRowMatchesFilter(r, q) && this._receptionRowMatchesAdvanced(r));
+  },
 
+  renderReceptionList() {
+    const wrap = document.getElementById("receptions-config-table");
+    if (!wrap) return;
     const arr = ReceptionsManager.receptions || [];
     if (!arr.length) {
       wrap.innerHTML = `<p style="color:var(--text-muted)">${this.esc(I18n.t("msg.noReceptions"))}</p>`;
       return;
     }
-    const ordered = arr.slice().reverse();
-    const filtered = ordered.filter(
-      r => r.id === this._receptionEditId || this.receptionRowMatchesFilter(r, q)
-    );
+    const filteredBase = this.getFilteredReceptions();
+    const editRow = this._receptionEditId ? arr.find(x => x && x.id === this._receptionEditId) : null;
+    const filtered = editRow && !filteredBase.some(x => x.id === editRow.id) ? [editRow, ...filteredBase] : filteredBase;
     if (!filtered.length) {
       wrap.innerHTML = `<p style="color:var(--text-muted)">${this.esc(I18n.t("msg.receptionsNoFilterMatch"))}</p>`;
       return;
