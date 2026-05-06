@@ -1126,6 +1126,12 @@ const Utils = {
         a.click();
         URL.revokeObjectURL(a.href);
     },
+    _showExportDestinationToast(baseMsg, destination) {
+        const msg = String(baseMsg || "").trim();
+        const dest = String(destination || "").trim();
+        if (!msg && !dest) return;
+        this.showToast(dest ? `${msg} -> ${dest}` : msg, "success");
+    },
 
     /**
      * Tabla XLSX con encabezado naranja (tema G-NEEX), texto centrado y negrita.
@@ -1252,17 +1258,18 @@ const Utils = {
 
         if (!this.canWriteToProjectBackupFolder()) {
             this.downloadArrayBuffer(buf, fn);
-            if (typeof I18n !== "undefined") this.showToast(I18n.t("msg.dataExported"), "success");
+            if (typeof I18n !== "undefined") this._showExportDestinationToast(I18n.t("msg.dataExported"), `Descargas/${fn}`);
             return "downloaded";
         }
         const r = await this.writeProjectExportFile(this.PROJECT_EXPORT_INFORM, fn, buf, { binary: true });
         if (r === "ok") {
-            if (typeof I18n !== "undefined") this.showToast(I18n.t("msg.dataExported"), "success");
+            if (typeof I18n !== "undefined")
+                this._showExportDestinationToast(I18n.t("msg.dataExported"), `${this.PROJECT_EXPORT_INFORM}/${fn}`);
             return "ok";
         }
         if (r === "cancelled") return "cancelled";
         this.downloadArrayBuffer(buf, fn);
-        if (typeof I18n !== "undefined") this.showToast(I18n.t("msg.dataExported"), "success");
+        if (typeof I18n !== "undefined") this._showExportDestinationToast(I18n.t("msg.dataExported"), `Descargas/${fn}`);
         return "downloaded";
     },
 
@@ -2452,17 +2459,20 @@ th.print-cell-code,td.print-cell-code{
                 : csv;
         if (!this.canWriteToProjectBackupFolder()) {
             this.downloadFile(payload, filename);
-            if (typeof I18n !== "undefined") this.showToast(I18n.t("msg.dataExported"), "success");
+            if (typeof I18n !== "undefined")
+                this._showExportDestinationToast(I18n.t("msg.dataExported"), `Descargas/${filename}`);
             return "downloaded";
         }
         const r = await this.writeProjectExportFile(this.PROJECT_EXPORT_INFORM, filename, payload, { bom: true });
         if (r === "ok") {
-            if (typeof I18n !== "undefined") this.showToast(I18n.t("msg.dataExported"), "success");
+            if (typeof I18n !== "undefined")
+                this._showExportDestinationToast(I18n.t("msg.dataExported"), `${this.PROJECT_EXPORT_INFORM}/${filename}`);
             return "ok";
         }
         if (r === "cancelled") return "cancelled";
         this.downloadFile(payload, filename);
-        if (typeof I18n !== "undefined") this.showToast(I18n.t("msg.dataExported"), "success");
+        if (typeof I18n !== "undefined")
+            this._showExportDestinationToast(I18n.t("msg.dataExported"), `Descargas/${filename}`);
         return "downloaded";
     },
 
