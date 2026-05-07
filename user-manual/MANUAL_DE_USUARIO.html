@@ -136,8 +136,8 @@
 <h3>Respaldo completo</h3>
 <p><strong>Ruta:</strong> ⚙️ Configuración → pestaña <strong>Import/Export</strong> (solo administrador)</p>
 <ul>
-  <li><strong>Exportar respaldo:</strong> Genera un archivo <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> con toda la información de la aplicación (inventario —ubicación por artículo, stock por ubicación/caja y catálogo de ubicaciones incluidos—; movimientos; listas de destinatarios de Consumo diario —plantilla y ocasionales/externos—; lista de proveedores; transportes; líneas de pedidos a proveedor; usuarios; contadores de referencias; etc.)</li>
-  <li><strong>Importar respaldo:</strong> Elija el JSON recibido, confirme y siga el aviso en pantalla; sustituye los datos de trabajo de esta instancia.</li>
+  <li><strong>Exportar respaldo:</strong> Genera un archivo <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> con toda la información de la aplicación (inventario —ubicación por artículo, stock por ubicación/caja y catálogo de ubicaciones incluidos—; movimientos; listas de destinatarios de Consumo diario —plantilla y ocasionales/externos—; lista de proveedores; <strong>catálogo de unidades de medida y equivalencias</strong>; transportes; líneas de pedidos a proveedor; usuarios; contadores de referencias; etc.)</li>
+  <li><strong>Importar respaldo:</strong> Elija el JSON recibido, confirme y siga el aviso en pantalla; sustituye los datos de trabajo de esta instancia. Las claves que <strong>no aparezcan</strong> en ese JSON <strong>no</strong> borran lo que ya hay en el navegador (los respaldos antiguos sin ciertas secciones no vacían, por ejemplo, el catálogo de unidades).</li>
 </ul>
 <blockquote>Uso habitual del respaldo completo: copia de seguridad o traslado de un entero a otro equipo. Para aportar solo la actividad operativa a otra copia suele usarse además el flujo <strong>exportar / importar solo movimientos</strong> descrito a continuación.</blockquote>
 <p><strong>Solo movimientos (fusionar actividad):</strong> En el mismo apartado, <strong>Exportar solo movimientos</strong> (<code>GNEEX_Movements_…json</code>) e <strong>Importar y fusionar movimientos</strong> intercambian movimientos entre instancias. La <strong>fusión</strong> <strong>añade</strong> únicamente movimientos cuyo <strong>id</strong> no exista ya en la copia de destino y <strong>aplica</strong> las cantidades al inventario (recepciones de material se recrean si el archivo trae datos suficientes). Si el <strong>id</strong> ya existe, se conserva el movimiento local. No sustituye listas, transportes ni el resto de datos; conviene partir de catálogos alineados (mismos artículos) y saber que fechas muy entremezcladas entre copias pueden desajustar el orden lógico del stock. Confirme siempre en el diálogo que muestre la aplicación.</p>
@@ -149,6 +149,15 @@
 <h3>Lista de proveedores (pedidos)</h3>
 <p><strong>Ruta:</strong> ⚙️ Configuración → pestaña <strong>Proveedores</strong> para mantener la lista maestra de nombres.</p>
 <p>Quien use <strong>Pedidos</strong> puede indicar el proveedor en cada línea (texto libre o sugerencias cargadas desde esa lista). El <strong>número de OC/PO</strong> no se pide al crear el pedido; se registra al <strong>recibir</strong> mercancía en Movimientos → <strong>Compra de stock</strong> (junto al packing slip).</p>
+
+<h3>Unidades de medida</h3>
+<p><strong>Ruta:</strong> ⚙️ Configuración → pestaña <strong>Unidades</strong></p>
+<p>Aquí se mantienen el <strong>catálogo de símbolos</strong> (por ejemplo <code>m</code>, <code>kg</code>, <code>U</code>) y las <strong>equivalencias</strong> entre ellos (por ejemplo «1 unidad de stock = 150 m»). Varias equivalencias enlazadas permiten convertir entre unidades que no estén relacionadas directamente.</p>
+<p>La aplicación mantiene en el catálogo la unidad <strong>U</strong> (<em>unidad genérica</em>), que no se puede eliminar. Cada artículo puede tener su propia <strong>unidad de stock</strong> o dejarla sin elegir (sin asignación automática a <strong>U</strong>).</p>
+<p>En <strong>⚙️ Configuración → Edición de artículo</strong>, cada artículo tiene <strong>Unidad de stock</strong> (opcional; cuando está definida, principal, producción y transformación se interpretan en esa unidad) y opcionalmente <strong>Mostrar equivalente en inventario</strong>: si tiene unidad de stock asignada, en la tabla de inventario, junto al stock principal aparece el símbolo y, si hay equivalencia, una línea aproximada (<strong>≈</strong>) en la segunda unidad.</p>
+<p><strong>Permisos:</strong> la pestaña sigue la misma lógica fina que otras listas de configuración (p. ej. Consumibles): suele exigir acceso a movimientos en la matriz de permisos; el administrador define el detalle en usuarios.</p>
+<p><strong>Importación CSV/XLSX:</strong> la plantilla y exportación de inventario pueden incluir columnas opcionales <strong>UnidadStockSimbolo</strong> y <strong>UnidadEquivalenteSimbolo</strong> (coincidencia por símbolo, sin distinguir mayúsculas/minúsculas).</p>
+<p><strong>Importante:</strong> los <strong>movimientos</strong> siguen guardando cantidades numéricas como hasta ahora; la unidad es una referencia por artículo para lectura coherente. Quien registre movimientos debe usar siempre la misma interpretación de cantidad que la unidad de stock del artículo.</p>
 
 <h3>Archivar movimientos antiguos</h3>
 <p>Para liberar espacio eliminando movimientos antiguos:</p>
@@ -171,7 +180,7 @@
 
 <h3>Cargar inventario inicial (CSV o XLSX)</h3>
 <p>Permite importar un archivo <strong>CSV</strong> o <strong>XLSX</strong> con el inventario inicial. Las columnas deben coincidir con el formato esperado.</p>
-<p>Puede usar el <strong>botón de icono de plantilla</strong> para exportar una hoja <strong>.xlsx</strong> con el orden correcto de columnas, encabezado con estilo (naranja) y una fila de ejemplo editable. Si edita en Excel, puede guardar como CSV manteniendo el mismo orden de columnas.</p>
+<p>Puede usar el <strong>botón de icono de plantilla</strong> para exportar una hoja <strong>.xlsx</strong> con el orden correcto de columnas, encabezado con estilo (naranja) y una fila de ejemplo editable. Si edita en Excel, puede guardar como CSV manteniendo el mismo orden de columnas. Entre las columnas finales figuran, cuando aplique, <strong>UnidadStockSimbolo</strong> y <strong>UnidadEquivalenteSimbolo</strong> (véase § sobre Unidades de medida): los símbolos deben existir en el catálogo de ⚙️ Unidades.</p>
 
 <h3>Borrar base de datos</h3>
 <ol>
@@ -184,6 +193,9 @@
 <h3>Seguridad y datos en el navegador</h3>
 <p>G-NEEX guarda inventario, movimientos, usuarios y sesión en el <strong>almacenamiento local del navegador</strong> (por ejemplo <code>localStorage</code>). Las contraseñas se guardan con <strong>hash y sal</strong>; no aparecen en texto plano en el código de la aplicación. Quien tenga acceso al equipo o al perfil de usuario, o una <strong>extensión del navegador maliciosa</strong>, podría leer o alterar esos datos. La aplicación <strong>no sustituye</strong> a un servidor central con políticas corporativas de identidad. Use <strong>bloqueo de sesión del sistema</strong>, cuentas personales y <strong>respaldos exportados</strong> según el procedimiento de su organización. Al <strong>importar un archivo JSON</strong> de respaldo, compruebe que procede de una fuente de confianza.</p>
 
+<h3>Misma forma de abrir la app (HTTP frente a archivo)</h3>
+<p>Los datos quedan asociados al <strong>origen</strong> del navegador: protocolo, host, puerto y ruta. Para uso estable y pruebas, abra siempre la aplicación con la <strong>misma URL</strong> (por ejemplo un servidor local <code>http://127.0.0.1:8765/</code>, según cómo sirva los archivos en su equipo). No mezcle abrir <code>index.html</code> como archivo (<code>file:///…</code>) con abrir por <code>http://</code>, ni cambie de puerto sin darse cuenta: puede parecer que «desaparecen» datos cuando en realidad es otro almacén distinto.</p>
+
 <hr>
 
 <h2>1.2 Editor de artículos</h2>
@@ -194,6 +206,7 @@
 <h3>Modo consumible de inventario y lista maestra «Consumibles»</h3>
 <p>Si marca <strong>Tratar como consumible de inventario</strong> y pulsa <strong>Guardar</strong>, la aplicación <strong>añade</strong> automáticamente el nombre (la <strong>descripción</strong> del artículo, o el <strong>código</strong> si no hubiera descripción) a la lista de <strong>⚙️ Configuración → Consumibles</strong>, usada para constancias de compra sin inventario y pedidos de consumible. Si <strong>desmarca</strong> esa opción y guarda, <strong>elimina</strong> de esa lista la entrada que coincidiera con la descripción o código <strong>antes del cambio</strong> (si estaba en la lista por ese vínculo).</p>
 <p>El comportamiento de stock del modo consumible (qué movimientos alteran o no cantidades) sigue las pantallas y mensajes de la aplicación.</p>
+<p>En el mismo formulario puede definir la <strong>unidad de stock</strong> del artículo y un <strong>equivalente</strong> opcional para la tabla de inventario (véase <strong>§1.1 — Unidades de medida</strong>).</p>
 
 <hr>
 
@@ -268,7 +281,7 @@
 <p>En el modal de <strong>stock bajo</strong>, las primeras columnas son <strong>Ignorar alerta de stock bajo</strong>, <strong>Acciones</strong> (🛒 para añadir el artículo a la <strong>lista de compra</strong>), <strong>Código</strong> y a continuación el resto de campos (descripción, stocks, fechas, ubicación).</p>
 
 <h3>Tabla de inventario</h3>
-<p>Columnas: Código, Descripción, Categoría, Precio por defecto, Stock Principal, Stock Producción, Stock Transformación, Ubicación, Expiración.</p>
+<p>Columnas: Código, Descripción, Categoría, Precio por defecto, Stock Principal (si el artículo tiene unidad de stock: <strong>símbolo</strong> y, si procede, línea <strong>≈</strong> de equivalente), Stock Producción, Stock Transformación, Ubicación, Expiración.</p>
 <p>En la columna <strong>Descripción</strong>, el icono <strong>📝</strong> (más suave si el artículo aún no tiene notas) abre, cuando esté activo, un cuadro para <strong>ver y editar las notas</strong>; <strong>Guardar</strong> persiste los cambios. Si el control no ofrece edición pero el artículo <strong>sí tiene notas</strong>, a menudo puede abrirse el cuadro en <strong>solo lectura</strong>; si no hay notas, la celda se muestra como texto normal.</p>
 <p>Los colores de las filas indican el estado del artículo (rojo = negativo, amarillo = bajo, naranja = expirando, etc.).</p>
 <p>Si la ventana es estrecha, puede <strong>desplazar la tabla horizontalmente</strong> para ver todas las columnas sin comprimir los encabezados.</p>

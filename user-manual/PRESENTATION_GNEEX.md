@@ -35,7 +35,11 @@ Electrical installation and industrial project companies face daily challenges:
 
 **Browser-stored data:** inventory, movements, and session live in the browser’s local storage. Lock the workstation, use personal accounts, export backups regularly, and only import JSON backups from trusted sources.
 
-**Backup & Import/Export:** the Import/Export tab and critical backup actions are limited to the **administrator account**; temporary elevation does not replace that role. Login backgrounds may rotate per `assets/login-bg-manifest.json`.
+**Same URL every time:** data is scoped to the browser *origin* (protocol, host, port, path). Use one fixed launch method (e.g. local server `http://127.0.0.1:PORT/`). Do not mix opening `index.html` as `file://` with `http://` or hop between ports — empty-looking lists are often a different storage bucket.
+
+**Backup & Import/Export:** the Import/Export tab and critical backup actions are limited to the **administrator account**; temporary elevation does not replace that role. Login backgrounds may rotate per `assets/login-bg-manifest.json`. Full JSON backup includes the **units-of-measure catalog** (symbols and equivalences). When importing JSON, keys **missing** from the file no longer erase unrelated local data (older backups won’t wipe the units catalog, for example).
+
+**Units of measure:** ⚙️ Settings → **Units** maintains symbols and equivalences; the catalog keeps a reserved **U** row (cannot delete). Each article may set a **stock unit** or leave it unset — no automatic fill to **U**. Inventory shows the symbol next to main stock **when a unit is chosen** (and optional **≈** equivalent); optional CSV columns `UnidadStockSimbolo` / `UnidadEquivalenteSimbolo`. Movement screens still use plain numbers — operators must stay consistent with each article’s stock unit.
 
 It manages the entire material lifecycle:
 
@@ -54,6 +58,7 @@ It manages the entire material lifecycle:
 | Feature | Description |
 |---------|-------------|
 | **Full overview** | Table with code, description, category, main/production/transformation stock, location, and expiration date |
+| **Units of measure** | Stock unit symbol next to main qty when the article has a unit (optional **≈**); ⚙️ **Units** + **Article editing** |
 | **3 independent stocks** | Main, Production, and Transformation — each with its own tracking |
 | **Instant search** | Live filter by code, description, category, or location |
 | **Tools menu (⋮)** | First item **Hide inline filter bars** (chevron): closes box / depot / consumable strips; **disabled** when no strip is open. The **⋮** menu groups export, print, filters, as-of date, summaries, etc. |

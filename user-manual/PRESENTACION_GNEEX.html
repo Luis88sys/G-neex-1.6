@@ -188,7 +188,9 @@
     <h2>La Solución: G-NEEX</h2>
     <p><strong>G-NEEX</strong> es una aplicación web que funciona <strong>100% offline</strong>, directamente en el navegador, sin necesidad de servidores externos ni conexión a internet.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Datos en el navegador:</strong> inventario, movimientos y sesión se guardan en el almacenamiento local del navegador. Bloquee el equipo, use cuentas personales, exporte respaldos e importe JSON solo si confía en el origen.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Respaldo e Import/Export:</strong> la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la <strong>cuenta administrador</strong>; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según <code>assets/login-bg-manifest.json</code>.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Respaldo e Import/Export:</strong> la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la <strong>cuenta administrador</strong>; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según <code>assets/login-bg-manifest.json</code>. Al importar JSON, las claves ausentes ya no borran datos locales inconexos.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Misma URL:</strong> use siempre la misma dirección de acceso (p. ej. servidor local <code>http://127.0.0.1:PUERTO/</code>); no mezcle <code>file://</code> con HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Unidades de medida:</strong> ⚙️ Configuración → <strong>Unidades</strong>; respaldo JSON incluye el catálogo; <strong>U</strong> permanece en catálogo; cada artículo elige unidad o ninguna; inventario muestra símbolo cuando aplica (y <strong>≈</strong> opcional). En movimientos las cantidades siguen siendo numéricas.</p>
     <p>Gestiona todo el ciclo de vida del material:</p>
     <p class="flow"><strong>Entrada</strong> → <strong>Almacén</strong> → <strong>Salida</strong> → <strong>Transporte</strong> → <strong>Obra</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
@@ -212,6 +214,7 @@
         </thead>
         <tbody>
             <tr><td><strong>Vista completa</strong></td><td>Tabla con código, descripción, categoría, stock Principal/Producción/Transformación, ubicación y fecha de expiración</td></tr>
+            <tr><td><strong>Unidades de medida</strong></td><td>Símbolo junto al stock principal si el artículo tiene unidad (equivalente <strong>≈</strong> opcional); ⚙️ <strong>Unidades</strong> + edición por artículo</td></tr>
             <tr><td><strong>3 stocks independientes</strong></td><td>Principal, Producción y Transformación — cada uno con seguimiento propio</td></tr>
             <tr><td><strong>Búsqueda instantánea</strong></td><td>Filtro en vivo por código, descripción, categoría o ubicación</td></tr>
             <tr><td><strong>Menú herramientas (⋮)</strong></td><td>Primera opción <strong>Ocultar filtros en línea</strong> (flecha): cierra las barras caja / depósito / consumible; <strong>deshabilitada</strong> si ninguna barra está abierta. El menú <strong>⋮</strong> agrupa exportar, imprimir, filtros, stock a fecha, resúmenes, etc.</td></tr>

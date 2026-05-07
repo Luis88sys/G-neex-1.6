@@ -1562,6 +1562,103 @@ tr.inv-box-summary-row.is-selected {
     border: 1px solid #ef4444;
 }
 
+/* Caducidad: fila con control activo pero sin fecha efectiva, o artículo con stock y cero datos de caducidad */
+.inventory-table--main tbody tr.inv-row--expiry-incomplete {
+    box-shadow: inset 3px 0 0 0 #ea580c;
+    background: rgba(234, 88, 12, 0.1);
+}
+
+.inventory-table--main tbody tr.inv-row--expiry-missing-hint {
+    box-shadow: inset 3px 0 0 0 #4c1d95;
+    background: rgba(76, 29, 149, 0.12);
+}
+
+.inv-lots-cell {
+    font-size: 0.85rem;
+    vertical-align: top;
+    max-width: 13rem;
+}
+
+.inv-lots-pills {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.inv-lot-pill {
+    font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+}
+
+.inv-lot-pill--expired {
+    color: #7c2d12;
+    background: #ffedd5;
+    border: 1px solid #ea580c;
+}
+
+.inv-lot-pill--soon {
+    color: #78350f;
+    background: #fef3c7;
+    border: 1px solid #d97706;
+}
+
+.inv-lot-pill--ok {
+    color: #14532d;
+    background: #bbf7d0;
+    border: 1px solid #16a34a;
+}
+
+.inv-lot-pill--unknown {
+    color: #334155;
+    background: #f1f5f9;
+    border: 1px solid #94a3b8;
+}
+
+.inv-lots-section {
+    margin-top: 1.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+}
+
+.inv-lots-heading {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.inv-lots-table th,
+.inv-lots-table td {
+    font-size: 0.9rem;
+}
+
+.inv-lots-tr--expired td {
+    background: rgba(234, 88, 12, 0.12);
+}
+
+.inv-lots-tr--soon td {
+    background: rgba(217, 119, 6, 0.1);
+}
+
+.inv-lots-tr--ok td {
+    background: rgba(22, 163, 74, 0.08);
+}
+
+.inv-lots-tr--unknown td {
+    background: rgba(100, 116, 139, 0.1);
+}
+
+.inv-lots-kind {
+    font-size: 0.75rem;
+    opacity: 0.85;
+}
+
+.inv-lots-legend {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+}
+
 .stock-expiring {
     color: #fbbf24 !important;
 }
@@ -1790,67 +1887,129 @@ tr.inv-box-summary-row.is-selected {
     white-space: nowrap;
 }
 
-/* Listado principal inventario: tipografía compacta; min-width + scroll horizontal (no aplastar encabezados) */
+/* Listado principal: scroll horizontal sincronizado arriba + cuerpo */
+#inventory-tab .inventory-hscroll {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+#inventory-tab > .inventory-hscroll {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#inventory-tab .inventory-hscroll-top {
+    flex: 0 0 auto;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+}
+
+#inventory-tab .inventory-hscroll-top-inner {
+    height: 1px;
+    pointer-events: none;
+}
+
+#inventory-tab .inventory-hscroll-body.inventory-table-container--main {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+/* Listado principal inventario: tipografía compacta; min-width + scroll horizontal */
 #inventory-tab .inventory-table-container--main {
     width: 100%;
     max-width: 100%;
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: none;
-    overflow-y: auto;
-    overflow-x: auto;
 }
+
 #inventory-tab .inventory-table--main {
-    width: 100%;
-    max-width: 100%;
-    min-width: 920px;
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
     table-layout: auto;
     font-size: 0.72rem;
 }
-#inventory-tab .inventory-table--main th {
+
+#inventory-tab .inventory-table--main thead th {
     padding: 0.5rem 0.45rem;
     font-size: 0.68rem;
     letter-spacing: 0.04em;
     line-height: 1.25;
-    white-space: normal;
-    overflow-wrap: break-word;
-    hyphens: auto;
-}
-#inventory-tab .inventory-table--main td {
-    padding: 0.38rem 0.32rem;
-    line-height: 1.28;
-    font-size: 0.72rem;
-}
-#inventory-tab .inventory-table--main td:nth-child(1) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    hyphens: manual;
+    vertical-align: bottom;
+}
+
+#inventory-tab .inventory-table--main tbody td {
+    padding: 0.38rem 0.32rem;
+    line-height: 1.28;
+    font-size: 0.72rem;
+    vertical-align: top;
+}
+
+/* Máximo ~2 líneas en celdas de texto (precio/stocks siguen en una línea vía reglas nth 4–7) */
+#inventory-tab .inventory-table--main tbody td:nth-child(1),
+#inventory-tab .inventory-table--main tbody td:nth-child(3),
+#inventory-tab .inventory-table--main tbody td:nth-child(8),
+#inventory-tab .inventory-table--main tbody td:nth-child(10) {
+    max-height: calc(1.28em * 2 + 4px);
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+#inventory-tab .inventory-table--main tbody td:nth-child(1) {
     max-width: 12rem;
 }
+
 #inventory-tab .inventory-table--main td.inv-code-cell--admin {
     cursor: pointer;
 }
+
 #inventory-tab .inventory-table--main th:nth-child(1) {
-    white-space: normal;
     min-width: 5.5rem;
+    max-width: 12rem;
 }
+
 #inventory-tab .inventory-table--main th:nth-child(2),
 #inventory-tab .inventory-table--main td:nth-child(2) {
-    min-width: 13rem;
-    max-width: 30rem;
+    min-width: 11rem;
+    max-width: 22rem;
     white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
 }
+
+#inventory-tab .inventory-table--main tbody td:nth-child(2) .inv-desc-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    word-break: break-word;
+}
+
 #inventory-tab .inventory-table--main th:nth-child(3),
 #inventory-tab .inventory-table--main td:nth-child(3) {
-    min-width: 23ch;
-    max-width: 23ch;
+    min-width: 7rem;
+    max-width: 14rem;
     white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
 }
-/* Precio + stocks: cantidades centradas */
+
+/* Precio + stocks: una línea, centrados */
 #inventory-tab .inventory-table--main th:nth-child(4),
 #inventory-tab .inventory-table--main td:nth-child(4),
 #inventory-tab .inventory-table--main th:nth-child(5),
@@ -1862,23 +2021,38 @@ tr.inv-box-summary-row.is-selected {
     min-width: 5.25rem;
     text-align: center;
     white-space: nowrap;
+    max-height: none;
 }
+
 /* Ubicación (chips / texto largo) */
 #inventory-tab .inventory-table--main th:nth-child(8),
 #inventory-tab .inventory-table--main td:nth-child(8) {
     min-width: 7rem;
-    max-width: 13rem;
+    max-width: 14rem;
     text-align: left;
-    white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
 }
-/* Fecha expiración */
+
+/* Lotes / caducidad */
 #inventory-tab .inventory-table--main th:nth-child(9),
 #inventory-tab .inventory-table--main td:nth-child(9) {
+    min-width: 6.5rem;
+    max-width: 13rem;
+    text-align: left;
+}
+
+#inventory-tab .inventory-table--main td:nth-child(9) .inv-lots-pills {
+    max-height: calc(1.28em * 2 + 2px);
+    overflow: hidden;
+}
+
+/* Fecha expiración */
+#inventory-tab .inventory-table--main th:nth-child(10),
+#inventory-tab .inventory-table--main td:nth-child(10) {
     min-width: 7.5rem;
+    max-width: 10rem;
     text-align: center;
-    white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
 }
@@ -1889,6 +2063,40 @@ tr.inv-box-summary-row.is-selected {
 }
 #inventory-tab .inventory-table--main .inv-main-cell {
     text-align: center;
+}
+#inventory-tab .inventory-table--main .inv-stock-uom {
+    font-size: 0.62rem;
+    opacity: 0.88;
+    margin-left: 0.15rem;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+#inventory-tab .inventory-table--main .inv-stock-uom-alt {
+    display: block;
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    margin-top: 0.12rem;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.measureunits-table-wrap {
+    overflow-x: auto;
+    margin: 0.5rem 0 1rem;
+}
+.measureunits-table {
+    min-width: 280px;
+}
+.measureunits-intro {
+    margin: 0 0 1rem;
+    max-width: 52rem;
+}
+.measureunits-eq-row .measureunits-eq-qty {
+    max-width: 8rem;
+}
+.measureunits-id-chip {
+    font-size: 0.75rem;
+    opacity: 0.85;
 }
 
 #inventory-tab .inventory-table--main .inv-notes-hit {
@@ -2770,6 +2978,37 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 .transfer-depot-pair .target-select {
     width: 100%;
     max-width: 11rem;
+}
+
+.mov-qty-input-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+}
+.mov-qty-input-wrap .quantity-input {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.mov-qty-calc-btn {
+    flex: 0 0 auto;
+    padding: 0.08rem 0.12rem;
+    line-height: 1;
+    font-size: 0.85rem;
+    border: none !important;
+    outline: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #475569;
+    opacity: 1;
+}
+.mov-qty-calc-btn:hover {
+    background: transparent !important;
+    color: #334155;
+    opacity: 1;
 }
 
 /* Transformación: textos guía */

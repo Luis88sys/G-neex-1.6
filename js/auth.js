@@ -164,6 +164,7 @@ const Auth = {
     "cfgTabEmployees",
     "cfgTabSuppliers",
     "cfgTabConsumables",
+    "cfgTabMeasureUnits",
     "cfgTabItemEdit",
     "cfgTabUsers",
     "cfgTabElevation",
@@ -204,6 +205,7 @@ const Auth = {
   TAB_FEATURE_ACTION_KEYS: [
     "invBrowse",
     "invTools",
+    "invDangerClearExpiry",
     "dashHero",
     "dashOverview",
     "dashToday",
@@ -240,7 +242,7 @@ const Auth = {
    * Debe contener las mismas claves que {@link TAB_FEATURE_ACTION_KEYS}.
    */
   TAB_FEATURE_MATRIX_SECTIONS: [
-    { titleKey: "auth.matrixSectionInventoryFeat", keys: ["invBrowse", "invTools"] },
+    { titleKey: "auth.matrixSectionInventoryFeat", keys: ["invBrowse", "invTools", "invDangerClearExpiry"] },
     { titleKey: "auth.matrixSectionDashboardFeat", keys: ["dashHero", "dashOverview", "dashToday"] },
     { titleKey: "auth.matrixSectionMovementsFeat", keys: ["movPicker", "movRecent", "movAnnul"] },
     {
@@ -277,6 +279,7 @@ const Auth = {
     employees: "cfgTabEmployees",
     suppliers: "cfgTabSuppliers",
     consumables: "cfgTabConsumables",
+    measureunits: "cfgTabMeasureUnits",
     itemedit: "cfgTabItemEdit",
     users: "cfgTabUsers",
     elevation: "cfgTabElevation",
@@ -302,6 +305,7 @@ const Auth = {
       case "cfgTabEmployees":
       case "cfgTabSuppliers":
       case "cfgTabConsumables":
+      case "cfgTabMeasureUnits":
         return tm;
       case "cfgTabItemEdit":
         return L("inventoryEdit");
@@ -484,6 +488,10 @@ const Auth = {
         if (tabInv === "none") return "none";
         if (tabInv === "edit") return "edit";
         return "view";
+      case "invDangerClearExpiry":
+        // Herramienta peligrosa: por defecto solo admin.
+        // Otros usuarios la reciben únicamente por concesión manual.
+        return "none";
       case "dashHero":
       case "dashOverview":
       case "dashToday":

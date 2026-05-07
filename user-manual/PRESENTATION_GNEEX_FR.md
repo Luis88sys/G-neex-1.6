@@ -35,7 +35,11 @@ Les entreprises d'installations électriques et de projets industriels font face
 
 **Données dans le navigateur :** inventaire, mouvements et session sont stockés localement. Verrouillez le poste, utilisez des comptes nominatifs, exportez des sauvegardes et n’importez des fichiers JSON que s’ils proviennent d’une source de confiance.
 
-**Sauvegarde et Import/Export :** l’onglet Import/Export et les opérations critiques de sauvegarde sont réservés au **compte administrateur** ; l’élévation temporaire ne remplace pas ce rôle. Les fonds de connexion peuvent défiler selon `assets/login-bg-manifest.json`.
+**Même URL à chaque fois :** les données sont liées à l’*origine* du navigateur (protocole, hôte, port, chemin). Utilisez une méthode d’ouverture fixe (p. ex. serveur local `http://127.0.0.1:PORT/`). Évitez de mélanger `file://` et `http://` ou de changer de port : des listes « vides » viennent souvent d’un autre stockage.
+
+**Sauvegarde et Import/Export :** l’onglet Import/Export et les opérations critiques de sauvegarde sont réservés au **compte administrateur** ; l’élévation temporaire ne remplace pas ce rôle. Les fonds de connexion peuvent défiler selon `assets/login-bg-manifest.json`. La **sauvegarde JSON complète** inclut le catalogue des **unités de mesure et équivalences**. À l’import JSON, les clés **absentes** du fichier ne suppriment plus les autres données locales (les anciennes sauvegardes ne vident pas le catalogue d’unités, par exemple).
+
+**Unités de mesure :** ⚙️ Paramètres → **Unités** (symboles et équivalences) ; le catalogue garde une entrée réservée **U** (non supprimable). Chaque article peut définir une **unité de stock** ou la laisser vide — **pas** d’affectation automatique à **U**. L’inventaire affiche le symbole **si** une unité est choisie et, si besoin, une ligne **≈** ; modèle/CSV avec colonnes facultatives `UnidadStockSimbolo` et `UnidadEquivalenteSimbolo`. Dans les **mouvements**, les quantités restent numériques : la cohérence avec l’unité de l’article est opérationnelle.
 
 Elle gère tout le cycle de vie du matériel :
 
@@ -54,6 +58,7 @@ Elle gère tout le cycle de vie du matériel :
 | Fonction | Description |
 |----------|-------------|
 | **Vue complète** | Tableau avec code, description, catégorie, stocks Principal/Production/Transformation, emplacement et date d'expiration |
+| **Unités de mesure** | Symbole à côté du stock principal si l’article a une unité (équivalent **≈** optionnel) ; ⚙️ **Unités** + édition par article |
 | **3 stocks indépendants** | Principal, Production et Transformation — chacun avec son propre suivi |
 | **Recherche instantanée** | Filtre en direct par code, description, catégorie ou emplacement |
 | **Menu outils (⋮)** | Première option **Masquer les filtres en ligne** (chevron) : ferme les bandes caisse / dépôt / consommable ; **désactivée** si aucune bande n’est ouverte. Le menu **⋮** regroupe export, impression, filtres, vue à date, résumés, etc. |

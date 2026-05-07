@@ -130,8 +130,8 @@
 <h3>Full backup</h3>
 <p><strong>Path:</strong> ⚙️ Settings → <strong>Import/Export</strong> tab (administrator only)</p>
 <ul>
-  <li><strong>Export backup:</strong> Creates a <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> file with all application data (inventory —per-item location text, per-location and per-box stock, warehouse location catalog included—; movements; daily consumption recipient lists —staff and occasional/external—; supplier list; transports; supplier order lines; users; reference counters; etc.)</li>
-  <li><strong>Import backup:</strong> Choose the JSON file, confirm, and follow the on-screen notice; it replaces the working data for this copy.</li>
+  <li><strong>Export backup:</strong> Creates a <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> file with all application data (inventory —per-item location text, per-location and per-box stock, warehouse location catalog included—; movements; daily consumption recipient lists —staff and occasional/external—; supplier list; <strong>units of measure catalog and equivalences</strong>; transports; supplier order lines; users; reference counters; etc.)</li>
+  <li><strong>Import backup:</strong> Choose the JSON file, confirm, and follow the on-screen notice; it replaces the working data for this copy. Keys <strong>absent</strong> from that JSON no longer wipe unrelated browser data — older backups without some sections won’t wipe, for example, the units catalog.</li>
 </ul>
 <blockquote>Typical use for a full backup: a safety net or moving an entire working copy. To share only day-to-day activity with another copy, also use the <strong>export / import movements only</strong> flow below.</blockquote>
 <p><strong>Movements only (merging work):</strong> In the same place, <strong>Export movements only</strong> (<code>GNEEX_Movements_….json</code>) and <strong>Import and merge movements</strong> exchange activity between copies. The merge <strong>adds</strong> only movements whose <strong>id</strong> is not already in the target copy and <strong>applies</strong> quantities to inventory (material receptions are recreated when the file has enough data). If the <strong>id</strong> already exists, the local movement is kept. It does not replace user lists, transports, or other data; item catalogs should match, and interleaved dates between copies can make stock order look inconsistent. Always confirm the dialog the app shows.</p>
@@ -143,6 +143,15 @@
 <h3>Supplier list (orders)</h3>
 <p><strong>Path:</strong> ⚙️ Settings → <strong>Suppliers</strong> tab to maintain the master name list.</p>
 <p>Users with <strong>Orders</strong> access can enter a supplier on each line (free text or suggestions loaded from that list). The <strong>PO/OC number</strong> is not entered when creating the order; it is captured when <strong>receiving</strong> goods under Movements → <strong>Stock purchase</strong> (with packing slip).</p>
+
+<h3>Units of measure</h3>
+<p><strong>Path:</strong> ⚙️ Settings → <strong>Units</strong> tab</p>
+<p>Maintain <strong>symbols</strong> (e.g. <code>m</code>, <code>kg</code>, <code>U</code>) and <strong>equivalences</strong> between them (e.g. “1 stock unit = 150 m”). Chained equivalences let you convert units that are not directly linked.</p>
+<p>The catalog includes a reserved <strong>U</strong> (<em>generic</em>) row that <strong>cannot be deleted</strong>. Each article may set its own <strong>stock unit</strong> or leave it unset — there is <strong>no automatic assignment</strong> to <strong>U</strong>.</p>
+<p>Under <strong>⚙️ Settings → Article editing</strong>, each article has <strong>Stock unit</strong> (optional; when set, main, production, and transformation quantities use that unit) and optionally <strong>Also show equivalent in inventory</strong>: when a stock unit is chosen, the inventory table shows the symbol next to main stock and, when applicable, an approximate second line (<strong>≈</strong>) in the other unit.</p>
+<p><strong>Permissions:</strong> like other configuration lists (e.g. Consumables), visibility follows fine-grained Settings actions—typically tied to Movements access in the permission matrix; administrators configure user detail.</p>
+<p><strong>CSV/XLSX:</strong> template and inventory export may include optional columns <strong>UnidadStockSimbolo</strong> and <strong>UnidadEquivalenteSimbolo</strong> (symbol match, case-insensitive); symbols must exist under ⚙️ Units.</p>
+<p><strong>Important:</strong> <strong>Movements</strong> still store numeric quantities as before; the unit is per-article metadata for consistent reading. Operators should always enter quantities in the same sense as the article’s stock unit.</p>
 
 <h3>Archive old movements</h3>
 <p>To free up space by removing old movements:</p>
@@ -165,7 +174,7 @@
 
 <h3>Load initial inventory (CSV or XLSX)</h3>
 <p>Allows importing a <strong>CSV</strong> or <strong>XLSX</strong> file with the initial inventory. The columns must match the expected format.</p>
-<p>You can use the <strong>template icon button</strong> to export a styled <strong>.xlsx</strong> sheet with the correct column order (orange header row) and one editable example row. You can also save as CSV from Excel using the same column order.</p>
+<p>You can use the <strong>template icon button</strong> to export a styled <strong>.xlsx</strong> sheet with the correct column order (orange header row) and one editable example row. You can also save as CSV from Excel using the same column order. Trailing columns may include <strong>UnidadStockSimbolo</strong> and <strong>UnidadEquivalenteSimbolo</strong> (see <strong>Units of measure</strong>): symbols must exist in the ⚙️ Units catalog.</p>
 
 <h3>Delete database</h3>
 <ol>
@@ -178,6 +187,9 @@
 <h3>Security and browser-stored data</h3>
 <p>G-NEEX stores inventory, movements, users, and session data in the browser's <strong>local storage</strong> (for example <code>localStorage</code>). Passwords are stored as <strong>salted hashes</strong>; they do not appear in plaintext in the application source. Anyone with access to the device or user profile, or a <strong>malicious browser extension</strong>, could read or tamper with that data. The app <strong>does not replace</strong> a central server with corporate identity policies. Use <strong>OS session lock</strong>, personal accounts, and <strong>exported backups</strong> as your organization requires. When <strong>importing a JSON backup</strong>, verify it comes from a trusted source.</p>
 
+<h3>Same launch URL (<code>http</code> vs <code>file</code>)</h3>
+<p>Data is tied to the browser <strong>origin</strong>: protocol, host, port, and path. For stable everyday use or testing, open the app with a <strong>fixed URL</strong> (for example local server <code>http://127.0.0.1:8765/</code>). Avoid mixing opening <code>index.html</code> as a <code>file:///…</code> link with <code>http://…</code> or hopping between ports — lists can look “empty” when you are simply on another origin.</p>
+
 <hr>
 
 <h2>1.2 Article editor</h2>
@@ -188,6 +200,7 @@
 <h3>Inventory consumable mode and the master «Consumables» list</h3>
 <p>If you check <strong>Treat as inventory consumable</strong> and click <strong>Save</strong>, the app <strong>adds</strong> the name (the article <strong>description</strong>, or <strong>code</strong> if there is no description) to the list under <strong>⚙️ Settings → Consumables</strong>, used for purchase receipts without inventory and consumable orders. If you <strong>uncheck</strong> that option and save, it <strong>removes</strong> from that list the entry that matched the description or code <strong>before the change</strong> (when it was only there through this link).</p>
 <p>How stock behaves in consumable mode follows the on-screen rules and messages.</p>
+<p>In the same form you can set the article <strong>stock unit</strong> and optional inventory <strong>equivalent</strong> display (see <strong>§1.1 — Units of measure</strong>).</p>
 
 <hr>
 
@@ -262,7 +275,7 @@
 <p>In the <strong>low stock</strong> modal, the first columns are <strong>Ignore low-stock alert</strong>, <strong>Actions</strong> (🛒 to add the item to the <strong>purchase list</strong>), <strong>Code</strong>, then the remaining fields (description, stocks, dates, location).</p>
 
 <h3>Inventory table</h3>
-<p>Columns: Code, Description, Category, Default price, Main Stock, Production Stock, Transformation Stock, Location, Expiration.</p>
+<p>Columns: Code, Description, Category, Default price, Main Stock (when the article has a stock unit: <strong>unit symbol</strong> and, when applicable, an approximate <strong>≈</strong> equivalent line), Production Stock, Transformation Stock, Location, Expiration.</p>
 <p>In the <strong>Description</strong> column, the <strong>📝</strong> control (faded more when the item has no notes yet) opens a dialog to <strong>view and edit</strong> notes when it is active; <strong>Save</strong> persists changes. If editing is not offered but the item <strong>has</strong> notes, you can often open the same dialog in <strong>read-only</strong> mode; if there are no notes, the cell is plain text.</p>
 <p>Row colors indicate the article's status (red = negative, yellow = low, orange = expiring, etc.).</p>
 <p>If the window is narrow, <strong>scroll the table horizontally</strong> to see all columns without squashing the headers.</p>

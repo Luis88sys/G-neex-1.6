@@ -186,7 +186,9 @@
     <h2>La Solution : G-NEEX</h2>
     <p><strong>G-NEEX</strong> est une application web qui fonctionne <strong>100% hors ligne</strong>, directement dans le navigateur, sans besoin de serveurs externes ni de connexion internet.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Données dans le navigateur :</strong> inventaire, mouvements et session sont stockés localement. Verrouillez le poste, utilisez des comptes nominatifs, exportez des sauvegardes et n’importez des fichiers JSON que s’ils proviennent d’une source de confiance.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Sauvegarde et Import/Export :</strong> l’onglet Import/Export et les opérations critiques de sauvegarde sont réservés au <strong>compte administrateur</strong> ; l’élévation temporaire ne remplace pas ce rôle. Les fonds de connexion peuvent défiler selon <code>assets/login-bg-manifest.json</code>.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Sauvegarde et Import/Export :</strong> l’onglet Import/Export et les opérations critiques de sauvegarde sont réservés au <strong>compte administrateur</strong> ; l’élévation temporaire ne remplace pas ce rôle. Les fonds de connexion peuvent défiler selon <code>assets/login-bg-manifest.json</code>. À l’import JSON, les clés absentes ne suppriment plus les autres données locales.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Même URL :</strong> conservez la même adresse d’ouverture (p. ex. serveur local <code>http://127.0.0.1:PORT/</code>) ; n’utilisez pas à la fois <code>file://</code> et HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Unités de mesure :</strong> ⚙️ Paramètres → <strong>Unités</strong> ; la sauvegarde JSON inclut le catalogue ; entrée réservée <strong>U</strong> ; chaque article choisit une unité de stock ou aucune ; inventaire avec symbole si défini (et <strong>≈</strong> optionnel). Les mouvements restent sur des quantités numériques.</p>
     <p>Elle gère tout le cycle de vie du matériel :</p>
     <p class="flow"><strong>Réception</strong> → <strong>Entrepôt</strong> → <strong>Sortie</strong> → <strong>Transport</strong> → <strong>Chantier</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
@@ -210,6 +212,7 @@
         </thead>
         <tbody>
             <tr><td><strong>Vue complète</strong></td><td>Tableau avec code, description, catégorie, stocks Principal/Production/Transformation, emplacement et date d'expiration</td></tr>
+            <tr><td><strong>Unités de mesure</strong></td><td>Symbole à côté du stock principal si l’article a une unité (équivalent <strong>≈</strong> optionnel) ; ⚙️ <strong>Unités</strong> + édition par article</td></tr>
             <tr><td><strong>3 stocks indépendants</strong></td><td>Principal, Production et Transformation — chacun avec son propre suivi</td></tr>
             <tr><td><strong>Recherche instantanée</strong></td><td>Filtre en direct par code, description, catégorie ou emplacement</td></tr>
             <tr><td><strong>Menu outils (⋮)</strong></td><td>Première option <strong>Masquer les filtres en ligne</strong> (chevron) : ferme les bandes caisse / dépôt / consommable ; <strong>désactivée</strong> si aucune bande n’est ouverte. Le menu <strong>⋮</strong> regroupe export, impression, filtres, vue à date, résumés, etc.</td></tr>

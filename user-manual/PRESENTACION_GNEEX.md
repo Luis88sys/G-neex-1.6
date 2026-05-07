@@ -35,7 +35,11 @@ Las empresas de instalaciones eléctricas y proyectos industriales enfrentan des
 
 **Datos en el navegador:** inventario, movimientos y sesión se guardan en el almacenamiento local del navegador. Bloquee el equipo, use cuentas personales, exporte respaldos e importe JSON solo si confía en el origen.
 
-**Respaldo e Import/Export:** la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la **cuenta administrador**; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según `assets/login-bg-manifest.json`.
+**Misma URL siempre:** los datos dependen del *origen* del navegador (protocolo, host, puerto, ruta). Use siempre la misma forma de abrir la app (p. ej. servidor local `http://127.0.0.1:PUERTO/`). No mezcle `file://` con `http://` ni cambie de puerto sin darse cuenta: listas «vacías» suelen ser otro almacén.
+
+**Respaldo e Import/Export:** la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la **cuenta administrador**; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según `assets/login-bg-manifest.json`. El **respaldo JSON completo** incluye el catálogo de **unidades de medida y equivalencias**. Al importar JSON, las claves que **no vienen** en el archivo **ya no borran** el resto de datos locales (los respaldos viejos sin ciertas secciones no vacían, por ejemplo, el catálogo de unidades).
+
+**Unidades de medida:** ⚙️ Configuración → **Unidades** (símbolos y equivalencias); el catálogo incluye **U** como referencia genérica (no se borra); cada artículo elige unidad de stock en el editor o puede quedar sin unidad; el inventario muestra el símbolo junto al stock principal cuando está definido y, si aplica, una línea **≈** en otra unidad; plantilla/CSV con columnas opcionales `UnidadStockSimbolo` y `UnidadEquivalenteSimbolo`. En **movimientos** las cantidades siguen siendo numéricas: la coherencia con la unidad del artículo es operativa.
 
 Gestiona todo el ciclo de vida del material:
 
@@ -54,6 +58,7 @@ Gestiona todo el ciclo de vida del material:
 | Función | Descripción |
 |---------|-------------|
 | **Vista completa** | Tabla con código, descripción, categoría, stock Principal/Producción/Transformación, ubicación y fecha de expiración |
+| **Unidades de medida** | Símbolo junto al stock principal si el artículo tiene unidad (y equivalente opcional **≈**); ⚙️ **Unidades** + edición por artículo |
 | **3 stocks independientes** | Principal, Producción y Transformación — cada uno con seguimiento propio |
 | **Búsqueda instantánea** | Filtro en vivo por código, descripción, categoría o ubicación |
 | **Menú herramientas (⋮)** | Primera opción **Ocultar filtros en línea** (flecha): cierra las barras caja / depósito / consumible; **deshabilitada** si ninguna barra está abierta. El menú **⋮** agrupa exportar, imprimir, filtros, stock a fecha, resúmenes, etc. |

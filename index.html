@@ -492,6 +492,10 @@
                       <svg class="inventory-header-tools-menu-svg inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
                       <span data-i18n="inventory.toolsItemPrint">Imprimir lista</span>
                     </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-clear-expiration-data" data-auth-act="invDangerClearExpiry" data-auth-act-level="edit">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">🧹</span>
+                      <span data-i18n="inventory.toolsItemClearExpiryData">Borrar datos de caducidad (masivo)</span>
+                    </button>
                     <div class="inventory-header-tools-menu-sep" role="separator"></div>
                     <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-box-summary-btn">
                       <span class="inventory-header-tools-menu-ico" aria-hidden="true">🧰</span>
@@ -542,6 +546,7 @@
                   <button type="button" id="inventory-asof-open" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.asOfOpenTitle" data-i18n-aria-label="inventory.asOfOpenTitle"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button>
                   <button type="button" id="inventory-export-csv" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.exportCsv" data-i18n-aria-label="inventory.exportCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
                   <button type="button" id="inventory-print-list" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.printList" data-i18n-aria-label="inventory.printList"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
+                  <button type="button" id="inventory-clear-expiration-data" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invDangerClearExpiry" data-auth-act-level="edit" data-i18n-title="inventory.toolsItemClearExpiryData" data-i18n-aria-label="inventory.toolsItemClearExpiryData"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧹</span></button>
                   <button type="button" id="inventory-box-summary-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxSummaryBtnTitle" data-i18n-aria-label="inventory.boxSummaryBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧰</span></button>
                   <button type="button" id="inventory-box-zero-total-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxZeroTotalBtnTitle" data-i18n-aria-label="inventory.boxZeroTotalBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">📭</span></button>
                   <button type="button" id="inventory-box-manager-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.boxManagerBtnTitle" data-i18n-aria-label="inventory.boxManagerBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🗃</span></button>
@@ -577,23 +582,29 @@
             </div>
         </div>
 
-        <div class="inventory-table-container inventory-table-container--main" data-auth-act="invBrowse" data-auth-act-level="view">
-            <table class="inventory-table inventory-table--main">
-                <thead>
-                    <tr>
-                        <th data-i18n="table.code">Código</th>
-                        <th data-i18n="table.description">Descripción</th>
-                        <th data-i18n="table.category">Categoría</th>
-                        <th data-i18n="table.defaultPrice">Precio por defecto</th>
-                        <th data-i18n="table.mainStock">Stock Principal</th>
-                        <th data-i18n="table.prodStock">Stock Producción</th>
-                        <th data-i18n="table.transStock">Stock Transformación</th>
-                        <th data-i18n="table.location">Ubicación</th>
-                        <th data-i18n="table.expirationDate">Fecha Expiración</th>
-                    </tr>
-                </thead>
-                <tbody id="inventory-body"></tbody>
-            </table>
+        <div class="inventory-hscroll" id="inventory-main-hscroll">
+            <div class="inventory-hscroll-top" id="inventory-hscroll-top" aria-hidden="true">
+                <div class="inventory-hscroll-top-inner" id="inventory-hscroll-top-inner"></div>
+            </div>
+            <div class="inventory-table-container inventory-table-container--main inventory-hscroll-body" id="inventory-hscroll-body" data-auth-act="invBrowse" data-auth-act-level="view">
+                <table class="inventory-table inventory-table--main">
+                    <thead>
+                        <tr>
+                            <th data-i18n="table.code">Código</th>
+                            <th data-i18n="table.description">Descripción</th>
+                            <th data-i18n="table.category">Categoría</th>
+                            <th data-i18n="table.defaultPrice">Precio por defecto</th>
+                            <th data-i18n="table.mainStock">Stock Principal</th>
+                            <th data-i18n="table.prodStock">Stock Producción</th>
+                            <th data-i18n="table.transStock">Stock Transformación</th>
+                            <th data-i18n="table.location">Ubicación</th>
+                            <th data-i18n="inventory.colLotsBreakdown">Lotes / caducidad</th>
+                            <th data-i18n="table.expirationDate">Fecha Expiración</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-body"></tbody>
+                </table>
+            </div>
         </div>
     </section>
 
@@ -1066,6 +1077,7 @@
         <button type="button" class="config-tab-btn admin-only" id="config-tab-employees-btn" data-auth-act="cfgTabEmployees" data-auth-act-level="view" data-config-tab="employees" data-i18n="config.tab.employees">Empleados</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-suppliers-btn" data-auth-act="cfgTabSuppliers" data-auth-act-level="view" data-config-tab="suppliers" data-i18n="config.tab.suppliers">Proveedores</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-consumables-btn" data-auth-act="cfgTabConsumables" data-auth-act-level="view" data-config-tab="consumables" data-i18n="config.tab.consumables">Consumibles</button>
+        <button type="button" class="config-tab-btn admin-only" id="config-tab-measureunits-btn" data-auth-act="cfgTabMeasureUnits" data-auth-act-level="view" data-config-tab="measureunits" data-i18n="config.tab.measureUnits">Unidades</button>
         <button type="button" class="config-tab-btn admin-only" data-config-tab="itemedit" data-auth-act="cfgTabItemEdit" data-auth-act-level="view" data-i18n="config.tab.itemEdit">Edición de artículo</button>
         <button type="button" class="config-tab-btn super-admin-only" data-config-tab="users" data-auth-act="cfgTabUsers" data-auth-act-level="view" data-i18n="config.tab.users" style="display:none;">Usuarios</button>
         <button type="button" class="config-tab-btn super-admin-only" data-config-tab="elevation" data-auth-act="cfgTabElevation" data-auth-act-level="view" data-i18n="config.tab.elevation">Códigos elevación</button>
@@ -1220,6 +1232,18 @@
           </div>
           <div class="form-row">
             <div class="form-group">
+              <label for="edit-measure-stock-unit" data-i18n="measureUnits.stockUnitLabel">Unidad de stock</label>
+              <select id="edit-measure-stock-unit" class="filter-select"></select>
+              <span class="muted form-hint" data-i18n="measureUnits.stockUnitHint">Las cantidades de este artículo se interpretan en esta unidad.</span>
+            </div>
+            <div class="form-group">
+              <label for="edit-measure-alt-unit" data-i18n="measureUnits.altUnitLabel">Mostrar equivalente en</label>
+              <select id="edit-measure-alt-unit" class="filter-select"></select>
+              <span id="edit-measure-conversion-hint" class="muted form-hint" aria-live="polite"></span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
               <label data-i18n="table.mainStock">Stock principal</label>
               <input id="edit-main-stock" type="number" step="0.0001">
             </div>
@@ -1292,6 +1316,12 @@
             <label class="checkbox-label item-edit-checkbox-label">
               <input type="checkbox" id="edit-inventory-consumable" />
               <span data-i18n="config.inventoryConsumableToggle">Tratar como consumible de inventario</span>
+            </label>
+          </div>
+          <div class="form-group item-edit-tracks-expiration-block">
+            <label class="checkbox-label item-edit-checkbox-label">
+              <input type="checkbox" id="edit-tracks-expiration" />
+              <span data-i18n="config.tracksExpirationToggle">Controlar caducidad y lotes (FEFO)</span>
             </label>
           </div>
           <div class="form-group item-edit-low-stock-ignore-block">
@@ -1447,6 +1477,72 @@
             <button type="button" id="consumables-add-btn" class="btn btn-primary" data-i18n="consumables.addBtn">Añadir</button>
           </div>
           <ul id="consumables-config-list" class="employees-config-list" aria-live="polite"></ul>
+        </div>
+      </div>
+
+      <div id="config-measureunits" class="config-content admin-only">
+        <div class="config-section">
+          <h3 data-i18n="measureUnits.configTitle">Unidades de medida</h3>
+          <p class="muted measureunits-intro" data-i18n="measureUnits.configIntro">Defina símbolos (ej. unid., m, kg) y equivalencias (ej. 1 unid. = 150 m). En cada artículo elija en qué unidad se guarda el stock.</p>
+          <h4 class="config-subsection-title" data-i18n="measureUnits.unitsHeading">Unidades</h4>
+          <div class="employees-add-row form-row measureunits-add-unit-row">
+            <div class="form-group employees-add-group">
+              <label for="measureunits-add-symbol" data-i18n="measureUnits.symbolLabel">Símbolo</label>
+              <input type="text" id="measureunits-add-symbol" class="form-input" maxlength="32" autocomplete="off" data-i18n-placeholder="measureUnits.symbolPlaceholder" placeholder="Unidad" />
+            </div>
+            <div class="form-group employees-add-group">
+              <label for="measureunits-add-label" data-i18n="measureUnits.labelOptional">Nombre (opcional)</label>
+              <input type="text" id="measureunits-add-label" class="form-input" maxlength="120" autocomplete="off" />
+            </div>
+            <button type="button" id="measureunits-add-unit-btn" class="btn btn-primary" data-i18n="measureUnits.addUnitBtn">Añadir unidad</button>
+          </div>
+          <div class="measureunits-table-wrap">
+            <table class="inventory-table measureunits-table">
+              <caption class="gneex-sr-only" data-i18n="measureUnits.unitsCaption">Lista de unidades</caption>
+              <thead>
+                <tr>
+                  <th data-i18n="measureUnits.colSymbol">Símbolo</th>
+                  <th data-i18n="measureUnits.colLabel">Nombre</th>
+                  <th data-i18n="measureUnits.colIdShort">Id</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="measureunits-units-tbody"></tbody>
+            </table>
+          </div>
+          <h4 class="config-subsection-title" data-i18n="measureUnits.equivalencesHeading">Equivalencias</h4>
+          <p class="muted form-hint" data-i18n="measureUnits.equivalenceHint">Ejemplo: cantidad A de la primera unidad equivale a cantidad B de la segunda.</p>
+          <div class="employees-add-row form-row measureunits-eq-row">
+            <div class="form-group employees-add-group">
+              <label for="measureunits-eq-unit-a" data-i18n="measureUnits.eqUnitA">Unidad A</label>
+              <select id="measureunits-eq-unit-a" class="filter-select"></select>
+            </div>
+            <div class="form-group employees-add-group measureunits-eq-qty">
+              <label for="measureunits-eq-qty-a" data-i18n="measureUnits.eqQty">Cantidad</label>
+              <input type="number" id="measureunits-eq-qty-a" class="form-input" min="1e-9" step="any" value="1" />
+            </div>
+            <div class="form-group employees-add-group">
+              <label for="measureunits-eq-unit-b" data-i18n="measureUnits.eqUnitB">Unidad B</label>
+              <select id="measureunits-eq-unit-b" class="filter-select"></select>
+            </div>
+            <div class="form-group employees-add-group measureunits-eq-qty">
+              <label for="measureunits-eq-qty-b" data-i18n="measureUnits.eqQtyB">Cantidad B</label>
+              <input type="number" id="measureunits-eq-qty-b" class="form-input" min="1e-9" step="any" value="1" />
+            </div>
+            <button type="button" id="measureunits-add-eq-btn" class="btn btn-primary" data-i18n="measureUnits.addEquivalenceBtn">Añadir equivalencia</button>
+          </div>
+          <div class="measureunits-table-wrap">
+            <table class="inventory-table measureunits-table">
+              <caption class="gneex-sr-only" data-i18n="measureUnits.equivalencesCaption">Lista de equivalencias</caption>
+              <thead>
+                <tr>
+                  <th data-i18n="measureUnits.colEquivalence">Relación</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="measureunits-eq-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1983,6 +2079,8 @@
       <p id="inv-quick-modal-sub" class="config-section-intro muted"></p>
       <div id="inventory-item-quick-body"></div>
       <div class="modal-actions">
+        <button type="button" id="inv-quick-export-lots" class="btn btn-secondary" data-i18n="inventory.toolsItemExport">Exportar XLSX</button>
+        <button type="button" id="inv-quick-print-lots" class="btn btn-primary" data-i18n="history.consumoLedgerPrint">Imprimir tabla</button>
         <button type="button" id="inv-quick-close" class="btn btn-secondary" data-i18n="buttons.close">Cerrar</button>
       </div>
     </div>
@@ -2124,6 +2222,7 @@
 <script src="js/utils.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/measureUnits.js"></script>
 <script src="js/inventory.js"></script>
 <script src="js/employees.js"></script>
     <script src="js/suppliers.js"></script>

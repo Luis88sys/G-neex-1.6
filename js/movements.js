@@ -2159,6 +2159,12 @@ const MovementManager = {
 
     addItem(item) {
         if (!item || !this.currentType) return;
+        // En COMPRA_STOCK, al agregar otra línea se re-renderiza la tabla.
+        // Sincronizamos primero inputs visibles (cantidades + fechas de lote)
+        // para no perder lo escrito en filas previas.
+        if (this.currentType === "COMPRA_STOCK") {
+            this.syncSelectedItemQuantitiesFromDom();
+        }
         if (item.inventoryConsumable && this.currentType !== "COMPRA_STOCK") {
             Utils.showToast(I18n.t("msg.inventoryConsumableNoMovement"), "warning");
             return;
@@ -2166,6 +2172,7 @@ const MovementManager = {
 
         const conf = MOVEMENT_TYPES[this.currentType];
         const allowDuplicateSku =
+            this.currentType === 'COMPRA_STOCK' ||
             this.currentType === 'TRANSFERENCIA' ||
             this.currentType === 'TRANSFORMACION' ||
             this.currentType === 'CONSUMO_DIARIO' ||
@@ -2252,6 +2259,8 @@ const MovementManager = {
             }
             if (this.currentType === 'COMPRA_STOCK') {
                 base.compraPlace = { kind: 'main' };
+                base.compraLotExpiry = '';
+                base.compraLotExpedition = '';
             }
             this.selectedItems.unshift(base);
             if (this._movementTypeStockSourceDestMirror()) {
@@ -2279,6 +2288,18 @@ const MovementManager = {
         if (conf?.specialForm === "recepcion") return;
         if (this.currentType === "COMPRA_STOCK" && this.isCompraConsumibleReceiptMode()) return;
         if (this.currentType === "CONSUMO_DIARIO") this._syncConsumoRecipientsFromDom();
+        if (this.currentType === "COMPRA_STOCK" && !this.isCompraConsumibleReceiptMode()) {
+            const rows = document.querySelectorAll("#selected-items-body tr");
+            for (let i = 0; i < Math.min(rows.length, this.selectedItems.length); i++) {
+                const row = rows[i];
+                const it = this.selectedItems[i];
+                if (!it) continue;
+                const e1 = row.querySelector(".mov-compra-lot-expiry");
+                const e2 = row.querySelector(".mov-compra-lot-expedition");
+                if (e1) it.compraLotExpiry = e1.value || "";
+                if (e2) it.compraLotExpedition = e2.value || "";
+            }
+        }
         const inputs = document.querySelectorAll("#selected-items-body tr .quantity-input");
         if (!inputs.length) return;
         const n = Math.min(inputs.length, this.selectedItems.length);
@@ -2370,6 +2391,126 @@ const MovementManager = {
         this.renderSelectedItems();
     },
 
+    _renderQuantityInputWithCalc(index, value, opts = {}) {
+        const min = opts.min != null ? String(opts.min) : "0";
+        const step = opts.step != null ? String(opts.step) : "any";
+        const v = value != null && value !== "" ? String(value) : "";
+        const calcTitle = this._escHtml(I18n.t("movements.qtyCalcBtn"));
+        return `<div class="mov-qty-input-wrap">
+          <input type="number" class="quantity-input"
+                 value="${this._escAttr(v)}" min="${this._escAttr(min)}" step="${this._escAttr(step)}"
+                 data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
+          <button type="button" class="btn btn-sm btn-secondary mov-qty-calc-btn"
+                  data-calc-index="${index}" onclick="MovementManager.openQuantityCalculator(${index}); return false;"
+                  title="${calcTitle}" aria-label="${calcTitle}">🧮</button>
+        </div>`;
+    },
+
+    _evaluateQuantityExpression(raw) {
+        const txt = String(raw || "")
+            .replace(/×/g, "*")
+            .replace(/÷/g, "/")
+            .replace(/,/g, ".")
+            .trim();
+        if (!txt) return null;
+        if (!/^[0-9+\-*/().\s]+$/.test(txt)) return null;
+        const compact = txt.replace(/\s+/g, "");
+        const tokens = compact.match(/\d*\.?\d+|[()+\-*/]/g);
+        if (!tokens || tokens.join("") !== compact) return null;
+        const out = [];
+        const ops = [];
+        const prec = { "+": 1, "-": 1, "*": 2, "/": 2 };
+        const isOp = t => t === "+" || t === "-" || t === "*" || t === "/";
+
+        let prev = null;
+        for (const t of tokens) {
+            const isNum = /^\d*\.?\d+$/.test(t);
+            if (isNum) {
+                out.push(parseFloat(t));
+                prev = "num";
+                continue;
+            }
+            if (t === "(") {
+                ops.push(t);
+                prev = "(";
+                continue;
+            }
+            if (t === ")") {
+                while (ops.length && ops[ops.length - 1] !== "(") out.push(ops.pop());
+                if (!ops.length) return null;
+                ops.pop();
+                prev = ")";
+                continue;
+            }
+            if (isOp(t)) {
+                // Soporte para operador unario (ej: -5, 2*(-3))
+                if (t === "-" && (prev == null || prev === "(" || prev === "op")) {
+                    out.push(0);
+                } else if (prev == null || prev === "(" || prev === "op") {
+                    return null;
+                }
+                while (ops.length && isOp(ops[ops.length - 1]) && prec[ops[ops.length - 1]] >= prec[t]) {
+                    out.push(ops.pop());
+                }
+                ops.push(t);
+                prev = "op";
+                continue;
+            }
+            return null;
+        }
+        while (ops.length) {
+            const top = ops.pop();
+            if (top === "(" || top === ")") return null;
+            out.push(top);
+        }
+
+        const st = [];
+        for (const tk of out) {
+            if (typeof tk === "number") {
+                st.push(tk);
+                continue;
+            }
+            if (st.length < 2) return null;
+            const b = st.pop();
+            const a = st.pop();
+            let r = 0;
+            if (tk === "+") r = a + b;
+            else if (tk === "-") r = a - b;
+            else if (tk === "*") r = a * b;
+            else if (tk === "/") {
+                if (Math.abs(b) < 1e-12) return null;
+                r = a / b;
+            } else return null;
+            if (!Number.isFinite(r)) return null;
+            st.push(r);
+        }
+        if (st.length !== 1 || !Number.isFinite(st[0])) return null;
+        return Utils.roundDecimal(st[0]);
+    },
+
+    async openQuantityCalculator(index) {
+        if (!Number.isFinite(index) || index < 0 || index >= this.selectedItems.length) return;
+        const promptMsg = I18n.t("movements.qtyCalcPrompt");
+        const currentAbs = Math.abs(parseFloat(this.selectedItems[index]?.quantity) || 0);
+        let raw = null;
+        if (typeof App !== "undefined" && App.showPrompt) {
+            raw = await App.showPrompt({
+                message: promptMsg,
+                defaultValue: currentAbs > 0 ? String(currentAbs) : "",
+                inputType: "text"
+            });
+        } else {
+            raw = window.prompt(promptMsg, currentAbs > 0 ? String(currentAbs) : "");
+        }
+        if (raw == null) return;
+        const val = this._evaluateQuantityExpression(raw);
+        if (val == null) {
+            Utils.showToast(I18n.t("movements.qtyCalcInvalid"), "warning");
+            return;
+        }
+        this.updateItemQuantity(index, String(val));
+    },
+
     updateItemTarget(index, target) {
         if (index < 0 || index >= this.selectedItems.length) return;
         if (this.currentType === 'TRANSFORMACION' && target !== 'transformation' && target !== 'production') {
@@ -2409,6 +2550,18 @@ const MovementManager = {
         this.selectedItems[index].compraPlace.kind = 'location';
         this.selectedItems[index].compraPlace.locationKey = String(value || '').trim();
         this.renderSelectedItems();
+    },
+
+    updateCompraLotDates(index) {
+        if (index < 0 || index >= this.selectedItems.length || this.currentType !== 'COMPRA_STOCK') return;
+        const rows = document.querySelectorAll("#selected-items-body tr");
+        const row = rows[index];
+        const it = this.selectedItems[index];
+        if (!row || !it) return;
+        const e1 = row.querySelector(".mov-compra-lot-expiry");
+        const e2 = row.querySelector(".mov-compra-lot-expedition");
+        it.compraLotExpiry = e1 && e1.value ? e1.value : "";
+        it.compraLotExpedition = e2 && e2.value ? e2.value : "";
     },
 
     _lineSupportsStockSourceSelect(item, conf) {
@@ -2785,6 +2938,16 @@ const MovementManager = {
             } else if (place0.kind === 'main' && r.ok) {
                 item.compraPlace = { kind: 'main' };
             }
+            if (
+                place0.kind === 'main' &&
+                typeof InventoryManager !== 'undefined' &&
+                typeof InventoryManager.mergeCompraLotIntoExpirations === 'function'
+            ) {
+                InventoryManager.mergeCompraLotIntoExpirations(item.itemId, q, {
+                    expiryDate: item.compraLotExpiry,
+                    expDate: item.compraLotExpedition
+                });
+            }
             return;
         }
         if (type === 'TRANSFERENCIA' && this._isTransferLine(item)) {
@@ -2819,6 +2982,17 @@ const MovementManager = {
         ) {
             const qAbs = Math.abs(qty);
             const src = this._getLineStockSourceId(item);
+            if (
+                !src &&
+                typeof InventoryManager.consumeFromMainStockFefo === 'function' &&
+                InventoryManager.itemTracksExpiration(InventoryManager.getItemById(item.itemId))
+            ) {
+                const r0 = InventoryManager.consumeFromMainStockFefo(item.itemId, qAbs);
+                if (r0 && r0.ok) {
+                    item.mainFefoDeductions = r0.deductions || [];
+                    return;
+                }
+            }
             if (src.startsWith('box:') && InventoryManager.consumeFromBoxAndMain) {
                 const r = InventoryManager.consumeFromBoxAndMain(item.itemId, src.slice(4), qAbs, {
                     boxNumber: item.boxNumber
@@ -2869,6 +3043,13 @@ const MovementManager = {
             } else {
                 InventoryManager.updateStock(item.itemId, 'main', -q);
             }
+            const pl = item.compraPlace && typeof item.compraPlace === 'object' ? item.compraPlace : { kind: 'main' };
+            if (
+                pl.kind === 'main' &&
+                typeof InventoryManager.revertMergeCompraLotFromExpirations === 'function'
+            ) {
+                InventoryManager.revertMergeCompraLotFromExpirations(item.itemId, q, item);
+            }
             return;
         }
         if (item.itemId && typeof InventoryManager !== 'undefined') {
@@ -2897,6 +3078,15 @@ const MovementManager = {
         if (tgt === 'main' && qty < 0 && movementType !== 'TRANSFERENCIA' && movementType !== 'TRANSFORMACION') {
             const qAbs = Math.abs(qty);
             const src = this._getLineStockSourceId(item);
+            if (
+                !src &&
+                item.mainFefoDeductions &&
+                item.mainFefoDeductions.length &&
+                typeof InventoryManager.restoreMainStockFefo === 'function'
+            ) {
+                InventoryManager.restoreMainStockFefo(item.itemId, item.mainFefoDeductions);
+                return;
+            }
             if (src.startsWith('box:') && InventoryManager.restoreToBoxAndMain) {
                 const r = InventoryManager.restoreToBoxAndMain(item.itemId, src.slice(4), qAbs, {
                     boxNumber: item.boxNumber
@@ -3088,9 +3278,7 @@ const MovementManager = {
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
-                    <td>
-                        <input type="number" class="quantity-input" value="${q > 0 ? q : ''}" min="0" step="any" data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
-                    </td>
+                    <td>${this._renderQuantityInputWithCalc(index, q > 0 ? q : "", { min: 0, step: "any" })}</td>
                     <td class="transfer-depot-cell">
                         <div class="transfer-depot-pair">
                             <div><span class="transfer-depot-label">${esc(I18n.t('movements.transferFrom'))}</span>${fromSelect}</div>
@@ -3122,9 +3310,7 @@ const MovementManager = {
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
-                    <td>
-                        <input type="number" class="quantity-input" value="${q > 0 ? q : ''}" min="0" step="any" data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
-                    </td>
+                    <td>${this._renderQuantityInputWithCalc(index, q > 0 ? q : "", { min: 0, step: "any" })}</td>
                     <td>${esc(I18n.t('target.main'))} → ${esc(I18n.t('target.production'))}</td>
                     <td>
                         <small>${esc(I18n.t('target.main'))}:</small> ${fmt(curFrom)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newFrom)}</strong><br>
@@ -3204,10 +3390,7 @@ const MovementManager = {
                     <td>
                         ${recipientCell}
                     </td>
-                    <td>
-                        <input type="number" class="quantity-input"
-                               value="${Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : ''}" min="0" data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
-                    </td>
+                    <td>${this._renderQuantityInputWithCalc(index, Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : "", { min: 0, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td><span class="mov-same-dest-mirror">${destLabel}</span></td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
@@ -3256,6 +3439,25 @@ const MovementManager = {
                             : ''
                     }
                   </div>`;
+                const invRow = item.itemId ? InventoryManager.getItemById(item.itemId) : null;
+                const showLots =
+                    !item.consumableReceipt &&
+                    typeof InventoryManager !== 'undefined' &&
+                    invRow &&
+                    !invRow.inventoryConsumable;
+                const lotDatesHtml = showLots
+                    ? `<div class="compra-lot-dates muted" style="margin-top:6px;font-size:0.8rem;line-height:1.4;" title="${esc(
+                          k !== 'main' ? I18n.t('movCompra.lotDatesMainOnlyHint') : ''
+                      )}">
+                        <div><label>${esc(I18n.t('movCompra.lotExpiry'))}
+                          <input type="date" class="mov-compra-lot-expiry" value="${esc(item.compraLotExpiry || '')}" oninput="MovementManager.updateCompraLotDates(${index})" onchange="MovementManager.updateCompraLotDates(${index})" />
+                        </label></div>
+                        <div style="margin-top:2px;"><label>${esc(I18n.t('movCompra.lotExpedition'))}
+                          <input type="date" class="mov-compra-lot-expedition" value="${esc(item.compraLotExpedition || '')}" oninput="MovementManager.updateCompraLotDates(${index})" onchange="MovementManager.updateCompraLotDates(${index})" />
+                        </label></div>
+                      </div>`
+                    : '';
+                const placeCellFull = `${placeCell}${lotDatesHtml}`;
                 const curM = item.itemId ? InventoryManager.getStock(item.itemId, 'main') : 0;
                 const qAbs = Math.abs(parseFloat(item.quantity) || 0);
                 const newM = curM + qAbs;
@@ -3266,13 +3468,10 @@ const MovementManager = {
                 <tr>
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}${consBadge}</td>
-                    <td>
-                        <input type="number" class="quantity-input" 
-                               value="${qAbs > 0 ? qAbs : ''}" min="0" step="any" data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
-                    </td>
+                    <td>${this._renderQuantityInputWithCalc(index, qAbs > 0 ? qAbs : "", { min: 0, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td>${esc(I18n.t('target.main'))}</td>
-                    <td>${placeCell}</td>
+                    <td>${placeCellFull}</td>
                     <td>${fmt(curM)} → <strong>${fmt(newM)}</strong></td>
                     <td><span class="status-badge valid">${esc(I18n.t('status.valid'))}</span></td>
                     <td><button type="button" class="remove-item-btn" data-remove-index="${index}" title="Eliminar">✕</button></td>
@@ -3288,10 +3487,7 @@ const MovementManager = {
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
-                    <td>
-                        <input type="number" class="quantity-input"
-                               value="${Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : ''}" min="0" data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
-                    </td>
+                    <td>${this._renderQuantityInputWithCalc(index, Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : "", { min: 0, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td><span class="mov-same-dest-mirror">${destLabel}</span></td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
@@ -3332,10 +3528,7 @@ const MovementManager = {
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
-                    <td>
-                        <input type="number" class="quantity-input" 
-                               value="${Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : ''}" min="0" data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
-                    </td>
+                    <td>${this._renderQuantityInputWithCalc(index, Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : "", { min: 0, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td>${targetSelect}</td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
@@ -4188,6 +4381,29 @@ const MovementManager = {
             return li;
         });
 
+        let expiredStockOverrideReason = "";
+        const pidTrim = (projectId || "").trim();
+        if (
+            pidTrim &&
+            typeof InventoryManager !== "undefined" &&
+            InventoryManager.movementWouldConsumeExpiredStockForProject
+        ) {
+            if (InventoryManager.movementWouldConsumeExpiredStockForProject(this, mappedItems, this.currentType)) {
+                const msg = I18n.t("msg.expiredStockProjectPrompt");
+                const raw =
+                    typeof App !== "undefined" && App.showPrompt
+                        ? await App.showPrompt({ message: msg, defaultValue: "", inputType: "text" })
+                        : null;
+                if (raw === null) return;
+                const reason = String(raw || "").trim();
+                if (!reason) {
+                    Utils.showToast(I18n.t("msg.expiredStockOverrideRequired"), "error");
+                    return;
+                }
+                expiredStockOverrideReason = reason;
+            }
+        }
+
         let movementDateIso = new Date().toISOString();
         if (this.currentType === "CONSUMO_DIARIO") {
             const stamps = (this.selectedItems || []).map(li => li.consumoAddedAt).filter(Boolean);
@@ -4208,6 +4424,9 @@ const MovementManager = {
             attachments: []
         };
         movement.createdBy = Auth.getDisplayName();
+        if (expiredStockOverrideReason) {
+            movement.expiredStockOverrideReason = expiredStockOverrideReason;
+        }
 
         if (
             this.currentType === 'MAT_ELEC_OBRA' &&
@@ -5609,6 +5828,14 @@ const MovementManager = {
         if (selectedItemsBody && !this._selectedItemsRemoveClickBound) {
             this._selectedItemsRemoveClickBound = true;
             selectedItemsBody.addEventListener("click", e => {
+                const calcBtn = e.target.closest(".mov-qty-calc-btn[data-calc-index]");
+                if (calcBtn && selectedItemsBody.contains(calcBtn)) {
+                    e.preventDefault();
+                    const idx = parseInt(String(calcBtn.getAttribute("data-calc-index") || ""), 10);
+                    if (!Number.isFinite(idx)) return;
+                    void this.openQuantityCalculator(idx);
+                    return;
+                }
                 const btn = e.target.closest(".remove-item-btn");
                 if (!btn || !selectedItemsBody.contains(btn)) return;
                 e.preventDefault();

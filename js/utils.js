@@ -53,6 +53,10 @@ const STORAGE_KEYS = {
     SUPPLIERS: 'phoenix-suppliers',
     /** Artículos consumibles (solo constancia de recepción COMPRA, sin stock). */
     CONSUMABLES: 'phoenix-consumables',
+    /** Catálogo global de unidades de medida y equivalencias (JSON). */
+    MEASURE_UNITS_CATALOG: 'phoenix-measure-units-catalog',
+    /** Espejo del catálogo anterior (recuperación si el principal queda corrupto o incompleto). */
+    MEASURE_UNITS_CATALOG_BACKUP: 'phoenix-measure-units-catalog__bak',
     /** Umbral de días para avisos de caducidad en inventario (Configuración). */
     EXP_ALERT: 'phoenix-exp-alert',
     /** Preferencia de vista del historial (tiles | list | details). */
@@ -2801,7 +2805,8 @@ th.print-cell-code,td.print-cell-code{
                 }
 
                 Object.values(STORAGE_KEYS).forEach(key => {
-                    const value = Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
+                    if (!Object.prototype.hasOwnProperty.call(data, key)) return;
+                    const value = data[key];
                     if (value === null || typeof value === "undefined") {
                         localStorage.removeItem(key);
                     } else {

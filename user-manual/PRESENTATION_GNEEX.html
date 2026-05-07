@@ -186,7 +186,9 @@
     <h2>The Solution: G-NEEX</h2>
     <p><strong>G-NEEX</strong> is a web application that works <strong>100% offline</strong>, directly in the browser, with no need for external servers or internet connection.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Browser-stored data:</strong> inventory, movements, and session live in the browser’s local storage. Lock the workstation, use personal accounts, export backups regularly, and only import JSON backups from trusted sources.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Backup &amp; Import/Export:</strong> the Import/Export tab and critical backup actions are limited to the <strong>administrator account</strong>; temporary elevation does not replace that role. Login backgrounds may rotate per <code>assets/login-bg-manifest.json</code>.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Backup &amp; Import/Export:</strong> the Import/Export tab and critical backup actions are limited to the <strong>administrator account</strong>; temporary elevation does not replace that role. Login backgrounds may rotate per <code>assets/login-bg-manifest.json</code>. JSON import no longer removes keys that are absent from the file.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Stable URL:</strong> use one fixed launch address (e.g. local server <code>http://127.0.0.1:PORT/</code>); do not mix <code>file://</code> with HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Units of measure:</strong> ⚙️ Settings → <strong>Units</strong>; full JSON backup includes the catalog; reserved <strong>U</strong> row in catalog; each article sets a stock unit or none; inventory shows the symbol when set (optional <strong>≈</strong>). Movement forms still use plain numbers.</p>
     <p>It manages the entire material lifecycle:</p>
     <p class="flow"><strong>Intake</strong> → <strong>Warehouse</strong> → <strong>Dispatch</strong> → <strong>Transport</strong> → <strong>Job Site</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
@@ -210,6 +212,7 @@
         </thead>
         <tbody>
             <tr><td><strong>Full overview</strong></td><td>Table with code, description, category, main/production/transformation stock, location, and expiration date</td></tr>
+            <tr><td><strong>Units of measure</strong></td><td>Symbol next to main stock when the article has a unit (optional <strong>≈</strong>); ⚙️ <strong>Units</strong> + per-article editor</td></tr>
             <tr><td><strong>3 independent stocks</strong></td><td>Main, Production, and Transformation — each with its own tracking</td></tr>
             <tr><td><strong>Instant search</strong></td><td>Live filter by code, description, category, or location</td></tr>
             <tr><td><strong>Tools menu (⋮)</strong></td><td>First item <strong>Hide inline filter bars</strong> (chevron): closes box / depot / consumable strips; <strong>disabled</strong> when no strip is open. The <strong>⋮</strong> menu groups export, print, filters, as-of date, summaries, etc.</td></tr>

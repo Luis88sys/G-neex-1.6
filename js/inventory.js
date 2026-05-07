@@ -183,6 +183,12 @@ const InventoryManager = {
     out.defaultPrice = Utils.roundDecimal(parseFloat(out.defaultPrice) || 0, 2);
     out.priceCurrency = this._normalizePriceCurrency(out.priceCurrency);
     out.ignoreLowStockAlert = !!out.ignoreLowStockAlert;
+    let ms = String(out.measureStockUnitId || "").trim();
+    let ma = String(out.measureAltUnitId || "").trim();
+    if (!ms) ma = "";
+    if (ma === ms) ma = "";
+    out.measureStockUnitId = ms;
+    out.measureAltUnitId = ma;
     return out;
   },
 
@@ -1404,6 +1410,9 @@ const InventoryManager = {
       boxStocks: Array.isArray(data.boxStocks) ? data.boxStocks : [],
       locationStocks: Array.isArray(data.locationStocks) ? data.locationStocks : [],
       inventoryConsumable: !!data.inventoryConsumable,
+      tracksExpiration: data.tracksExpiration === true,
+      measureStockUnitId: String(data.measureStockUnitId || "").trim(),
+      measureAltUnitId: String(data.measureAltUnitId || "").trim()
     }, { recomputeNumBoxes: true });
     this.items.push(this._normalizeItemBoxStocks(item));
     this.save();
@@ -1486,24 +1495,276 @@ const InventoryManager = {
   },
 
   /**
-   * Fecha de caducidad efectiva: prioridad fecha expedición + vida útil (meses),
-   * luego fecha expiración manual, luego el lote más próximo en expirations[].
+   * Artículos que participan en caducidad / FEFO (alineado con edición de artículo).
+   * Solo se activa cuando el usuario marca explícitamente el checkbox.
+   */
+  itemTracksExpiration(item) {
+    if (!item || item.inventoryConsumable) return false;
+    return item.tracksExpiration === true;
+  },
+
+  /** Cualquier dato que sugiera caducidad (vida útil, fechas o lotes). */
+  itemHasAnyExpiryRelatedData(item) {
+    if (!item) return false;
+    if (Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0) > 0) return true;
+    if (String(item.expDate || "").trim()) return true;
+    if (String(item.expirationDate || "").trim()) return true;
+    if (Array.isArray(item.expirations) && item.expirations.length) return true;
+    return false;
+  },
+
+  /** Activo el control de caducidad pero aún no hay fecha efectiva calculable. */
+  itemNeedsExpirationConfigComplete(item) {
+    return (
+      !!item &&
+      !item.inventoryConsumable &&
+      this.itemTracksExpiration(item) &&
+      !this.getEffectiveExpirationDate(item)
+    );
+  },
+
+  /**
+   * Stock sin ningún dato de caducidad en el artículo: conviene completar o marcar «no caduca».
+   * No aplica si ya activó el control (otra regla) o no hay stock.
+   */
+  _itemAnyDepotStockTotal(item) {
+    if (!item) return 0;
+    return (
+      (parseFloat(item.mainStock) || 0) +
+      (parseFloat(item.prodStock) || 0) +
+      (parseFloat(item.transStock) || 0)
+    );
+  },
+
+  itemNeedsExpiryDataOrOptOut(item) {
+    if (!item || item.inventoryConsumable) return false;
+    // Opción 1: si el control de caducidad está desactivado, no mostrar
+    // aviso visual por falta de datos en inventario.
+    if (!this.itemTracksExpiration(item)) return false;
+    if (this._itemAnyDepotStockTotal(item) <= 0) return false;
+    return !this.itemHasAnyExpiryRelatedData(item);
+  },
+
+  /**
+   * Fecha de caducidad de un lote: `date` = caducidad del paquete si viene informada;
+   * si no, expedición del lote (`expDate`) + vida útil del artículo (meses).
+   */
+  getLotEffectiveExpiryDate(lot, item) {
+    if (!lot) return null;
+    const rawLotDate = String(lot.date || "").trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawLotDate)) return rawLotDate;
+    const expStr = String(lot.expDate || "").trim().slice(0, 10);
+    const months = Math.max(0, parseInt(item && item.shelfLifeMonths, 10) || 0);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(expStr) && months > 0) {
+      return this.addMonthsToIsoDate(expStr, months) || null;
+    }
+    return null;
+  },
+
+  /**
+   * Filas de caducidad por lote (principal), orden FEFO. Sin incluir datos solo a nivel artículo.
+   */
+  getExpirationLotsBreakdown(item) {
+    if (!item || item.inventoryConsumable) return [];
+    const alertDays = Math.max(1, parseInt(this.expAlertDays, 10) || 30);
+    const arr = Array.isArray(item.expirations) ? item.expirations : [];
+    const rows = [];
+    for (let i = 0; i < arr.length; i++) {
+      const lot = arr[i];
+      const q = Utils.roundDecimal(parseFloat(lot.qty) || 0);
+      if (q <= 0) continue;
+      const eff = this.getLotEffectiveExpiryDate(lot, item);
+      let days = null;
+      let status = "unknown";
+      if (eff) {
+        days = this.daysTo(eff);
+        if (days < 0) status = "expired";
+        else if (days <= alertDays) status = "soon";
+        else status = "ok";
+      }
+      rows.push({
+        kind: "lot",
+        lotIndex: i,
+        expeditionDate: String(lot.expDate || "").trim().slice(0, 10),
+        expiryDate: eff || "",
+        qty: q,
+        days,
+        status
+      });
+    }
+    rows.sort((a, b) => {
+      if (!a.expiryDate && !b.expiryDate) return (a.lotIndex || 0) - (b.lotIndex || 0);
+      if (!a.expiryDate) return 1;
+      if (!b.expiryDate) return -1;
+      return new Date(a.expiryDate) - new Date(b.expiryDate) || (a.lotIndex || 0) - (b.lotIndex || 0);
+    });
+    return rows;
+  },
+
+  /**
+   * Una fila «sintética» cuando hay caducidad solo a nivel artículo (sin lotes en expirations).
+   */
+  getArticleOnlyLotProxyRow(item) {
+    if (!item || item.inventoryConsumable || !this.itemTracksExpiration(item)) return null;
+    const exp = Array.isArray(item.expirations) ? item.expirations : [];
+    const hasLots = exp.some(l => Utils.roundDecimal(parseFloat(l.qty) || 0) > 0);
+    if (hasLots) return null;
+    const eff = this.getEffectiveExpirationDate(item);
+    if (!eff) return null;
+    const alertDays = Math.max(1, parseInt(this.expAlertDays, 10) || 30);
+    const days = this.daysTo(eff);
+    const status = days < 0 ? "expired" : days <= alertDays ? "soon" : "ok";
+    const q = Utils.roundDecimal(parseFloat(item.mainStock) || 0);
+    return {
+      kind: "article",
+      expeditionDate: String(item.expDate || "").trim().slice(0, 10),
+      expiryDate: eff,
+      qty: q,
+      days,
+      status
+    };
+  },
+
+  /** Lotes reales o fila única «artículo» para la misma vista. */
+  getUnifiedLotRowsForDisplay(item) {
+    const lots = this.getExpirationLotsBreakdown(item);
+    if (lots.length) return lots;
+    const proxy = this.getArticleOnlyLotProxyRow(item);
+    return proxy ? [proxy] : [];
+  },
+
+  _lotStatusLabel(status) {
+    if (status === "expired") return I18n.t("inventory.lotStatusExpired");
+    if (status === "soon") return I18n.t("inventory.lotStatusSoon");
+    if (status === "ok") return I18n.t("inventory.lotStatusOk");
+    return I18n.t("inventory.lotStatusUnknown");
+  },
+
+  _lotDaysLabel(days, status) {
+    if (days === null || Number.isNaN(days)) return "—";
+    if (status === "expired") return I18n.t("inventory.lotDaysExpiredAgo").replace("{n}", String(Math.abs(days)));
+    return I18n.t("inventory.lotDaysRemaining").replace("{n}", String(days));
+  },
+
+  /** Celda compacta inventario: pastillas por estado + tooltip detalle. */
+  _renderInventoryLotsBreakdownCell(it) {
+    const rows = this.getUnifiedLotRowsForDisplay(it);
+    if (!rows.length) {
+      return `<td class="inv-lots-cell muted">—</td>`;
+    }
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    let sumEx = 0,
+      sumSoon = 0,
+      sumOk = 0,
+      sumUn = 0;
+    for (const r of rows) {
+      if (r.status === "expired") sumEx = Utils.roundDecimal(sumEx + r.qty);
+      else if (r.status === "soon") sumSoon = Utils.roundDecimal(sumSoon + r.qty);
+      else if (r.status === "ok") sumOk = Utils.roundDecimal(sumOk + r.qty);
+      else sumUn = Utils.roundDecimal(sumUn + r.qty);
+    }
+    const pillParts = [];
+    if (sumEx > 0) {
+      pillParts.push(
+        `<span class="inv-lot-pill inv-lot-pill--expired">${this.esc(fmt(sumEx))}</span>`
+      );
+    }
+    if (sumSoon > 0) {
+      pillParts.push(`<span class="inv-lot-pill inv-lot-pill--soon">${this.esc(fmt(sumSoon))}</span>`);
+    }
+    if (sumOk > 0) {
+      pillParts.push(`<span class="inv-lot-pill inv-lot-pill--ok">${this.esc(fmt(sumOk))}</span>`);
+    }
+    if (sumUn > 0) {
+      pillParts.push(`<span class="inv-lot-pill inv-lot-pill--unknown">${this.esc(fmt(sumUn))}</span>`);
+    }
+    const tipLines = rows.map(r => {
+      const expL = r.expiryDate ? Utils.formatDate(r.expiryDate) : "—";
+      const expd = r.expeditionDate ? Utils.formatDate(r.expeditionDate) : "—";
+      const st = this._lotStatusLabel(r.status);
+      const dy = this._lotDaysLabel(r.days, r.status);
+      const lab = r.kind === "article" ? I18n.t("inventory.lotRowArticleLevel") : I18n.t("inventory.lotRowLotLevel");
+      return `${lab}: ${fmt(r.qty)} · ${I18n.t("inventory.lotTooltipExpiry")} ${expL} · ${I18n.t("inventory.lotTooltipExped")} ${expd} · ${dy} · ${st}`;
+    });
+    const title = Utils.escapeAttr(tipLines.join("\n"));
+    return `<td class="inv-lots-cell" title="${title}"><span class="inv-lots-pills">${pillParts.join("")}</span></td>`;
+  },
+
+  _renderQuickViewLotsTable(item) {
+    const rows = this.getUnifiedLotRowsForDisplay(item);
+    if (!rows.length) return "";
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const showDate = d => (d && /^\d{4}-\d{2}-\d{2}$/.test(String(d).slice(0, 10)) ? Utils.formatDate(d.slice(0, 10)) : "—");
+    const body = rows
+      .map(r => {
+        const cls =
+          r.status === "expired"
+            ? "inv-lots-tr--expired"
+            : r.status === "soon"
+              ? "inv-lots-tr--soon"
+              : r.status === "ok"
+                ? "inv-lots-tr--ok"
+                : "inv-lots-tr--unknown";
+        const kindLab =
+          r.kind === "article"
+            ? `<span class="inv-lots-kind">${this.esc(I18n.t("inventory.lotRowArticleLevel"))}</span>`
+            : `<span class="inv-lots-kind">${this.esc(I18n.t("inventory.lotRowLotLevel"))}</span>`;
+        return `<tr class="${cls}">
+          <td>${kindLab}</td>
+          <td>${this.esc(fmt(r.qty))}</td>
+          <td>${this.esc(showDate(r.expeditionDate))}</td>
+          <td>${this.esc(showDate(r.expiryDate))}</td>
+          <td>${this.esc(this._lotDaysLabel(r.days, r.status))}</td>
+          <td>${this.esc(this._lotStatusLabel(r.status))}</td>
+        </tr>`;
+      })
+      .join("");
+    return `<div class="inv-lots-section">
+      <h4 class="inv-lots-heading">${this.esc(I18n.t("inventory.lotsBreakdownTitle"))}</h4>
+      <div class="inventory-table-container inventory-table-container--nested">
+        <table class="inventory-table inv-lots-table">
+          <thead><tr>
+            <th>${this.esc(I18n.t("inventory.lotsColOrigin"))}</th>
+            <th>${this.esc(I18n.t("inventory.lotsColQty"))}</th>
+            <th>${this.esc(I18n.t("inventory.lotsColExpedition"))}</th>
+            <th>${this.esc(I18n.t("inventory.lotsColExpiry"))}</th>
+            <th>${this.esc(I18n.t("inventory.lotsColWhen"))}</th>
+            <th>${this.esc(I18n.t("inventory.lotsColStatus"))}</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <p class="form-hint muted inv-lots-legend">${this.esc(I18n.t("inventory.lotsBreakdownLegend"))}</p>
+    </div>`;
+  },
+
+  /**
+   * Fecha de caducidad efectiva: la más próxima entre
+   * expedición artículo + vida útil, fecha expiración manual y lotes en expirations[].
    */
   getEffectiveExpirationDate(item) {
-    if (!item) return null;
+    if (!item || !this.itemTracksExpiration(item)) return null;
+    const candidates = [];
     const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
     if (item.expDate && months > 0) {
       const end = this.addMonthsToIsoDate(item.expDate, months);
-      return end || null;
+      if (end) candidates.push(end);
     }
     if (item.expirationDate && /^\d{4}-\d{2}-\d{2}/.test(String(item.expirationDate).trim())) {
-      return String(item.expirationDate).trim().slice(0, 10);
+      candidates.push(String(item.expirationDate).trim().slice(0, 10));
     }
-    const near = this.getNearestExpiration(item);
-    return near && near.date ? near.date : null;
+    if (item.expirations?.length) {
+      for (const lot of item.expirations) {
+        const eff = this.getLotEffectiveExpiryDate(lot, item);
+        if (eff) candidates.push(eff);
+      }
+    }
+    if (!candidates.length) return null;
+    return candidates.reduce((a, b) => (new Date(a) < new Date(b) ? a : b));
   },
 
   getExpirationInsight(item) {
+    if (!this.itemTracksExpiration(item)) return { has: false, days: null, expired: false, soon: false };
     const eff = this.getEffectiveExpirationDate(item);
     if (!eff) return { has: false, days: null, expired: false, soon: false };
     const days = this.daysTo(eff);
@@ -1513,6 +1774,7 @@ const InventoryManager = {
       expired: days < 0,
       soon: days >= 0 && days <= (this.expAlertDays || 30)
     };
+    return parsed;
   },
 
   minEffective(item) {
@@ -1823,12 +2085,218 @@ const InventoryManager = {
   // =========================================================
   // EXPIRACIONES
   // =========================================================
-  getNearestExpiration(item){
-    if(!item.expirations?.length) return null;
-    const sorted=item.expirations
-        .filter(e=>e.date)
-        .sort((a,b)=>new Date(a.date)-new Date(b.date));
-    return sorted[0];
+  getNearestExpiration(item) {
+    if (!item.expirations?.length) return null;
+    const rows = item.expirations
+      .map((e, idx) => ({ e, idx, eff: this.getLotEffectiveExpiryDate(e, item), q: Utils.roundDecimal(parseFloat(e.qty) || 0) }))
+      .filter(x => x.q > 0 && x.eff);
+    if (!rows.length) return null;
+    rows.sort((a, b) => new Date(a.eff) - new Date(b.eff) || a.idx - b.idx);
+    return rows[0].e;
+  },
+
+  /**
+   * ¿Consumir `qAbs` del principal por FEFO tocaría lotes ya vencidos?
+   */
+  wouldMainFefoConsumeExpired(item, qAbs) {
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qAbs) || 0));
+    if (!item || q <= 0 || !this.itemTracksExpiration(item)) return false;
+    const exp = Array.isArray(item.expirations) ? item.expirations : [];
+    const today = new Date();
+    const withIdx = exp
+      .map((l, idx) => ({
+        l,
+        idx,
+        q: Utils.roundDecimal(parseFloat(l.qty) || 0),
+        eff: this.getLotEffectiveExpiryDate(l, item)
+      }))
+      .filter(x => x.q > 0);
+    if (!withIdx.length) {
+      const ins = this.getExpirationInsight(item);
+      return !!(ins.has && ins.expired);
+    }
+    const sorted = withIdx.sort((a, b) => {
+      if (!a.eff && !b.eff) return a.idx - b.idx;
+      if (!a.eff) return 1;
+      if (!b.eff) return -1;
+      return new Date(a.eff) - new Date(b.eff) || a.idx - b.idx;
+    });
+    let need = q;
+    for (const row of sorted) {
+      if (need <= 0) break;
+      const take = Utils.roundDecimal(Math.min(need, row.q));
+      if (take <= 0) continue;
+      if (row.eff && new Date(row.eff + "T12:00:00") < today) return true;
+      need = Utils.roundDecimal(need - take);
+    }
+    if (need > 1e-9) {
+      const ins = this.getExpirationInsight(item);
+      return !!(ins.has && ins.expired);
+    }
+    return false;
+  },
+
+  /**
+   * Movimiento con proyecto: ¿hay consumo desde principal que tocaría stock vencido (FEFO)?
+   */
+  movementWouldConsumeExpiredStockForProject(movementMgr, mappedItems, movementType) {
+    if (!mappedItems?.length || movementType === "COMPRA_STOCK" || movementType === "RECEPCION_MATERIAL") return false;
+    for (const li of mappedItems) {
+      if (!li || li.consumableReceipt || li.itemId == null) continue;
+      const qty = parseFloat(li.quantity) || 0;
+      if (qty >= 0) continue;
+      const tgt = movementMgr._resolveStockTargetForLine(li);
+      if (tgt !== "main") continue;
+      const src = movementMgr._getLineStockSourceId(li);
+      if (src) continue;
+      const inv = this.getItemById(li.itemId);
+      if (!inv) continue;
+      const qAbs = Math.abs(qty);
+      if (this.wouldMainFefoConsumeExpired(inv, qAbs)) return true;
+    }
+    return false;
+  },
+
+  /**
+   * Salida del stock principal: descuenta lotes en orden FEFO; sin lotes, descuenta solo el principal.
+   * @returns {{ ok: boolean, deductions?: Array<{date?: string, expDate?: string, qty: number, untracked?: boolean}> }}
+   */
+  consumeFromMainStockFefo(itemId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    if (!this.itemTracksExpiration(item)) {
+      this.updateStock(itemId, "main", -q);
+      return { ok: true, deductions: [{ untracked: true, qty: q }] };
+    }
+    const exp = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
+    const indexed = exp
+      .map((l, idx) => ({
+        l,
+        idx,
+        q: Utils.roundDecimal(parseFloat(l.qty) || 0),
+        eff: this.getLotEffectiveExpiryDate(l, item)
+      }))
+      .filter(x => x.q > 0);
+    if (!indexed.length) {
+      this.updateStock(itemId, "main", -q);
+      return { ok: true, deductions: [{ untracked: true, qty: q }] };
+    }
+    const sorted = indexed.sort((a, b) => {
+      if (!a.eff && !b.eff) return a.idx - b.idx;
+      if (!a.eff) return 1;
+      if (!b.eff) return -1;
+      return new Date(a.eff) - new Date(b.eff) || a.idx - b.idx;
+    });
+    let need = q;
+    const deductions = [];
+    for (const row of sorted) {
+      if (need <= 0) break;
+      const curQ = Utils.roundDecimal(parseFloat(exp[row.idx].qty) || 0);
+      if (curQ <= 0) continue;
+      const take = Utils.roundDecimal(Math.min(need, curQ));
+      if (take <= 0) continue;
+      exp[row.idx].qty = Utils.roundDecimal(curQ - take);
+      deductions.push({
+        date: exp[row.idx].date,
+        expDate: exp[row.idx].expDate || "",
+        qty: take
+      });
+      need = Utils.roundDecimal(need - take);
+    }
+    item.expirations = exp.filter(l => Utils.roundDecimal(parseFloat(l.qty) || 0) > 1e-9);
+    if (need > 1e-9) {
+      deductions.push({ untracked: true, qty: need });
+    }
+    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - q);
+    this.save();
+    this.render();
+    return { ok: true, deductions };
+  },
+
+  /** Anula consumo FEFO guardando los mismos recortes de lote. */
+  restoreMainStockFefo(itemId, deductions) {
+    if (!deductions?.length) return;
+    const item = this.getItemById(itemId);
+    if (!item) return;
+    let mainAdd = 0;
+    const exp = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
+    for (const d of deductions) {
+      const dq = Utils.roundDecimal(parseFloat(d.qty) || 0);
+      if (dq <= 0) continue;
+      mainAdd = Utils.roundDecimal(mainAdd + dq);
+      if (d.untracked) continue;
+      const k = `${String(d.date || "").slice(0, 10)}|${String(d.expDate || "").slice(0, 10)}`;
+      let idx = exp.findIndex(
+        l => `${String(l.date || "").slice(0, 10)}|${String(l.expDate || "").slice(0, 10)}` === k
+      );
+      if (idx >= 0) {
+        exp[idx].qty = Utils.roundDecimal((parseFloat(exp[idx].qty) || 0) + dq);
+      } else {
+        const row = { date: d.date, qty: dq };
+        if (d.expDate) row.expDate = d.expDate;
+        exp.push(row);
+      }
+    }
+    item.expirations = exp;
+    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) + mainAdd);
+    this.save();
+    this.render();
+  },
+
+  /**
+   * COMPRA hacia principal: acumula cantidad por fecha de caducidad / expedición de lote.
+   */
+  mergeCompraLotIntoExpirations(itemId, quantity, lotMeta) {
+    const item = this.getItemById(itemId);
+    if (!item || item.inventoryConsumable) return;
+    const q = Utils.roundDecimal(Math.abs(parseFloat(quantity) || 0));
+    if (q <= 0) return;
+    let expiryDate = String((lotMeta && lotMeta.expiryDate) || "").trim().slice(0, 10);
+    const expStr = String((lotMeta && lotMeta.expDate) || "").trim().slice(0, 10);
+    const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) && /^\d{4}-\d{2}-\d{2}$/.test(expStr) && months > 0) {
+      expiryDate = this.addMonthsToIsoDate(expStr, months) || "";
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) return;
+    const arr = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
+    const k = `${expiryDate}|${expStr}`;
+    const idx = arr.findIndex(
+      l => `${String(l.date || "").slice(0, 10)}|${String(l.expDate || "").slice(0, 10)}` === k
+    );
+    if (idx >= 0) {
+      arr[idx].qty = Utils.roundDecimal((parseFloat(arr[idx].qty) || 0) + q);
+    } else {
+      const row = { date: expiryDate, qty: q };
+      if (/^\d{4}-\d{2}-\d{2}$/.test(expStr)) row.expDate = expStr;
+      arr.push(row);
+    }
+    this.updateItem(itemId, { expirations: arr, tracksExpiration: true });
+  },
+
+  /** Anula merge de lote en COMPRA (principal). */
+  revertMergeCompraLotFromExpirations(itemId, quantity, line) {
+    const item = this.getItemById(itemId);
+    if (!item || item.inventoryConsumable) return;
+    const q = Utils.roundDecimal(Math.abs(parseFloat(quantity) || 0));
+    if (q <= 0) return;
+    let expiryDate = String(line.compraLotExpiry || "").trim().slice(0, 10);
+    const expStr = String(line.compraLotExpedition || "").trim().slice(0, 10);
+    const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) && /^\d{4}-\d{2}-\d{2}$/.test(expStr) && months > 0) {
+      expiryDate = this.addMonthsToIsoDate(expStr, months) || "";
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) return;
+    const arr = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
+    const k = `${expiryDate}|${expStr}`;
+    const idx = arr.findIndex(
+      l => `${String(l.date || "").slice(0, 10)}|${String(l.expDate || "").slice(0, 10)}` === k
+    );
+    if (idx < 0) return;
+    arr[idx].qty = Utils.roundDecimal((parseFloat(arr[idx].qty) || 0) - q);
+    if ((parseFloat(arr[idx].qty) || 0) <= 1e-9) arr.splice(idx, 1);
+    this.updateItem(itemId, { expirations: arr });
   },
 
   // =========================================================
@@ -1893,7 +2361,7 @@ const InventoryManager = {
       const lowIgF = !!this._inventoryFilterLowStockIgnoredOnly;
       const emptyMsg =
         boxF || depF || consF || probF || lowIgF ? I18n.t("msg.noResults") : I18n.t("msg.inventoryEmpty");
-      tb.innerHTML=`<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">${this.esc(emptyMsg)}</td></tr>`;
+      tb.innerHTML=`<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:2rem;">${this.esc(emptyMsg)}</td></tr>`;
       this._syncInventoryBoxFilterToggleUi();
       this._syncInventoryDepotFilterToggleUi();
       this._syncInventoryConsumableFilterToggleUi();
@@ -1903,6 +2371,8 @@ const InventoryManager = {
       this._syncInventoryLowStockIgnoredMenuItemUi();
       this._syncInventoryHeaderFiltersCollapseBtn();
       this._syncZeroTotalBoxToolbarBtn();
+      this._ensureInventoryMainHorizontalScroll();
+      requestAnimationFrame(() => this._syncInventoryMainHorizontalScrollLayout());
       return;
     }
 
@@ -1954,6 +2424,7 @@ const InventoryManager = {
         descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}">${this.esc(it.description)}</span></td>`;
       }
       const eff = this.getEffectiveExpirationDate(it);
+      const insight = this.getExpirationInsight(it);
       const lot = this.getNearestExpiration(it);
       const fmt = v => Utils.formatDecimalDisplay(v);
       const isAdmin = typeof Auth !== "undefined" && Auth.isAdmin();
@@ -2012,19 +2483,38 @@ const InventoryManager = {
         ? `<span class="inv-box-chips">${chipsHtml}${slotChipsHtml}${locQtyChipsHtml}</span>`
         : this.esc(it.location || "-");
       const rowCons = it.inventoryConsumable ? " inv-row--inventory-consumable" : "";
+      const rowExpSoon =
+        insight && insight.has && !insight.expired && insight.soon ? " inv-row--expiry-incomplete" : "";
+      const hasExpiryConfigHint =
+        this.itemNeedsExpirationConfigComplete(it) || this.itemNeedsExpiryDataOrOptOut(it);
+      const rowExpHint = !rowExpSoon && hasExpiryConfigHint ? " inv-row--expiry-missing-hint" : "";
+      const rowExpTitle = rowExpSoon
+        ? `${I18n.t("inventory.lotStatusSoon")} (${Math.max(1, parseInt(this.expAlertDays, 10) || 30)}d)`
+        : this.itemNeedsExpirationConfigComplete(it)
+          ? I18n.t("inventory.rowTitleExpiryIncomplete")
+          : this.itemNeedsExpiryDataOrOptOut(it)
+            ? I18n.t("inventory.rowTitleExpiryNoData")
+            : "";
       const mainQtyShown = activeDistributionFilter
         ? this._getItemDistributedQtyForFilter(it, activeDistributionFilter)
         : (it.mainStock || 0);
       return `
-        <tr data-id="${Utils.escapeAttr(it.id)}" class="inv-row inv-row--${cls}${rowCons}">
+        <tr data-id="${Utils.escapeAttr(it.id)}" class="inv-row inv-row--${cls}${rowCons}${rowExpSoon}${rowExpHint}"${
+          rowExpTitle ? ` title="${Utils.escapeAttr(rowExpTitle)}"` : ""
+        }>
           <td class="${codeCellClass}"${codeTitle}>${lowIgnoredBadge}${codeInner}${consumableBadge}</td>
           ${descTd}
           <td>${this.esc(it.category||'-')}</td>
           <td>${this._formatPriceDisplay(it.defaultPrice ?? 0, it.priceCurrency)}</td>
-          <td class="inv-main-cell"><span class="inv-main-qty ${mainCls}">${fmt(mainQtyShown)}</span></td>
+          <td class="inv-main-cell"><span class="inv-main-qty ${mainCls}">${fmt(mainQtyShown)}</span>${
+            typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.itemStockUnitSuffixHtml
+              ? MeasureUnitsManager.itemStockUnitSuffixHtml(it, mainQtyShown)
+              : ""
+          }</td>
           <td>${fmt(it.prodStock||0)}</td>
           <td>${fmt(it.transStock||0)}</td>
           <td title="${tdTitle}">${locHtml}</td>
+          ${this._renderInventoryLotsBreakdownCell(it)}
           <td>${this.esc(expTxt)}</td>
         </tr>`;
     }).join('');
@@ -2038,6 +2528,66 @@ const InventoryManager = {
     this._syncInventoryLowStockIgnoredMenuItemUi();
     this._syncInventoryHeaderFiltersCollapseBtn();
     this._syncZeroTotalBoxToolbarBtn();
+    this._ensureInventoryMainHorizontalScroll();
+    requestAnimationFrame(() => this._syncInventoryMainHorizontalScrollLayout());
+  },
+
+  _ensureInventoryMainHorizontalScroll() {
+    if (this._invMainHScrollEnsured) return;
+    const body = document.getElementById("inventory-hscroll-body");
+    const top = document.getElementById("inventory-hscroll-top");
+    if (!body || !top) return;
+    this._invMainHScrollEnsured = true;
+    this._invHSyncIgnore = false;
+    body.addEventListener(
+      "scroll",
+      () => {
+        if (this._invHSyncIgnore) return;
+        this._invHSyncIgnore = true;
+        top.scrollLeft = body.scrollLeft;
+        queueMicrotask(() => {
+          this._invHSyncIgnore = false;
+        });
+      },
+      { passive: true }
+    );
+    top.addEventListener(
+      "scroll",
+      () => {
+        if (this._invHSyncIgnore) return;
+        this._invHSyncIgnore = true;
+        body.scrollLeft = top.scrollLeft;
+        queueMicrotask(() => {
+          this._invHSyncIgnore = false;
+        });
+      },
+      { passive: true }
+    );
+    if (typeof ResizeObserver !== "undefined") {
+      this._invMainHScrollResizeObserver = new ResizeObserver(() =>
+        this._syncInventoryMainHorizontalScrollLayout()
+      );
+      this._invMainHScrollResizeObserver.observe(body);
+    }
+    this._invMainHScrollOnResize = () => this._syncInventoryMainHorizontalScrollLayout();
+    window.addEventListener("resize", this._invMainHScrollOnResize);
+  },
+
+  _syncInventoryMainHorizontalScrollLayout() {
+    const topInner = document.getElementById("inventory-hscroll-top-inner");
+    const body = document.getElementById("inventory-hscroll-body");
+    const top = document.getElementById("inventory-hscroll-top");
+    if (!topInner || !body) return;
+    const table = body.querySelector(".inventory-table--main");
+    if (!table) {
+      topInner.style.width = "0px";
+      topInner.style.minWidth = "0";
+      return;
+    }
+    const w = table.scrollWidth;
+    topInner.style.width = `${w}px`;
+    topInner.style.minHeight = "1px";
+    if (top) top.scrollLeft = body.scrollLeft;
   },
 
   toggleInventoryProblemsFilter() {
@@ -2200,6 +2750,7 @@ const InventoryManager = {
     const sub = document.getElementById("inv-quick-modal-sub");
     const body = document.getElementById("inventory-item-quick-body");
     if (!modal || !body) return;
+    this._invQuickItemId = item.id;
 
     if (sub) sub.textContent = `${item.code || "—"} — ${item.description || ""}`;
     const fmtQty = v => Utils.formatDecimalDisplay(v, 4);
@@ -2229,9 +2780,10 @@ const InventoryManager = {
       [I18n.t("table.details"), item.details || "—"],
       [I18n.t("table.notes"), item.notes || "—"]
     ];
+    const lotsBlock = this._renderQuickViewLotsTable(item);
     body.innerHTML = `<div class="inventory-table-container inventory-table-container--nested"><table class="inventory-table"><tbody>${rows
       .map(([k, v]) => `<tr><th style="width:34%">${this.esc(k)}</th><td>${this.esc(v)}</td></tr>`)
-      .join("")}</tbody></table></div>`;
+      .join("")}</tbody></table></div>${lotsBlock}`;
     modal.classList.add("active");
   },
 
@@ -2239,6 +2791,89 @@ const InventoryManager = {
     document.getElementById("inventory-item-quick-modal")?.classList.remove("active");
     const body = document.getElementById("inventory-item-quick-body");
     if (body) body.innerHTML = "";
+    this._invQuickItemId = null;
+  },
+
+  printQuickViewLotsTable() {
+    const id = this._invQuickItemId != null ? String(this._invQuickItemId) : "";
+    if (!id) return;
+    const item = this.items.find(i => String(i.id) === id);
+    if (!item) return;
+    const rows = this.getUnifiedLotRowsForDisplay(item);
+    if (!rows.length) {
+      Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
+      return;
+    }
+    const fmt = v => Utils.formatDecimalDisplay(v);
+    const showDate = d => (d && /^\d{4}-\d{2}-\d{2}$/.test(String(d).slice(0, 10)) ? Utils.formatDate(String(d).slice(0, 10)) : "—");
+    const bodyRows = rows
+      .map(r => {
+        const kind = r.kind === "article" ? I18n.t("inventory.lotRowArticleLevel") : I18n.t("inventory.lotRowLotLevel");
+        return `<tr>
+          <td>${this.esc(kind)}</td>
+          <td>${this.esc(fmt(r.qty))}</td>
+          <td>${this.esc(showDate(r.expeditionDate))}</td>
+          <td>${this.esc(showDate(r.expiryDate))}</td>
+          <td>${this.esc(this._lotDaysLabel(r.days, r.status))}</td>
+          <td>${this.esc(this._lotStatusLabel(r.status))}</td>
+        </tr>`;
+      })
+      .join("");
+    const table = `<table class="inventory-table inv-lots-table"><thead><tr>
+      <th>${this.esc(I18n.t("inventory.lotsColOrigin"))}</th>
+      <th>${this.esc(I18n.t("inventory.lotsColQty"))}</th>
+      <th>${this.esc(I18n.t("inventory.lotsColExpedition"))}</th>
+      <th>${this.esc(I18n.t("inventory.lotsColExpiry"))}</th>
+      <th>${this.esc(I18n.t("inventory.lotsColWhen"))}</th>
+      <th>${this.esc(I18n.t("inventory.lotsColStatus"))}</th>
+    </tr></thead><tbody>${bodyRows}</tbody></table>`;
+    const title = `${I18n.t("inventory.lotsBreakdownTitle")} — ${item.code || "—"}`;
+    const subtitle = `${item.code || "—"} — ${item.description || ""}`;
+    this._printDocument(title, subtitle, table);
+  },
+
+  async exportQuickViewLotsTable() {
+    if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return;
+    const id = this._invQuickItemId != null ? String(this._invQuickItemId) : "";
+    if (!id) return;
+    const item = this.items.find(i => String(i.id) === id);
+    if (!item) return;
+    const rows = this.getUnifiedLotRowsForDisplay(item);
+    if (!rows.length) {
+      Utils.showToast(I18n.t("msg.noDataToExport"), "warning");
+      return;
+    }
+    const headers = [
+      I18n.t("table.code"),
+      I18n.t("table.description"),
+      I18n.t("inventory.lotsColOrigin"),
+      I18n.t("inventory.lotsColQty"),
+      I18n.t("inventory.lotsColExpedition"),
+      I18n.t("inventory.lotsColExpiry"),
+      I18n.t("inventory.lotsColWhen"),
+      I18n.t("inventory.lotsColStatus")
+    ];
+    const showDate = d => (d && /^\d{4}-\d{2}-\d{2}$/.test(String(d).slice(0, 10)) ? Utils.formatDate(String(d).slice(0, 10)) : "");
+    const out = rows.map(r => ({
+      [headers[0]]: item.code || "",
+      [headers[1]]: item.description || "",
+      [headers[2]]: r.kind === "article" ? I18n.t("inventory.lotRowArticleLevel") : I18n.t("inventory.lotRowLotLevel"),
+      [headers[3]]: Utils.formatDecimalDisplay(r.qty),
+      [headers[4]]: showDate(r.expeditionDate),
+      [headers[5]]: showDate(r.expiryDate),
+      [headers[6]]: this._lotDaysLabel(r.days, r.status),
+      [headers[7]]: this._lotStatusLabel(r.status)
+    }));
+    const fnCode = String(item.code || "item").replace(/[^\w.-]+/g, "_");
+    const filename = `GNEEX_Lotes_${fnCode}_${this._fileStamp()}.xlsx`;
+    await Utils.exportStyledXlsxToInformFolder(filename, headers, out, {
+      title: `${I18n.t("inventory.lotsBreakdownTitle")} — ${item.code || "—"}`,
+      details: [
+        `${I18n.t("table.code")}: ${item.code || "—"}`,
+        `${I18n.t("table.description")}: ${item.description || "—"}`,
+        `${I18n.t("export.manifest.rows")}: ${out.length}`
+      ]
+    });
   },
 
   closeItemNotesModal() {
@@ -2303,7 +2938,9 @@ const InventoryManager = {
     "Notas",
     "LotesJson",
     "CajasJson",
-    "UbicacionesJson"
+    "UbicacionesJson",
+    "UnidadStockSimbolo",
+    "UnidadEquivalenteSimbolo"
   ],
 
   /** Parsea el JSON de lotes del CSV; [] si falta o es inválido. */
@@ -2843,7 +3480,35 @@ const InventoryManager = {
           r.UbicacionesJson ||
           r.LocationStocksJson ||
           ""
-      )
+      ),
+      measureStockUnitId: (() => {
+        const raw =
+          this._firstCsvField(r, [
+            "UnidadStockSimbolo",
+            "Unidad Stock Simbolo",
+            "Unidad stock (símbolo)",
+            "StockUnitSymbol",
+            "Stock unit symbol",
+            "Unité stock (symbole)"
+          ]) || r.UnidadStockSimbolo;
+        return typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.resolveUnitIdFromImportSymbol
+          ? MeasureUnitsManager.resolveUnitIdFromImportSymbol(raw)
+          : "";
+      })(),
+      measureAltUnitId: (() => {
+        const raw =
+          this._firstCsvField(r, [
+            "UnidadEquivalenteSimbolo",
+            "Unidad Equivalente Simbolo",
+            "Unidad equivalente (símbolo)",
+            "DisplayUnitSymbol",
+            "Equivalent unit symbol",
+            "Unité équivalente (symbole)"
+          ]) || r.UnidadEquivalenteSimbolo;
+        return typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.resolveUnitIdFromImportSymbol
+          ? MeasureUnitsManager.resolveUnitIdFromImportSymbol(raw)
+          : "";
+      })()
     };
     return this._normalizeItemCoreFields(parsed, { recomputeNumBoxes: true });
   },
@@ -2875,7 +3540,15 @@ const InventoryManager = {
       Notas: it.notes || "",
       LotesJson: JSON.stringify(Array.isArray(it.expirations) ? it.expirations : []),
       CajasJson: JSON.stringify(Array.isArray(it.boxStocks) ? it.boxStocks : []),
-      UbicacionesJson: JSON.stringify(Array.isArray(it.locationStocks) ? it.locationStocks : [])
+      UbicacionesJson: JSON.stringify(Array.isArray(it.locationStocks) ? it.locationStocks : []),
+      UnidadStockSimbolo:
+        typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.getUnit
+          ? MeasureUnitsManager.getUnit(it.measureStockUnitId)?.symbol || ""
+          : "",
+      UnidadEquivalenteSimbolo:
+        typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.getUnit
+          ? MeasureUnitsManager.getUnit(it.measureAltUnitId)?.symbol || ""
+          : ""
     }));
     return { headers, rows };
   },
@@ -2939,7 +3612,9 @@ const InventoryManager = {
       Notas: "table.notes",
       LotesJson: "inventory.exportCol.lotesJson",
       CajasJson: "inventory.exportCol.cajasJson",
-      UbicacionesJson: "inventory.exportCol.ubicacionesJson"
+      UbicacionesJson: "inventory.exportCol.ubicacionesJson",
+      UnidadStockSimbolo: "inventory.exportCol.unidadStockSimbolo",
+      UnidadEquivalenteSimbolo: "inventory.exportCol.unidadEquivalenteSimbolo"
     };
     const k = map[header];
     if (!k || typeof I18n === "undefined" || !I18n.t) return String(header || "");
@@ -3128,6 +3803,81 @@ const InventoryManager = {
       sub = I18n.t("inventory.printSubtitleFiltered").replace("{q}", q);
     }
     await this.printItemsTable(this._inventoryViewList || [], I18n.t("inventory.printTitleInventory"), sub);
+  },
+
+  async clearAllExpirationData() {
+    if (typeof Auth !== "undefined" && !Auth.guardFineAction("invDangerClearExpiry", "edit")) return;
+    const total = Array.isArray(this.items) ? this.items.length : 0;
+    if (!total) {
+      Utils.showToast(I18n.t("msg.noDataToExport"), "info");
+      return;
+    }
+    const run = () => {
+      let changed = 0;
+      this.items = (this.items || []).map(it => {
+        if (!it || it.inventoryConsumable) return it;
+        const hadData =
+          it.tracksExpiration === true ||
+          Math.max(0, parseInt(it.shelfLifeMonths, 10) || 0) > 0 ||
+          String(it.expDate || "").trim() ||
+          String(it.expirationDate || "").trim() ||
+          Math.abs(parseFloat(it.daysToExpire) || 0) > 0 ||
+          (Array.isArray(it.expirations) && it.expirations.length > 0);
+        if (!hadData) return it;
+        changed++;
+        return this._normalizeItemCoreFields(
+          {
+            ...it,
+            tracksExpiration: false,
+            shelfLifeMonths: 0,
+            expDate: "",
+            expirationDate: "",
+            daysToExpire: 0,
+            expirations: []
+          },
+          { recomputeNumBoxes: false }
+        );
+      });
+      this.save();
+      this.render(this.search(this._inventorySearchQuery || ""));
+      Utils.showToast(
+        I18n.t("inventory.clearExpiryDone").replace("{n}", String(changed)),
+        changed > 0 ? "success" : "info"
+      );
+      if (typeof Auth !== "undefined" && Auth.logAudit) {
+        Auth.logAudit("inventory.clear.expiration.all", `changed=${changed}`);
+      }
+    };
+    const msg = I18n.t("inventory.clearExpiryConfirm");
+    const dNow = new Date();
+    const y = String(dNow.getFullYear());
+    const m = String(dNow.getMonth() + 1).padStart(2, "0");
+    const d = String(dNow.getDate()).padStart(2, "0");
+    const requiredPhrase = `${I18n.t("inventory.clearExpiryTypePhraseBase")} ${y}-${m}-${d}`;
+    const confirmPhraseAndRun = async () => {
+      if (typeof App !== "undefined" && App.showPrompt) {
+        const typed = await App.showPrompt({
+          message: I18n.t("inventory.clearExpiryTypePrompt").replace("{phrase}", requiredPhrase),
+          defaultValue: "",
+          inputType: "text"
+        });
+        if (typed == null) return;
+        if (String(typed || "").trim() !== requiredPhrase) {
+          Utils.showToast(I18n.t("inventory.clearExpiryTypeMismatch"), "warning");
+          return;
+        }
+      } else if (!window.confirm(`${I18n.t("inventory.clearExpiryTypePrompt").replace("{phrase}", requiredPhrase)}\n\n${requiredPhrase}`)) {
+        return;
+      }
+      run();
+    };
+    if (typeof App !== "undefined" && App.showConfirm) {
+      App.showConfirm(msg, () => {
+        void confirmPhraseAndRun();
+      });
+    } else if (window.confirm(msg)) {
+      await confirmPhraseAndRun();
+    }
   },
 
   async exportInsightList() {
@@ -6103,6 +6853,7 @@ const InventoryManager = {
       this.closeInventoryExportModal();
     });
     document.getElementById("inventory-print-list")?.addEventListener("click", () => this.printCurrentInventoryView());
+    document.getElementById("inventory-clear-expiration-data")?.addEventListener("click", () => this.clearAllExpirationData());
     document.getElementById("inventory-box-summary-btn")?.addEventListener("click", () => this.openWarehouseBoxSummaryModal());
     document.getElementById("inventory-box-zero-total-btn")?.addEventListener("click", () =>
       this.openZeroTotalStockByBoxModal()
@@ -6428,6 +7179,8 @@ const InventoryManager = {
     if (!this._invQuickModalUiBound) {
       this._invQuickModalUiBound = true;
       document.getElementById("close-inv-quick-modal")?.addEventListener("click", () => this.closeItemQuickViewModal());
+      document.getElementById("inv-quick-export-lots")?.addEventListener("click", () => this.exportQuickViewLotsTable());
+      document.getElementById("inv-quick-print-lots")?.addEventListener("click", () => this.printQuickViewLotsTable());
       document.getElementById("inv-quick-close")?.addEventListener("click", () => this.closeItemQuickViewModal());
       document.getElementById("inventory-item-quick-modal")?.addEventListener("click", e => {
         if (e.target.id === "inventory-item-quick-modal") this.closeItemQuickViewModal();

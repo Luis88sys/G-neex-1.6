@@ -130,8 +130,8 @@
 <h3>Sauvegarde complète</h3>
 <p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Import/Export</strong> (administrateur uniquement)</p>
 <ul>
-  <li><strong>Exporter la sauvegarde</strong> : génère un fichier <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> avec toutes les données (inventaire —emplacement par article, stock par emplacement/caisse et catalogue d’emplacements inclus— ; mouvements ; destinataires consommation ; fournisseurs ; transports ; lignes de commandes ; utilisateurs ; compteurs ; etc.)</li>
-  <li><strong>Importer la sauvegarde</strong> : choisissez le JSON, confirmez et suivez l’alerte affichée ; cela remplace les données de travail de cette instance.</li>
+  <li><strong>Exporter la sauvegarde</strong> : génère un fichier <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> avec toutes les données (inventaire —emplacement par article, stock par emplacement/caisse et catalogue d’emplacements inclus— ; mouvements ; destinataires consommation ; fournisseurs ; <strong>catalogue d’unités de mesure et équivalences</strong> ; transports ; lignes de commandes ; utilisateurs ; compteurs ; etc.)</li>
+  <li><strong>Importer la sauvegarde</strong> : choisissez le JSON, confirmez et suivez l’alerte affichée ; cela remplace les données de travail de cette instance. Les clés <strong>absentes</strong> de ce JSON <strong>ne</strong> réinitialisent plus les autres données du navigateur — les anciennes sauvegardes sans certaines sections n’effacent pas, par exemple, le catalogue d’unités.</li>
 </ul>
 <blockquote>La sauvegarde complète sert d’abord de copie de sécurité ou de clonage d’un poste. Pour n’échanger que l’activité opérationnelle, utilisez aussi le flux <strong>exporter / importer uniquement les mouvements</strong> ci-dessous.</blockquote>
 <p><strong>Mouvements seuls (fusion d’activité) :</strong> <strong>Exporter uniquement les mouvements</strong> (<code>GNEEX_Movements_….json</code>) et <strong>Importer et fusionner</strong> échangent l’activité entre copies. La fusion <strong>ajoute</strong> seulement les mouvements dont l’<strong>id</strong> est absent sur la cible et <strong>applique</strong> le stock (réceptions matière recréées si le fichier le permet). Si l’<strong>id</strong> existe déjà, le mouvement local est conservé. Cela n’actualise ni les listes, ni les transports, ni le reste : les catalogues d’articles doivent rester cohérents ; des dates mêlées entre copies peuvent perturber l’ordre logique des stocks. Confirmez toujours la boîte de dialogue de l’application.</p>
@@ -143,6 +143,15 @@
 <h3>Liste fournisseurs (commandes)</h3>
 <p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Fournisseurs</strong> pour gérer la liste maître.</p>
 <p>Les comptes avec accès à <strong>Commandes</strong> peuvent indiquer le fournisseur sur chaque ligne (texte libre ou suggestions issues de cette liste). Le <strong>numéro de BC/PO</strong> n’est pas saisi à la création de la ligne ; il est enregistré à la <strong>réception</strong> dans Mouvements → <strong>Achat de stock</strong> (avec bon de livraison).</p>
+
+<h3>Unités de mesure</h3>
+<p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Unités</strong></p>
+<p>Ici vous gérez les <strong>symboles</strong> (par ex. <code>m</code>, <code>kg</code>, <code>U</code>) et les <strong>équivalences</strong> entre eux (par ex. « 1 unité de stock = 150 m »). Plusieurs équivalences en chaîne permettent de convertir entre unités sans lien direct.</p>
+<p>Le catalogue conserve une entrée réservée <strong>U</strong> (<em>unité générique</em>) qui <strong>ne peut pas être supprimée</strong>. Chaque article peut définir sa propre <strong>unité de stock</strong> ou la laisser vide — il n’y a <strong>pas d’attribution automatique</strong> à <strong>U</strong>.</p>
+<p>Sous <strong>⚙️ Paramètres → Édition d’article</strong>, chaque article a une <strong>unité de stock</strong> (facultative ; lorsqu’elle est renseignée, principal, production et transformation s’expriment dans cette unité) et, au besoin, <strong>Afficher aussi l’équivalent dans l’inventaire</strong> : si une unité de stock est choisie, le tableau affiche le symbole à côté du stock principal et, le cas échéant, une ligne approximative (<strong>≈</strong>) dans l’autre unité.</p>
+<p><strong>Droits :</strong> comme pour d’autres listes (p. ex. Consommables), l’accès dépend des actions fines sous Paramètres — souvent lié aux mouvements dans la matrice ; l’administrateur règle le détail par utilisateur.</p>
+<p><strong>CSV/XLSX :</strong> le modèle et l’export d’inventaire peuvent inclure les colonnes optionnelles <strong>UnidadStockSimbolo</strong> et <strong>UnidadEquivalenteSimbolo</strong> (correspondance par symbole, sans tenir compte de la casse) ; les symboles doivent exister dans ⚙️ Unités.</p>
+<p><strong>Important :</strong> les <strong>mouvements</strong> enregistrent toujours des quantités numériques comme avant ; l’unité est une métadonnée par article pour une lecture cohérente. Les opérateurs doivent saisir les quantités dans le même sens que l’unité de stock de l’article.</p>
 
 <h3>Archiver les anciens mouvements</h3>
 <p>Pour libérer de l'espace en supprimant les anciens mouvements :</p>
@@ -165,7 +174,7 @@
 
 <h3>Charger l'inventaire initial (CSV ou XLSX)</h3>
 <p>Permet d'importer un fichier <strong>CSV</strong> ou <strong>XLSX</strong> avec l'inventaire initial. Les colonnes doivent correspondre au format attendu.</p>
-<p>Vous pouvez utiliser le <strong>bouton icône de modèle</strong> pour exporter une feuille <strong>.xlsx</strong> avec le bon ordre de colonnes, l’en-tête stylisé (orange) et une ligne d’exemple modifiable. Vous pouvez aussi enregistrer en CSV depuis Excel avec le même ordre de colonnes.</p>
+<p>Vous pouvez utiliser le <strong>bouton icône de modèle</strong> pour exporter une feuille <strong>.xlsx</strong> avec le bon ordre de colonnes, l’en-tête stylisé (orange) et une ligne d’exemple modifiable. Vous pouvez aussi enregistrer en CSV depuis Excel avec le même ordre de colonnes. Les colonnes finales peuvent inclure <strong>UnidadStockSimbolo</strong> et <strong>UnidadEquivalenteSimbolo</strong> (voir <strong>Unités de mesure</strong>) : les symboles doivent exister dans le catalogue ⚙️ Unités.</p>
 
 <h3>Supprimer la base de données</h3>
 <ol>
@@ -178,6 +187,9 @@
 <h3>Sécurité et données dans le navigateur</h3>
 <p>G-NEEX enregistre l'inventaire, les mouvements, les utilisateurs et la session dans le <strong>stockage local du navigateur</strong> (par exemple <code>localStorage</code>). Les mots de passe sont stockés sous forme de <strong>hash avec sel</strong> ; ils n’apparaissent pas en clair dans le code source de l’application. Toute personne ayant accès à l'ordinateur ou au profil utilisateur, ou une <strong>extension de navigateur malveillante</strong>, pourrait lire ou modifier ces données. L'application <strong>ne remplace pas</strong> un serveur central avec politique d'identité d'entreprise. Utilisez le <strong>verrouillage de session du système</strong>, des comptes nominatifs et des <strong>sauvegardes exportées</strong> selon la procédure de votre organisation. Lors d'une <strong>importation d'un fichier JSON</strong> de sauvegarde, vérifiez qu'il provient d'une source de confiance.</p>
 
+<h3>Même URL d’accès (<code>http</code> vs fichier)</h3>
+<p>Les données sont liées à l’<strong>origine</strong> du navigateur : protocole, hôte, port et chemin. Pour un usage régulier ou des essais, ouvrez toujours l’application avec la <strong>même URL</strong> (par exemple un serveur local <code>http://127.0.0.1:8765/</code>). Évitez de mélanger l’ouverture de <code>index.html</code> en <code>file:///…</code> avec <code>http://…</code> ou de changer de port sans le vouloir : des listes peuvent paraître « vides » alors qu’il s’agit d’un autre stockage.</p>
+
 <hr>
 
 <h2>1.2 Éditeur d'articles</h2>
@@ -188,6 +200,7 @@
 <h3>Mode consommable d’inventaire et liste maître « Consommables »</h3>
 <p>Si vous cochez <strong>Traiter comme consommable d’inventaire</strong> et cliquez sur <strong>Enregistrer</strong>, l’application <strong>ajoute</strong> automatiquement le nom (la <strong>description</strong> de l’article, ou le <strong>code</strong> s’il n’y a pas de description) à la liste <strong>⚙️ Paramètres → Consommables</strong>, utilisée pour les réceptions d’achat sans inventaire et les commandes consommables. Si vous <strong>décochez</strong> cette option et enregistrez, elle <strong>retire</strong> de cette liste l’entrée qui correspondait à la description ou au code <strong>avant la modification</strong> (lorsqu’elle n’y figurait que par ce lien).</p>
 <p>Le comportement du stock en mode consommable suit les écrans et messages de l’application.</p>
+<p>Dans le même formulaire vous pouvez définir l’<strong>unité de stock</strong> de l’article et un <strong>équivalent</strong> facultatif pour l’affichage inventaire (voir <strong>§1.1 — Unités de mesure</strong>).</p>
 
 <hr>
 
@@ -262,7 +275,7 @@
 <p>Dans le modal <strong>stock bas</strong>, les premières colonnes sont <strong>Ignorer l'alerte de stock bas</strong>, <strong>Actions</strong> (🛒 pour ajouter l'article à la <strong>liste d'achat</strong>), <strong>Code</strong>, puis les autres champs (description, stocks, dates, emplacement).</p>
 
 <h3>Tableau d'inventaire</h3>
-<p>Colonnes : Code, Description, Catégorie, Prix par défaut, Stock Principal, Stock Production, Stock Transformation, Emplacement, Expiration.</p>
+<p>Colonnes : Code, Description, Catégorie, Prix par défaut, Stock Principal (si l’article a une unité de stock : <strong>symbole</strong> et, si besoin, ligne approximative <strong>≈</strong>), Stock Production, Stock Transformation, Emplacement, Expiration.</p>
 <p>Dans la colonne <strong>Description</strong>, l’icône <strong>📝</strong> (plus discrète si l’article n’a pas encore de notes) ouvre, lorsqu’elle est active, une fenêtre pour <strong>voir et modifier les notes</strong> ; <strong>Enregistrer</strong> enregistre les changements. Si l’édition n’est pas proposée mais l’article <strong>a</strong> des notes, la même fenêtre s’ouvre souvent en <strong>lecture seule</strong> ; sans notes, la cellule reste du texte simple.</p>
 <p>Les couleurs des lignes indiquent l'état de l'article (rouge = négatif, jaune = bas, orange = bientôt expiré, etc.).</p>
 <p>Si la fenêtre est étroite, faites <strong>défiler le tableau horizontalement</strong> pour voir toutes les colonnes sans comprimer les en-têtes.</p>

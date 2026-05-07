@@ -73,7 +73,8 @@ const ConfigManager = {
         "itemedit",
         "employees",
         "suppliers",
-        "consumables"
+        "consumables",
+        "measureunits"
       ];
       t = "about";
       for (const name of order) {
@@ -1296,6 +1297,11 @@ const ConfigManager = {
         ConsumableManager.refreshDatalists();
       }
     }
+    if (tab === "measureunits") {
+      if (typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.renderConfigList) {
+        MeasureUnitsManager.renderConfigList();
+      }
+    }
     if (tab === "import") {
       this.refreshRecipientsPreview();
     }
@@ -1366,7 +1372,14 @@ const ConfigManager = {
           const wide = Auth.isAdmin() || Auth.isElevated();
           if (!wide) {
             const prev = document.querySelector(".config-tab-btn.active")?.dataset.configTab;
-            if (prev === "itemedit" || prev === "expirations" || prev === "employees" || prev === "suppliers" || prev === "consumables") {
+            if (
+              prev === "itemedit" ||
+              prev === "expirations" ||
+              prev === "employees" ||
+              prev === "suppliers" ||
+              prev === "consumables" ||
+              prev === "measureunits"
+            ) {
               this.switchConfigTab("import");
             }
           }
@@ -1402,6 +1415,9 @@ const ConfigManager = {
         if (active === "consumables" && typeof ConsumableManager !== "undefined") {
           ConsumableManager.renderConfigList();
           ConsumableManager.refreshDatalists();
+        }
+        if (active === "measureunits" && typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.renderConfigList) {
+          MeasureUnitsManager.renderConfigList();
         }
         this.refreshRecipientsPreview();
         if (typeof Auth !== "undefined" && Auth.syncConfigActionDomState) Auth.syncConfigActionDomState();
@@ -1666,6 +1682,13 @@ const ConfigManager = {
         void this.saveItemEditor();
       });
     }
+    if (!this._measureUnitUiBound) {
+      this._measureUnitUiBound = true;
+      ["edit-measure-stock-unit", "edit-measure-alt-unit", "edit-main-stock"].forEach(id => {
+        document.getElementById(id)?.addEventListener("input", () => this._syncMeasureUnitConversionHint());
+        document.getElementById(id)?.addEventListener("change", () => this._syncMeasureUnitConversionHint());
+      });
+    }
     document.getElementById("config-item-new-btn")?.addEventListener("click", () => {
       if (typeof Auth !== "undefined" && !Auth.guardAdmin()) return;
       const h = document.getElementById("config-item-editor-id");
@@ -1698,6 +1721,11 @@ const ConfigManager = {
       const cb = document.getElementById("edit-inventory-consumable");
       if (cb) {
         cb.addEventListener("change", () => {
+          const trk = document.getElementById("edit-tracks-expiration");
+          if (trk) {
+            trk.disabled = !!cb.checked;
+            if (cb.checked) trk.checked = false;
+          }
           const sid = document.getElementById("config-item-editor-id")?.value?.trim();
           const ex = sid ? InventoryManager.items.find(x => x.id === sid) : null;
           const was = !!(ex && ex.inventoryConsumable);
@@ -1705,6 +1733,11 @@ const ConfigManager = {
             cb.checked = false;
             App.showConfirm(I18n.t("config.inventoryConsumableConfirmEnable"), () => {
               cb.checked = true;
+              const trk2 = document.getElementById("edit-tracks-expiration");
+              if (trk2) {
+                trk2.disabled = true;
+                trk2.checked = false;
+              }
             });
             return;
           }
@@ -1712,6 +1745,11 @@ const ConfigManager = {
             cb.checked = true;
             App.showConfirm(I18n.t("config.inventoryConsumableConfirmDisable"), () => {
               cb.checked = false;
+              const trk2 = document.getElementById("edit-tracks-expiration");
+              if (trk2) {
+                trk2.disabled = false;
+                trk2.checked = false;
+              }
             });
           }
         });
@@ -2377,6 +2415,7 @@ const ConfigManager = {
         "edit-notes",
         "edit-item-problems-note"
       ].forEach(id => set(id, ""));
+      this._populateMeasureUnitSelects(null);
       this._setEditLocationSelections("");
       const consEl = document.getElementById("edit-inventory-consumable");
       if (consEl) consEl.checked = false;
@@ -2412,6 +2451,53 @@ const ConfigManager = {
     if (ignLowEl) ignLowEl.checked = !!item.ignoreLowStockAlert;
     const consEl = document.getElementById("edit-inventory-consumable");
     if (consEl) consEl.checked = !!item.inventoryConsumable;
+    const trkEl = document.getElementById("edit-tracks-expiration");
+    if (trkEl) {
+      trkEl.checked = item.inventoryConsumable ? false : item.tracksExpiration === true;
+      trkEl.disabled = !!item.inventoryConsumable;
+    }
+    this._populateMeasureUnitSelects(item);
+  },
+
+  _populateMeasureUnitSelects(item) {
+    const stockSel = document.getElementById("edit-measure-stock-unit");
+    const altSel = document.getElementById("edit-measure-alt-unit");
+    if (!stockSel || !altSel) return;
+    const none = typeof I18n !== "undefined" && I18n.t ? I18n.t("measureUnits.noneOption") : "—";
+    const opts =
+      typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.getSelectOptionsHtml
+        ? MeasureUnitsManager.getSelectOptionsHtml()
+        : "";
+    const noneHtml = `<option value="">${Utils.escapeHtml(none)}</option>`;
+    stockSel.innerHTML = noneHtml + opts;
+    altSel.innerHTML = noneHtml + opts;
+    const sid = item && String(item.measureStockUnitId || "").trim();
+    const aid = item && String(item.measureAltUnitId || "").trim();
+    let stockVal = sid && [...stockSel.options].some(o => o.value === sid) ? sid : "";
+    stockSel.value = stockVal || "";
+    let altVal = aid && [...altSel.options].some(o => o.value === aid) ? aid : "";
+    if (!stockSel.value) altVal = "";
+    if (altVal && altVal === stockSel.value) altVal = "";
+    altSel.value = altVal || "";
+    this._syncMeasureUnitConversionHint();
+  },
+
+  _syncMeasureUnitConversionHint() {
+    const hint = document.getElementById("edit-measure-conversion-hint");
+    if (!hint) return;
+    const stock = document.getElementById("edit-measure-stock-unit")?.value?.trim() || "";
+    const alt = document.getElementById("edit-measure-alt-unit")?.value?.trim() || "";
+    const rawQ = parseFloat(document.getElementById("edit-main-stock")?.value ?? "");
+    if (!stock || !alt || stock === alt) {
+      hint.textContent = "";
+      return;
+    }
+    if (typeof MeasureUnitsManager === "undefined" || !MeasureUnitsManager.conversionHintForEditor) {
+      hint.textContent = "";
+      return;
+    }
+    const q = Number.isFinite(rawQ) ? rawQ : 1;
+    hint.textContent = MeasureUnitsManager.conversionHintForEditor(stock, alt, q);
   },
 
   async saveItemEditor() {
@@ -2455,8 +2541,18 @@ const ConfigManager = {
       itemProblemsNote: get("edit-item-problems-note").trim(),
       shelfLifeMonths,
       inventoryConsumable: !!document.getElementById("edit-inventory-consumable")?.checked,
-      ignoreLowStockAlert: !!document.getElementById("edit-ignore-low-stock-alert")?.checked
+      ignoreLowStockAlert: !!document.getElementById("edit-ignore-low-stock-alert")?.checked,
+      tracksExpiration: document.getElementById("edit-inventory-consumable")?.checked
+        ? false
+        : !!document.getElementById("edit-tracks-expiration")?.checked
     };
+
+    let measureStockUnitId = get("edit-measure-stock-unit").trim();
+    let measureAltUnitId = get("edit-measure-alt-unit").trim();
+    if (!measureStockUnitId) measureAltUnitId = "";
+    if (measureStockUnitId && measureAltUnitId === measureStockUnitId) measureAltUnitId = "";
+    updated.measureStockUnitId = measureStockUnitId;
+    updated.measureAltUnitId = measureAltUnitId;
 
     const numBoxesEl = document.getElementById("edit-num-boxes");
     if (numBoxesEl) numBoxesEl.value = String(updated.numBoxes);
@@ -2467,6 +2563,21 @@ const ConfigManager = {
         updated.expirationDate && !Number.isNaN(new Date(updated.expirationDate + "T12:00:00").getTime())
           ? Math.max(0, InventoryManager.daysTo(updated.expirationDate))
           : 0;
+    }
+
+    const mergedPreview = { ...(existing || {}), ...updated };
+    if (
+      typeof InventoryManager !== "undefined" &&
+      InventoryManager.itemTracksExpiration &&
+      InventoryManager.itemTracksExpiration(mergedPreview)
+    ) {
+      const eff =
+        typeof InventoryManager.getEffectiveExpirationDate === "function"
+          ? InventoryManager.getEffectiveExpirationDate(mergedPreview)
+          : null;
+      if (eff) {
+        updated.daysToExpire = InventoryManager.daysTo(eff);
+      }
     }
 
     if (!updated.code || !updated.description) {
@@ -2508,7 +2619,10 @@ const ConfigManager = {
         itemProblemsNote: updated.itemProblemsNote,
         shelfLifeMonths: updated.shelfLifeMonths,
         inventoryConsumable: updated.inventoryConsumable,
-        ignoreLowStockAlert: updated.ignoreLowStockAlert
+        ignoreLowStockAlert: updated.ignoreLowStockAlert,
+        tracksExpiration: updated.tracksExpiration,
+        measureStockUnitId: updated.measureStockUnitId,
+        measureAltUnitId: updated.measureAltUnitId
       });
       const hid = document.getElementById("config-item-editor-id");
       if (hid) hid.value = newItem.id;

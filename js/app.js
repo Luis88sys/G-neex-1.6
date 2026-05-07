@@ -65,14 +65,29 @@ const App = {
   // =========================================================
   // Post-auth init: modules + events (called by Auth.enterApp)
   // =========================================================
+  showFileProtocolStorageNoticeIfNeeded() {
+    try {
+      if (window.location.protocol !== "file:") return;
+      if (sessionStorage.getItem("phoenix-file-protocol-storage-toast")) return;
+      sessionStorage.setItem("phoenix-file-protocol-storage-toast", "1");
+      if (typeof Utils !== "undefined" && Utils.showToast && typeof I18n !== "undefined") {
+        Utils.showToast(I18n.t("app.fileProtocolStorageHint"), "warning", 14000);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  },
+
   initApplication() {
     if (this._appReady) return;
     this._appReady = true;
     try {
+      this.showFileProtocolStorageNoticeIfNeeded();
       this.applyWindowTitle();
       if (typeof EmployeeManager !== "undefined") EmployeeManager.init();
       if (typeof SupplierManager !== "undefined") SupplierManager.init();
       if (typeof ConsumableManager !== "undefined") ConsumableManager.init();
+      if (typeof MeasureUnitsManager !== "undefined") MeasureUnitsManager.init();
       MovementManager.init();
       try {
         localStorage.removeItem("phoenix-material-trace");
