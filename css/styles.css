@@ -2755,6 +2755,7 @@ html[data-test-mode="on"][data-theme="dark"] #inventory-tab .inventory-table--ma
     font-family: var(--font-display);
 }
 
+
 /* Movement Details Form */
 .movement-details {
     animation: slideDown 0.3s ease;
@@ -8512,7 +8513,10 @@ body.auth-no-movementsExport .requires-movements-export {
 }
 
 #orderlines-tab .orderlines-add-form {
-    padding: 0.6rem 0.85rem;
+    max-width: 1040px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.5rem 0.7rem;
     margin-bottom: 0.55rem;
 }
 
@@ -8532,6 +8536,38 @@ body.auth-no-movementsExport .requires-movements-export {
 
 #orderlines-tab .orderlines-kind-panel--horizontal {
     gap: 0.45rem 0.75rem;
+}
+
+#orderlines-tab .orderlines-kind-panel--horizontal .form-group {
+    flex: 1 1 130px;
+    min-width: 120px;
+}
+
+#orderlines-tab .orderlines-kind-panel--horizontal .orderline-search-wrap {
+    flex: 2 1 230px;
+    min-width: 220px;
+}
+
+#orderlines-tab .orderline-supplier-field-wrap {
+    flex: 1.2 1 170px;
+    min-width: 150px;
+}
+
+#orderlines-tab .orderlines-kind-panel--horizontal .orderlines-form-submit {
+    flex: 0 0 auto;
+}
+
+#orderlines-tab .orderlines-add-form .form-input,
+#orderlines-tab .orderlines-add-form .search-input {
+    min-height: 1.72rem;
+    padding: 0.2rem 0.36rem;
+    font-size: 0.78rem;
+}
+
+#orderlines-tab .orderlines-submit-btn {
+    min-height: 1.72rem;
+    padding: 0.2rem 0.52rem;
+    font-size: 0.78rem;
 }
 
 #orderlines-tab .orderlines-filters {
@@ -8948,6 +8984,23 @@ body.auth-no-movementsExport .requires-movements-export {
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
+}
+.reminder-edit-textarea {
+    width: 100%;
+    min-height: 4.2rem;
+    resize: vertical;
+}
+.reminder-edit-due-wrap {
+    display: flex;
+    align-items: center;
+}
+.reminder-edit-due-input {
+    max-width: 12rem;
+}
+.reminder-edit-btn,
+.reminder-edit-save,
+.reminder-edit-cancel {
+    flex: 0 0 auto;
 }
 .reminder-item-row--detail {
     flex-direction: column;
@@ -9761,3 +9814,326 @@ small {
     .standby-actions { justify-content: flex-start; }
     .login-panel { margin-right: auto; margin-left: auto; }
 }
+
+/* ===== Table Proportion Normalization (compact + scroll first) ===== */
+
+/* Evita celdas gigantes: priorizar scroll horizontal en tablas densas */
+#orderlines-tab .orderlines-table-wrap,
+#movement-form-window .selected-items-table-container,
+#movement-form-window .mov-tf-stock-table-scroll,
+.history-details-wrap,
+.consumo-ledger-table-wrap,
+.me-legacy-table-wrap,
+.transport-prepared-table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+/* Compacto base para tablas operativas (sin tocar inventario principal) */
+#orderlines-tab .orderlines-table th,
+#orderlines-tab .orderlines-table td,
+#movement-form-window .selected-items-table th,
+#movement-form-window .selected-items-table td,
+#movement-form-window .mov-tf-stock-table th,
+#movement-form-window .mov-tf-stock-table td {
+    padding: 0.34rem 0.42rem;
+    line-height: 1.22;
+    vertical-align: middle;
+}
+
+/* Pedidos: proporción estable y menos saltos */
+#orderlines-tab .orderlines-table {
+    min-width: 1020px;
+    table-layout: fixed;
+}
+
+#orderlines-tab .orderlines-table th,
+#orderlines-tab .orderlines-table td {
+    font-size: 0.78rem;
+    text-align: center;
+}
+
+#orderlines-tab .orderlines-table th:nth-child(1),
+#orderlines-tab .orderlines-table td:nth-child(1) { width: 2.6rem; }
+#orderlines-tab .orderlines-table th:nth-child(2),
+#orderlines-tab .orderlines-table td:nth-child(2) { width: 14rem; }
+#orderlines-tab .orderlines-table th:nth-child(3),
+#orderlines-tab .orderlines-table td:nth-child(3) { width: 9.5rem; }
+#orderlines-tab .orderlines-table th:nth-child(4),
+#orderlines-tab .orderlines-table td:nth-child(4) { width: 6.2rem; white-space: nowrap; }
+#orderlines-tab .orderlines-table th:nth-child(5),
+#orderlines-tab .orderlines-table td:nth-child(5),
+#orderlines-tab .orderlines-table th:nth-child(6),
+#orderlines-tab .orderlines-table td:nth-child(6),
+#orderlines-tab .orderlines-table th:nth-child(7),
+#orderlines-tab .orderlines-table td:nth-child(7),
+#orderlines-tab .orderlines-table th:nth-child(8),
+#orderlines-tab .orderlines-table td:nth-child(8) { width: 5.4rem; white-space: nowrap; }
+#orderlines-tab .orderlines-table th:nth-child(9),
+#orderlines-tab .orderlines-table td:nth-child(9) { width: 6.8rem; white-space: nowrap; }
+#orderlines-tab .orderlines-table th:nth-child(10),
+#orderlines-tab .orderlines-table td:nth-child(10) { width: 8rem; white-space: nowrap; }
+#orderlines-tab .orderlines-table th:nth-child(11),
+#orderlines-tab .orderlines-table td:nth-child(11) { width: 10rem; }
+#orderlines-tab .orderlines-table th:nth-child(12),
+#orderlines-tab .orderlines-table td:nth-child(12) { width: 7rem; white-space: nowrap; }
+
+#orderlines-tab .orderline-col-article strong {
+    display: inline-block;
+    white-space: nowrap;
+    font-size: 0.72rem;
+}
+
+#orderlines-tab .orderline-col-article .orderline-desc {
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
+    line-height: 1.26;
+    text-align: center;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+}
+
+/* Movimientos: tabla de seleccionados compacta y con anchos consistentes */
+#movement-form-window .selected-items-table {
+    min-width: 980px;
+    table-layout: auto;
+}
+
+#movement-form-window .selected-items-table td.app-code-copy-cell,
+#movement-form-window .selected-items-table td.app-code-copy-cell strong {
+    white-space: nowrap;
+    font-size: 0.74rem;
+    line-height: 1.1;
+}
+
+#movement-form-window .selected-items-table td.app-desc-copy-cell {
+    min-width: 15rem;
+    max-width: 24rem;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+}
+
+#movement-form-window .selected-items-table .quantity-input {
+    width: 4.9rem;
+    min-width: 4.9rem;
+    padding: 0.2rem 0.28rem;
+}
+
+#movement-form-window .selected-items-table .target-select,
+#movement-form-window .selected-items-table .form-input,
+#movement-form-window .selected-items-table .filter-select {
+    min-height: 1.65rem;
+    padding: 0.18rem 0.32rem;
+    font-size: 0.74rem;
+}
+
+#movement-form-window .selected-items-table .status-badge {
+    white-space: nowrap;
+    font-size: 0.7rem;
+    padding: 0.12rem 0.28rem;
+}
+
+/* Tabla de stock en transformación: compacta, sin saltos en código */
+#movement-form-window .mov-tf-stock-table {
+    min-width: 520px;
+    table-layout: fixed;
+}
+
+#movement-form-window .mov-tf-stock-table th:nth-child(1),
+#movement-form-window .mov-tf-stock-table td:nth-child(1) {
+    width: 8.5rem;
+    white-space: nowrap;
+}
+
+#movement-form-window .mov-tf-stock-table th:nth-child(2),
+#movement-form-window .mov-tf-stock-table td:nth-child(2) {
+    width: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#movement-form-window .mov-tf-stock-table th:nth-child(3),
+#movement-form-window .mov-tf-stock-table td:nth-child(3) {
+    width: 5.5rem;
+    white-space: nowrap;
+    text-align: right;
+}
+
+/* ===== Second pass: history/receptions/users (font + centering) ===== */
+
+/* Fuente homogénea y compacta para tablas operativas fuera de inventario principal */
+#history-tab .inventory-table,
+#receptions-tab .inventory-table,
+#users-table-wrap .users-admin-table,
+.transport-prepared-bundle .inventory-table,
+.me-legacy-table-wrap .inventory-table {
+    font-size: 0.78rem;
+}
+
+#history-tab .inventory-table th,
+#receptions-tab .inventory-table th,
+#users-table-wrap .users-admin-table th,
+.transport-prepared-bundle .inventory-table th,
+.me-legacy-table-wrap .inventory-table th {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.34rem 0.42rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+#history-tab .inventory-table td,
+#receptions-tab .inventory-table td,
+#users-table-wrap .users-admin-table td,
+.transport-prepared-bundle .inventory-table td,
+.me-legacy-table-wrap .inventory-table td {
+    font-size: 0.78rem;
+    line-height: 1.24;
+    padding: 0.32rem 0.42rem;
+    vertical-align: middle;
+}
+
+/* Historial en vista tabla: distribución limpia y centrado consistente */
+#history-tab .history-details-wrap {
+    overflow-x: auto;
+}
+
+#history-tab .history-details-table {
+    min-width: 860px;
+    table-layout: fixed;
+}
+
+#history-tab .history-details-table th:nth-child(1),
+#history-tab .history-details-table td:nth-child(1) {
+    width: 10rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+#history-tab .history-details-table th:nth-child(2),
+#history-tab .history-details-table td:nth-child(2) {
+    width: 10rem;
+    white-space: nowrap;
+}
+
+#history-tab .history-details-table th:nth-child(3),
+#history-tab .history-details-table td:nth-child(3) {
+    width: 12rem;
+}
+
+#history-tab .history-details-table th:nth-child(4),
+#history-tab .history-details-table td:nth-child(4) {
+    width: 8rem;
+    white-space: nowrap;
+}
+
+#history-tab .history-details-table th:nth-child(5),
+#history-tab .history-details-table td:nth-child(5) {
+    width: 8rem;
+    white-space: nowrap;
+}
+
+#history-tab .history-details-table th:nth-child(6),
+#history-tab .history-details-table td:nth-child(6) {
+    width: 9rem;
+    text-align: left;
+}
+
+/* Consumo diario por destinatario: evitar celdas sobredimensionadas */
+#history-tab .consumo-ledger-table {
+    min-width: 880px;
+    table-layout: fixed;
+}
+
+#history-tab .consumo-ledger-table th,
+#history-tab .consumo-ledger-table td {
+    text-align: center;
+}
+
+#history-tab .consumo-ledger-table th:nth-child(1),
+#history-tab .consumo-ledger-table td:nth-child(1),
+#history-tab .consumo-ledger-table th:nth-child(2),
+#history-tab .consumo-ledger-table td:nth-child(2),
+#history-tab .consumo-ledger-table th:nth-child(3),
+#history-tab .consumo-ledger-table td:nth-child(3) {
+    white-space: nowrap;
+}
+
+/* Recepciones: proporción similar a inventario, con scroll antes que saltos caóticos */
+#receptions-tab .inventory-table-container {
+    overflow-x: auto;
+}
+
+#receptions-tab .receptions-admin-table {
+    min-width: 1240px;
+    table-layout: fixed;
+}
+
+#receptions-tab .receptions-admin-table th:nth-child(1),
+#receptions-tab .receptions-admin-table td:nth-child(1),
+#receptions-tab .receptions-admin-table th:nth-child(12),
+#receptions-tab .receptions-admin-table td:nth-child(12) {
+    width: 6.4rem;
+    white-space: nowrap;
+    text-align: center;
+}
+
+#receptions-tab .receptions-admin-table th:nth-child(2),
+#receptions-tab .receptions-admin-table td:nth-child(2),
+#receptions-tab .receptions-admin-table th:nth-child(3),
+#receptions-tab .receptions-admin-table td:nth-child(3),
+#receptions-tab .receptions-admin-table th:nth-child(5),
+#receptions-tab .receptions-admin-table td:nth-child(5),
+#receptions-tab .receptions-admin-table th:nth-child(6),
+#receptions-tab .receptions-admin-table td:nth-child(6),
+#receptions-tab .receptions-admin-table th:nth-child(8),
+#receptions-tab .receptions-admin-table td:nth-child(8),
+#receptions-tab .receptions-admin-table th:nth-child(9),
+#receptions-tab .receptions-admin-table td:nth-child(9),
+#receptions-tab .receptions-admin-table th:nth-child(11),
+#receptions-tab .receptions-admin-table td:nth-child(11) {
+    width: 7.2rem;
+    white-space: nowrap;
+    text-align: center;
+}
+
+#receptions-tab .receptions-admin-table th:nth-child(4),
+#receptions-tab .receptions-admin-table td:nth-child(4),
+#receptions-tab .receptions-admin-table th:nth-child(10),
+#receptions-tab .receptions-admin-table td:nth-child(10) {
+    width: 14rem;
+    text-align: left;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+}
+
+#receptions-tab .receptions-admin-table th:nth-child(7),
+#receptions-tab .receptions-admin-table td:nth-child(7) {
+    width: 10rem;
+    white-space: normal;
+    text-align: left;
+}
+
+/* Usuarios: centra datos operativos, conserva texto largo alineado a la izquierda */
+#users-table-wrap .users-admin-table {
+    min-width: 840px;
+    table-layout: fixed;
+}
+
+#users-table-wrap .users-admin-table th,
+#users-table-wrap .users-admin-table td {
+    text-align: center;
+}
+
+#users-table-wrap .users-admin-table th:nth-child(1),
+#users-table-wrap .users-admin-table td:nth-child(1),
+#users-table-wrap .users-admin-table th:nth-child(2),
+#users-table-wrap .users-admin-table td:nth-child(2) {
+    text-align: left;
+    white-space: nowrap;
+}
+

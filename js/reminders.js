@@ -19,6 +19,8 @@ const RemindersManager = {
   items: [],
   /** IDs de tareas con panel de detalle abierto (solo en memoria). */
   _expandedIds: new Set(),
+  /** IDs en modo edición (solo en memoria). */
+  _editingIds: new Set(),
 
   init() {
     this._load();
@@ -189,6 +191,21 @@ const RemindersManager = {
     else this._expandedIds.delete(s);
   },
 
+  _isReminderEditing(id) {
+    return this._editingIds.has(String(id));
+  },
+
+  _setReminderEditing(id, open) {
+    const s = String(id);
+    if (open) {
+      this._expandedIds.add(s);
+      this._editingIds.add(s);
+    } else {
+      this._editingIds.delete(s);
+    }
+    this.render();
+  },
+
   _sortedForEditor() {
     return [...this._visibleItems()].sort((a, b) => {
       const da = !!a.done;
@@ -316,7 +333,25 @@ const RemindersManager = {
     const it = this.items.find(x => String(x.id) === String(id));
     if (!it || !this._ownsReminder(it)) return;
     this._expandedIds.delete(String(id));
+    this._editingIds.delete(String(id));
     this.items = this.items.filter(x => String(x.id) !== String(id));
+    this._save();
+    this.refreshAll();
+  },
+
+  updateReminder(id, payload) {
+    if (typeof Auth !== "undefined" && !Auth.guardReminders()) return;
+    if (typeof Auth !== "undefined" && !Auth.guardFineAction("remPanel", "edit")) return;
+    const it = this.items.find(x => String(x.id) === String(id));
+    if (!it || !this._ownsReminder(it)) return;
+    const nextText = String(payload && payload.text ? payload.text : "").trim();
+    if (!nextText) return;
+    const dueRaw = String(payload && payload.dueDate ? payload.dueDate : "").trim();
+    const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(dueRaw) ? dueRaw : "";
+    it.text = nextText;
+    if (dueDate) it.dueDate = dueDate;
+    else delete it.dueDate;
+    this._editingIds.delete(String(id));
     this._save();
     this.refreshAll();
   },
@@ -348,6 +383,28 @@ const RemindersManager = {
       this.toggle(cb.getAttribute("data-reminder-id"));
     });
     list?.addEventListener("click", e => {
+      if (e.target.closest("[data-reminder-edit]")) {
+        const btn = e.target.closest("[data-reminder-edit]");
+        this._setReminderEditing(btn.getAttribute("data-reminder-edit"), true);
+        return;
+      }
+      if (e.target.closest("[data-reminder-cancel-edit]")) {
+        const btn = e.target.closest("[data-reminder-cancel-edit]");
+        this._setReminderEditing(btn.getAttribute("data-reminder-cancel-edit"), false);
+        return;
+      }
+      if (e.target.closest("[data-reminder-save]")) {
+        const btn = e.target.closest("[data-reminder-save]");
+        const id = btn.getAttribute("data-reminder-save");
+        const row = btn.closest("[data-reminder-id]");
+        const txt = row?.querySelector("[data-reminder-edit-text]");
+        const due = row?.querySelector("[data-reminder-edit-due]");
+        this.updateReminder(id, {
+          text: txt ? txt.value : "",
+          dueDate: due ? due.value : ""
+        });
+        return;
+      }
       if (e.target.closest("[data-reminder-delete]")) {
         const btn = e.target.closest("[data-reminder-delete]");
         const id = btn.getAttribute("data-reminder-delete");
@@ -366,6 +423,20 @@ const RemindersManager = {
       }
     });
     list?.addEventListener("keydown", e => {
+      const inEditText = e.target.closest("[data-reminder-edit-text]");
+      if (inEditText && e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const row = inEditText.closest("[data-reminder-id]");
+        const id = row?.getAttribute("data-reminder-id");
+        const due = row?.querySelector("[data-reminder-edit-due]");
+        if (id) {
+          this.updateReminder(id, {
+            text: inEditText.value,
+            dueDate: due ? due.value : ""
+          });
+        }
+        return;
+      }
       const hit = e.target.closest("[data-reminder-expand]");
       if (!hit || (e.key !== "Enter" && e.key !== " ")) return;
       e.preventDefault();
@@ -438,6 +509,7 @@ const RemindersManager = {
     sorted.forEach(item => {
       const sid = String(item.id);
       const expanded = this._isReminderExpanded(sid);
+      const editing = this._isReminderEditing(sid);
       const due = item.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(item.dueDate) ? item.dueDate : "";
       const overdue = !item.done && due && due < today;
 
@@ -506,11 +578,30 @@ const RemindersManager = {
 
       const textFull = document.createElement("div");
       textFull.className = "reminder-item-text-full";
-      textFull.textContent = item.text || "";
+      if (editing) {
+        const textInput = document.createElement("textarea");
+        textInput.className = "form-input reminder-edit-textarea";
+        textInput.setAttribute("data-reminder-edit-text", sid);
+        textInput.setAttribute("rows", "3");
+        textInput.value = item.text || "";
+        textFull.appendChild(textInput);
+      } else {
+        textFull.textContent = item.text || "";
+      }
 
       detailRow.appendChild(textFull);
 
-      if (due) {
+      if (editing) {
+        const dueWrap = document.createElement("div");
+        dueWrap.className = "reminder-edit-due-wrap";
+        const dueInput = document.createElement("input");
+        dueInput.type = "date";
+        dueInput.className = "form-input reminder-edit-due-input";
+        dueInput.setAttribute("data-reminder-edit-due", sid);
+        dueInput.value = due || "";
+        dueWrap.appendChild(dueInput);
+        detailRow.appendChild(dueWrap);
+      } else if (due) {
         const dueSpan = document.createElement("span");
         dueSpan.className = "reminder-due";
         try {
@@ -526,6 +617,35 @@ const RemindersManager = {
           dueSpan.appendChild(ov);
         }
         detailRow.appendChild(dueSpan);
+      }
+
+      if (editing) {
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.className = "btn btn-sm btn-primary reminder-edit-save";
+        saveBtn.setAttribute("data-reminder-save", sid);
+        saveBtn.setAttribute("data-auth-act", "remPanel");
+        saveBtn.setAttribute("data-auth-act-level", "edit");
+        saveBtn.textContent = "Guardar";
+        detailRow.appendChild(saveBtn);
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "btn btn-sm btn-secondary reminder-edit-cancel";
+        cancelBtn.setAttribute("data-reminder-cancel-edit", sid);
+        cancelBtn.setAttribute("data-auth-act", "remPanel");
+        cancelBtn.setAttribute("data-auth-act-level", "edit");
+        cancelBtn.textContent = "Cancelar";
+        detailRow.appendChild(cancelBtn);
+      } else {
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "btn btn-sm btn-secondary reminder-edit-btn";
+        editBtn.setAttribute("data-reminder-edit", sid);
+        editBtn.setAttribute("data-auth-act", "remPanel");
+        editBtn.setAttribute("data-auth-act-level", "edit");
+        editBtn.textContent = "Editar";
+        detailRow.appendChild(editBtn);
       }
 
       const del = document.createElement("button");
