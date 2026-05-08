@@ -130,6 +130,7 @@ body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
+    min-height: 100dvh;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -6021,6 +6022,122 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
 
     .transport-cells-container {
         grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/*
+ * Teléfono en horizontal: pocas líneas de altura útiles.
+ * Compactar cabecera, más área vertical para tablas con scroll (-webkit-overflow),
+ * usar dvh/vh cuando el navegador lo permite para evitar recortes con barra de URL.
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+    .main-header {
+        flex-wrap: nowrap;
+        align-items: center;
+        padding: 0.25rem max(0.45rem, env(safe-area-inset-right)) 0.25rem
+            max(0.45rem, env(safe-area-inset-left));
+        gap: 0.35rem;
+    }
+
+    .header-center {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 0 0.2rem;
+    }
+
+    .header-right {
+        flex-wrap: nowrap;
+        gap: 0.3rem;
+    }
+
+    .logo {
+        width: 30px;
+        height: 30px;
+    }
+
+    .app-title {
+        font-size: 0.92rem;
+        letter-spacing: 1px;
+    }
+
+    .app-subtitle,
+    .app-tagline-inventory {
+        display: none;
+    }
+
+    .main-nav {
+        gap: 0.14rem;
+    }
+
+    .nav-btn {
+        padding: 0.2rem 0.32rem;
+        font-size: 0.64rem;
+    }
+
+    .main-content {
+        padding: 0.35rem max(0.45rem, env(safe-area-inset-right)) 0.35rem
+            max(0.45rem, env(safe-area-inset-left));
+    }
+
+    html[data-test-mode="on"] .test-mode-banner {
+        padding: 0.18rem 0.45rem;
+        font-size: 0.7rem;
+    }
+
+    .inventory-table-container,
+    .orderlines-table-wrap,
+    .history-details-wrap,
+    .consumo-ledger-table-wrap,
+    .me-legacy-table-wrap,
+    .transport-prepared-table-wrap {
+        max-height: min(82vh, calc(100vh - 86px));
+        max-height: min(82dvh, calc(100dvh - 86px));
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    .selected-items-table-container {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+    }
+
+    #movement-form-window .movement-form-modal-sheet {
+        max-height: min(94vh, calc(100vh - 8px));
+        max-height: min(94dvh, calc(100dvh - 8px));
+    }
+
+    .movement-types-grid {
+        grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+        gap: 0.35rem;
+        margin-bottom: 0.65rem;
+    }
+
+    .movement-type-btn {
+        font-size: 0.68rem;
+        padding: 0.22rem 0.28rem;
+    }
+
+    .history-cells-container.history-cells--tiles {
+        grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+        gap: 0.22rem;
+    }
+
+    .history-list-row {
+        min-height: 0;
+        padding: 0.22rem 0.35rem;
+    }
+}
+
+/* Deshace el salto de línea del header en ≤1024px solo cuando hay poca altura (móvil tumbado). */
+@media (max-width: 1024px) and (orientation: landscape) and (max-height: 520px) {
+    .main-header {
+        flex-wrap: nowrap;
+    }
+
+    .header-center {
+        order: 0;
+        width: auto;
+        flex: 1 1 auto;
     }
 }
 

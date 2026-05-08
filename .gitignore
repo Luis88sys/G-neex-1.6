@@ -1,2 +1,6 @@
 node_modules/
 .DS_Store
+
+# Capturas locales de prueba vista movil (mobile-preview.ps1 / Edge headless)
+mobile-preview-portrait.png
+mobile-preview-landscape.png
