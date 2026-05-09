@@ -186,16 +186,15 @@
     <h2>La Solution : G-NEEX</h2>
     <p><strong>G-NEEX</strong> est une application web qui fonctionne <strong>100% hors ligne</strong>, directement dans le navigateur, sans besoin de serveurs externes ni de connexion internet.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Données dans le navigateur :</strong> inventaire, mouvements et session sont stockés localement. Verrouillez le poste, utilisez des comptes nominatifs, exportez des sauvegardes et n’importez des fichiers JSON que s’ils proviennent d’une source de confiance.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Sauvegarde et Import/Export :</strong> l’onglet Import/Export et les opérations critiques de sauvegarde sont réservés au <strong>compte administrateur</strong> ; l’élévation temporaire ne remplace pas ce rôle. Les fonds de connexion peuvent défiler selon <code>assets/login-bg-manifest.json</code>. À l’import JSON, les clés absentes ne suppriment plus les autres données locales.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Même URL :</strong> conservez la même adresse d’ouverture (p. ex. serveur local <code>http://127.0.0.1:PORT/</code>) ; n’utilisez pas à la fois <code>file://</code> et HTTP.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Unités de mesure :</strong> ⚙️ Paramètres → <strong>Unités</strong> ; la sauvegarde JSON inclut le catalogue ; entrée réservée <strong>U</strong> ; chaque article choisit une unité de stock ou aucune ; inventaire avec symbole si défini (et <strong>≈</strong> optionnel). Les mouvements restent sur des quantités numériques.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Sauvegarde et Import/Export :</strong> l’onglet Import/Export et les opérations critiques de sauvegarde sont réservés au <strong>compte administrateur</strong> ; l’élévation temporaire ne remplace pas ce rôle. Les fonds de connexion peuvent défiler selon <code>assets/login-bg-manifest.json</code>. À l’import JSON, les clés absentes ne suppriment plus des données locales non liées.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Même URL :</strong> utilisez une adresse fixe (ex. <code>http://127.0.0.1:PORT/</code>) et ne mélangez pas <code>file://</code> et HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Unités de mesure :</strong> le catalogue conserve l’unité réservée <strong>U</strong> ; chaque article peut avoir une unité de stock ou aucune (sans affectation automatique).</p>
     <p>Elle gère tout le cycle de vie du matériel :</p>
     <p class="flow"><strong>Réception</strong> → <strong>Entrepôt</strong> → <strong>Sortie</strong> → <strong>Transport</strong> → <strong>Chantier</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
-        <img class="pres-shot" style="max-height:40vh" src="../docs/app-screenshots/capture-fr-01-login.png" alt="Connexion" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:40vh" src="../app-screenshots/capture-fr-01-login.png" alt="Connexion" loading="lazy" decoding="async">
         <figcaption style="font-size:0.95em;color:#666;margin-top:0.5rem">Écran de connexion</figcaption>
     </figure>
-    <p style="margin-top:0.6rem;font-size:0.88em;color:#666;">Captures réelles v1.6 (Playwright). Régénération : <code>docs/app-screenshots/README.md</code></p>
     <div class="watermark">G-NEEX</div>
 </div>
 
@@ -203,7 +202,7 @@
 <div class="slide">
     <h2>Inventaire en Temps Réel</h2>
     <figure style="text-align:center;margin:0 0 12px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-fr-inventario.png" alt="Onglet Inventaire" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-inventario.png" alt="Onglet Inventaire" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Inventaire</strong> (barre supérieure)</figcaption>
     </figure>
     <table>
@@ -212,7 +211,6 @@
         </thead>
         <tbody>
             <tr><td><strong>Vue complète</strong></td><td>Tableau avec code, description, catégorie, stocks Principal/Production/Transformation, emplacement et date d'expiration</td></tr>
-            <tr><td><strong>Unités de mesure</strong></td><td>Symbole à côté du stock principal si l’article a une unité (équivalent <strong>≈</strong> optionnel) ; ⚙️ <strong>Unités</strong> + édition par article</td></tr>
             <tr><td><strong>3 stocks indépendants</strong></td><td>Principal, Production et Transformation — chacun avec son propre suivi</td></tr>
             <tr><td><strong>Recherche instantanée</strong></td><td>Filtre en direct par code, description, catégorie ou emplacement</td></tr>
             <tr><td><strong>Menu outils (⋮)</strong></td><td>Première option <strong>Masquer les filtres en ligne</strong> (chevron) : ferme les bandes caisse / dépôt / consommable ; <strong>désactivée</strong> si aucune bande n’est ouverte. Le menu <strong>⋮</strong> regroupe export, impression, filtres, vue à date, résumés, etc.</td></tr>
@@ -233,7 +231,7 @@
 <div class="slide">
     <h2>16 Types de Mouvement</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-fr-movimientos.png" alt="Onglet Mouvements" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-fr-movimientos.png" alt="Onglet Mouvements" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Mouvements</strong> — grille des types</figcaption>
     </figure>
     <p>G-NEEX supporte <strong>16 types de mouvement</strong> couvrant toutes les opérations d'un entrepôt industriel :</p>
@@ -283,7 +281,7 @@
 <div class="slide">
     <h2>Commandes fournisseur</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-fr-pedidos.png" alt="Onglet Commandes" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-pedidos.png" alt="Onglet Commandes" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Commandes</strong></figcaption>
     </figure>
     <p>Onglet <strong>Commandes</strong> : lignes liées au stock (fournisseur, quantité) ; le <strong>BC/PO</strong> est enregistré à la <strong>réception</strong> dans Achat de stock.</p>
@@ -291,6 +289,7 @@
         <li><strong>Filtres</strong> : recherche texte (référence/code/description/fournisseur/quantités), statut, date clé (du/au) et préréglage d'historique (avec/sans réception, commandée, annulée).</li>
         <li><strong>États</strong> : brouillon → commandé → réception partielle/totale ou annulé ; dates pour le suivi.</li>
         <li><strong>Réception</strong> : ouvre le même formulaire <strong>Achat de stock</strong> que dans Mouvements ; validation avec <strong>Traiter le mouvement</strong>.</li>
+        <li>Saisie <strong>uniquement</strong> depuis Mouvements : boîtes <strong>Oui / Non</strong> pour lier à une ligne ouverte et actualiser le panneau Commandes.</li>
         <li><strong>Exporter / Imprimer le tableau</strong> : utilisent la vue filtrée ; nettoyage massif (+1 an) et suppression par ligne (&gt;3 mois).</li>
         <li><strong>Références</strong> : <strong>sigle du type + 6 chiffres corrélés par type</strong> (ex. <code>AJU000001</code>, <code>COM000002</code>) ; les anciennes valeurs sont normalisées au chargement.</li>
         <li><strong>Réception provisoire</strong> : certaines catégories exigent BC/PO et passent en provisoire avant impact sur le stock principal.</li>
@@ -303,7 +302,7 @@
 <div class="slide">
     <h2>Dispositions de liste</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:30vh" src="../docs/app-screenshots/capture-fr-historial.png" alt="Onglet Historique" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:30vh" src="../app-screenshots/capture-fr-historial.png" alt="Onglet Historique" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Historique</strong> (mosaïque / tableau / carrousel)</figcaption>
     </figure>
     <p><strong>Historique</strong>, <strong>Transport</strong> et <strong>Commandes</strong> proposent un sélecteur <strong>Affichage</strong> : <strong>mosaïque</strong>, <strong>liste compacte</strong> et, selon l’écran, <strong>tableau détaillé</strong> ; dans <strong>Historique</strong>, un <strong>Carrousel chronologique</strong> est aussi disponible pour parcourir les cartes à l’horizontale. Les cartes minimisées affichent aussi l’<strong>ID projet</strong> quand pertinent.</p>
@@ -320,7 +319,7 @@
 <div class="slide">
     <h2>Transport Intelligent</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-fr-transporte.png" alt="Onglet Transport" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-transporte.png" alt="Onglet Transport" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Transport</strong></figcaption>
     </figure>
     <p>Le module transport automatise la logistique d'envoi vers le chantier :</p>
@@ -332,7 +331,7 @@
         <li><strong>Création manuelle</strong> — Pour les cas exceptionnels sans checklist associée</li>
         <li><strong>Historique complet</strong> — Registre de chaque action effectuée sur le transport</li>
         <li><strong>Traçabilité</strong> — Résumé dans l’onglet Transport (réceptions en attente d’expédition, quantités sur lignes actives, derniers départs, stock en entrepôt) plus une <strong>liste manuelle</strong> éditable par famille de matériau et phase (sur site / camion / parti)</li>
-        <li><strong>Rapport par camion</strong> — Chaque camion permet d’<strong>Exporter</strong> ou d’<strong>Imprimer</strong> un tableau de chargement avec matériaux, quantités et dimensions actuelles</li>
+        <li><strong>Rapport par camion</strong> — Chaque camion permet d’<strong>Exporter</strong> ou d’<strong>Imprimer</strong> un tableau de chargement avec matériaux, quantités et dimensions actuelles ; avec <strong>plusieurs colis</strong> par ligne, le XLSX et l’impression utilisent des <strong>lignes empilées</strong> (colonnes fixes Colis, L, l, H), sans multiplier les colonnes.</li>
     </ul>
     <div class="watermark">G-NEEX</div>
 </div>
@@ -341,7 +340,7 @@
 <div class="slide">
     <h2>Tableau de Bord — Vue d'Ensemble Instantanée</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-fr-panel.png" alt="Tableau de bord" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-panel.png" alt="Tableau de bord" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Tableau de bord après connexion (vue d’ensemble)</figcaption>
     </figure>
     <p>À la connexion, un panneau affiche l'état actuel des opérations :</p>
@@ -359,15 +358,16 @@
 
 <!-- Slide: Rappels -->
 <div class="slide">
-    <h2>Rappels (Admin)</h2>
+    <h2>Rappels</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-fr-recordatorios.png" alt="Onglet Rappels" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-recordatorios.png" alt="Onglet Rappels" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Rappels</strong></figcaption>
     </figure>
     <ul>
-        <li><strong>Onglet dédié</strong> pour des rappels opérationnels avec date cible et priorité</li>
+        <li><strong>Onglet dédié</strong> pour des rappels opérationnels avec date cible et priorité (selon les droits du profil)</li>
         <li><strong>Montée automatique</strong> des priorités selon l'ancienneté en jours ouvrables</li>
         <li><strong>Aperçu dashboard</strong> avec accès rapide vers les rappels</li>
+        <li><strong>Visibilité :</strong> chaque utilisateur ne voit que les rappels <strong>qu’il a créés</strong> (la sauvegarde JSON peut contenir ceux de tous).</li>
     </ul>
     <div class="watermark">G-NEEX</div>
 </div>
@@ -376,11 +376,12 @@
 <div class="slide">
     <h2>L’application à l’écran (usage)</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-fr-panel.png" alt="Tableau de bord G-NEEX" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-fr-panel.png" alt="Tableau de bord G-NEEX" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Tableau de bord : navigation vers les modules principaux</figcaption>
     </figure>
     <ul>
         <li>G-NEEX regroupe le travail quotidien en modules accessibles depuis la barre : inventaire, mouvements, historique, transport, commandes, rappels et paramètres.</li>
+        <li>L’administrateur définit les utilisateurs sous <strong>⚙️ Paramètres → Utilisateurs</strong> avec des modèles génériques ou des <strong>profils de référence</strong> (même comportement que les comptes intégrés) ; les clés sont décrites dans <code>PlantillasPermisos.xlsx.csv</code>.</li>
         <li>Le manuel décrit chaque écran et parcours. <strong>Comment</strong> l’accès et les copies sont gérés sur votre site relève de l’exploitation ; l’accent est mis ici sur l’<strong>usage</strong> de l’interface et des fonctions d’inventaire.</li>
     </ul>
     <div class="watermark">G-NEEX</div>
@@ -400,6 +401,8 @@
     </ul>
     <p>Les fichiers incluent la plage de dates dans leur nom :</p>
     <p><code>GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx</code></p>
+    <p><strong>Réceptions (Configuration) :</strong> export ou impression de la liste filtrée : même principe de <strong>colis en lignes</strong> que le rapport de chargement.</p>
+    <p><strong>Consommables :</strong> marquer un article <strong>consommable d’inventaire</strong> dans l’éditeur et enregistrer ajoute son nom à <strong>Configuration → Consommables</strong> ; décocher retire l’entrée correspondante.</p>
     <div class="watermark">G-NEEX</div>
 </div>
 

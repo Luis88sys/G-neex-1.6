@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Manual — G-NEEX 1.6</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    background: #fff;
+    color: #222;
+    line-height: 1.7;
+  }
+  h1 { color: #f57c00; border-bottom: 3px solid #f57c00; padding-bottom: 10px; margin: 36px 0 20px; font-size: 1.8em; }
+  h2 { color: #333; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin: 32px 0 14px; font-size: 1.4em; }
+  h3 { color: #555; margin: 24px 0 10px; font-size: 1.15em; }
+  p { margin: 10px 0; }
+  strong { color: #333; }
+  hr { border: none; border-top: 2px solid #f57c00; margin: 40px 0; opacity: 0.3; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  thead th {
+    background: #f57c00;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid #f57c00;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+  }
+  tbody tr:nth-child(odd) { background: #f9f9f9; }
+  tbody tr:nth-child(even) { background: #fff; }
+  blockquote {
+    border-left: 4px solid #f57c00;
+    background: #fff8f0;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-style: italic;
+  }
+  code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    line-height: 1.4;
+    margin: 16px 0;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  ol, ul { line-height: 1.8; margin: 10px 0 10px 24px; }
+  li { margin: 4px 0; }
+  .orange-bar { height: 6px; background: #f57c00; width: 100vw; margin-left: calc(-50vw + 50%); }
+  .brand {
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    color: #999;
+    letter-spacing: 3px;
+    margin-top: 10px;
+  }
+  .footer {
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    margin-top: 60px;
+    padding-bottom: 30px;
+  }
+  figure.manual-shot { margin: 20px 0; }
+  figure.manual-shot img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  figure.manual-shot figcaption { font-size: 0.88em; color: #666; margin-top: 8px; }
+  @media print {
+    body { max-width: 100%; }
+    pre { white-space: pre-wrap; }
+    h2 { page-break-before: auto; }
+    .orange-bar { width: 100%; margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orange-bar"></div>
+<div class="brand">G-NEEX</div>
+
+<h1>User Manual — Phoenix Cell G-NEEX 1.6</h1>
+<p style="font-size:0.95em;color:#666;font-style:italic;margin-top:4px;">Phoenix Cell G-NEEX is developed by <strong>Luis Goire</strong>, as a hobby and with a strong interest in programming, on the path toward working as a professional developer.</p>
+<p style="font-size:0.9em;color:#777;font-style:italic;">Updated: May 2026</p>
+
+<h2>Background and purpose</h2>
+<h3>Shop-floor need</h3>
+<p>Phoenix Cell G-NEEX comes from a real industrial need: <strong>tighter inventory control</strong> when the only technology available was a <strong>PC</strong>, without budget or infrastructure for anything else.</p>
+<h3>From spreadsheet to manager</h3>
+<p>It began as an <strong>Excel workbook</strong> that gained <strong>macros and automation</strong> as daily shop-floor issues and operational errors appeared, one by one. It grew from a control sheet into an <strong>inventory manager</strong> built inside that workbook.</p>
+<h3>Learning while automating</h3>
+<p>That work also became <strong>hands-on training</strong>: solving real problems with automation built <strong>scripting and programming</strong> skills. Operations and learning moved forward together.</p>
+<h3>The “Phoenix” name and project DNA</h3>
+<p>After <strong>severe file damage</strong>—and <strong>recovery</strong> after heavy work—the project was named <strong>Phoenix</strong>: rising from the ashes. That recovered workbook is the <strong>direct predecessor</strong> and, in many ways, the <strong>DNA</strong> of the <strong>G-NEEX</strong> web application.</p>
+<h3>Today and next steps</h3>
+<p>The <strong>Phoenix spreadsheet</strong> still supports operations wherever it adds value until <strong>G-NEEX</strong> is fully mature for everyday <strong>web</strong> use. This release is a deliberate step toward a tool intended to <strong>keep evolving</strong>.</p>
+<blockquote>The same narrative appears in the app under <strong>⚙️ Settings → Background</strong> tab.</blockquote>
+
+<hr>
+
+<h1>SECTION 1: Settings (overview)</h1>
+<p>Under <strong>⚙️ Settings</strong> you will find data tools, lists, the article editor, receptions, preferences, and more. <strong>This manual documents how the app works and what each screen does</strong>; how your company deploys or governs the installation is not covered here.</p>
+
+<h2>1.1 Data, import, and export</h2>
+
+<h3>Who can use Import/Export</h3>
+<p>The <strong>Import/Export</strong> tab is available only to the <strong>administrator account</strong>. Other permission profiles—or <strong>temporary elevation</strong>—do not show this tab; opening Settings lands on <strong>Background</strong> instead. That tab groups full JSON backup (export/import), movements-only merge, shipped transports merge, initial inventory CSV/XLSX, archive/re-import movements, delete database, and the Daily consumption recipients quick view. Non-admin users rely on <strong>Employees</strong> and other tabs allowed for their profile.</p>
+
+<h3>Full backup</h3>
+<p><strong>Path:</strong> ⚙️ Settings → <strong>Import/Export</strong> tab (administrator only)</p>
+<ul>
+  <li><strong>Export backup:</strong> Creates a <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> file with all application data (inventory —per-item location text, per-location and per-box stock, warehouse location catalog included—; movements; daily consumption recipient lists —staff and occasional/external—; supplier list; transports; supplier order lines; users; reference counters; etc.)</li>
+  <li><strong>Import backup:</strong> Choose the JSON file, confirm, and follow the on-screen notice; it replaces the working data for this copy. Keys <strong>missing</strong> from that JSON do <strong>not</strong> erase unrelated local data (for example, the units catalog).</li>
+</ul>
+<blockquote>Typical use for a full backup: a safety net or moving an entire working copy. To share only day-to-day activity with another copy, also use the <strong>export / import movements only</strong> flow below.</blockquote>
+<p><strong>Movements only (merging work):</strong> In the same place, <strong>Export movements only</strong> (<code>GNEEX_Movements_….json</code>) and <strong>Import and merge movements</strong> exchange activity between copies. The merge <strong>adds</strong> only movements whose <strong>id</strong> is not already in the target copy and <strong>applies</strong> quantities to inventory (material receptions are recreated when the file has enough data). If the <strong>id</strong> already exists, the local movement is kept. It does not replace user lists, transports, or other data; item catalogs should match, and interleaved dates between copies can make stock order look inconsistent. Always confirm the dialog the app shows.</p>
+<p><strong>Note (backups and overdraft):</strong> The <strong>full backup</strong> and <strong>movements-only</strong> files serialize movements as stored locally (including the technical <code>hadOverdraft</code> field). The file format and merge behavior are <strong>unchanged</strong>. On startup, the app may <strong>normalize</strong> inconsistent values for <strong>Stock purchase</strong> and <strong>Material reception</strong>. In <strong>History</strong>, <strong>filters</strong>, <strong>XLSX reports</strong>, and <strong>human-readable exports</strong>, the rule is consistent: a purchase or reception is <strong>not</strong> treated as overdraft solely because of an old incorrect flag.</p>
+
+<h3>Recipient lists (Daily consumption)</h3>
+<p><strong>Quick view:</strong> Only the administrator sees this block under ⚙️ Settings → <strong>Import/Export</strong> → “Recipients (quick view)”. <strong>Adding and removing</strong> staff and occasional names is on the <strong>Employees</strong> tab.</p>
+
+<h3>Supplier list (orders)</h3>
+<p><strong>Path:</strong> ⚙️ Settings → <strong>Suppliers</strong> tab to maintain the master name list.</p>
+<p>Users with <strong>Orders</strong> access can enter a supplier on each line (free text or suggestions loaded from that list). The <strong>PO/OC number</strong> is not entered when creating the order; it is captured when <strong>receiving</strong> goods under Movements → <strong>Stock purchase</strong> (with packing slip).</p>
+
+<h3>Archive old movements</h3>
+<p>To free up space by removing old movements:</p>
+<ol>
+  <li>Select a <strong>cutoff date</strong> in the "Before" field</li>
+  <li>Click <strong>Archive</strong></li>
+  <li>Confirm the number of movements</li>
+  <li>The file <code>GNEEX_Archived_Movements_FROM_to_TO_YYYY-MM-DD_HH-MM-SS.json</code> is downloaded</li>
+  <li>The archived movements are removed from the application</li>
+</ol>
+<p>The JSON contains a readable <code>movements</code> summary and <code>_rawMovements</code> with the <strong>full</strong> movement objects as stored. The overdraft field in the readable part follows the <strong>same rule</strong> as on-screen history; <code>_rawMovements</code> keeps the raw technical data without reinterpretation.</p>
+
+<h3>Re-import archived movements</h3>
+<ol>
+  <li>Click <strong>Re-import file</strong></li>
+  <li>Select the archive JSON file</li>
+  <li>Confirm — the movements are reintegrated into the history sorted by date</li>
+  <li>Movements that already exist are not duplicated</li>
+</ol>
+
+<h3>Load initial inventory (CSV or XLSX)</h3>
+<p>Allows importing a <strong>CSV</strong> or <strong>XLSX</strong> file with the initial inventory. The columns must match the expected format.</p>
+<p>You can use the <strong>template icon button</strong> to export a styled <strong>.xlsx</strong> sheet with the correct column order (orange header row) and one editable example row. You can also save as CSV from Excel using the same column order.</p>
+
+<h3>Delete database</h3>
+<ol>
+  <li>Click <strong>Delete database</strong></li>
+  <li>Enter the confirmation code: <code>DELETE ALL</code> (or <code>BORRAR TODO</code> / <code>SUPPRIMER TOUT</code>)</li>
+  <li>All data is deleted and the page reloads</li>
+</ol>
+<blockquote>A fixed confirmation phrase helps prevent accidental data loss; follow your site’s runbook for production machines if applicable.</blockquote>
+
+<h3>Security and browser-stored data</h3>
+<p>G-NEEX stores inventory, movements, users, and session data in the browser's <strong>local storage</strong> (for example <code>localStorage</code>). Passwords are stored as <strong>salted hashes</strong>; they do not appear in plaintext in the application source. Anyone with access to the device or user profile, or a <strong>malicious browser extension</strong>, could read or tamper with that data. The app <strong>does not replace</strong> a central server with corporate identity policies. Use <strong>OS session lock</strong>, personal accounts, and <strong>exported backups</strong> as your organization requires. When <strong>importing a JSON backup</strong>, verify it comes from a trusted source.</p>
+
+<hr>
+
+<h2>1.2 Article editor</h2>
+<p><strong>Path:</strong> ⚙️ Settings → <strong>Article editing</strong> tab</p>
+<p>On entry, if the app asks for an <strong>unlock code</strong>, follow the on-screen prompt (create or confirm) and use <strong>Unlock</strong> to continue. Then search by code or description, change any field (code, description, category, default price, stocks, location, min, max, etc.), and <strong>Save</strong>.</p>
+<p>For <strong>Location</strong>, you can compose text from <strong>comma-separated labels</strong>; the dropdown lists <strong>effective warehouse slots</strong> and <strong>BOX1…BOX51</strong> (grouped) to append with <strong>Add</strong>, alongside the editable location catalog on the same Settings tab.</p>
+
+<h3>Inventory consumable mode and the master «Consumables» list</h3>
+<p>If you check <strong>Treat as inventory consumable</strong> and click <strong>Save</strong>, the app <strong>adds</strong> the name (the article <strong>description</strong>, or <strong>code</strong> if there is no description) to the list under <strong>⚙️ Settings → Consumables</strong>, used for purchase receipts without inventory and consumable orders. If you <strong>uncheck</strong> that option and save, it <strong>removes</strong> from that list the entry that matched the description or code <strong>before the change</strong> (when it was only there through this link).</p>
+<p>How stock behaves in consumable mode follows the on-screen rules and messages.</p>
+
+<hr>
+
+<h2>1.3 Expiration settings</h2>
+<p><strong>Path:</strong> ⚙️ Settings → <strong>Expirations</strong> tab</p>
+<ol>
+  <li>Set the global <strong>alert days</strong> (e.g., 30 = alert 30 days before expiration)</li>
+  <li>Search for a specific article</li>
+  <li>Assign a <strong>shelf life in months</strong> from the issue date</li>
+  <li>Click <strong>Save</strong></li>
+</ol>
+
+<hr>
+
+<h1>SECTION 2: Using the app</h1>
+
+<h2>2.1 Accessing a session</h2>
+<p>Enter <strong>username</strong> and <strong>password</strong>. Session validation happens in the browser; the <strong>administrator</strong> account can manage users and passwords under <strong>⚙️ Settings → Users</strong>.</p>
+<p>When <strong>adding a user</strong> with role <strong>User</strong>, you can pick a <strong>template</strong>: <strong>Supervisor</strong> and the built-in <strong>reference profiles</strong> (e.g. Keith Lake, Guest, Patrick). Legacy operator templates are no longer offered for new accounts. Each option has a short description on hover (<code>title</code>). For a new <strong>administrator</strong>, choose role <strong>Administrator</strong>; that role does not use a permission matrix template. Keys and behaviour are listed in <code>PlantillasPermisos.xlsx.csv</code> at the repository root (documentation and future API alignment).</p>
+<p>Login <strong>background images</strong> are listed in <code>assets/login-bg-manifest.json</code> (paths under <code>assets/</code>). If the list is missing or empty, the logo is used. When several images are defined, they may <strong>rotate</strong> automatically.</p>
+<p>After signing in, you reach the panel (see <strong>§2.2</strong>).</p>
+
+<hr>
+
+<h2>2.2 Dashboard (Summary panel)</h2>
+<p>Upon entering the application, a panel is displayed with today's information. The <strong>top bar</strong> has module buttons (e.g. <strong>📦 Inventory</strong> in §2.3, <strong>➕ Movements</strong> in §2.4):</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-panel.png" alt="Dashboard and navigation" loading="lazy" decoding="async">
+  <figcaption>Dashboard and main navigation</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th>Card</th><th>What it shows</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Movements today</strong></td><td>Number of movements created today, with breakdown by type</td></tr>
+    <tr><td><strong>Active alerts</strong></td><td>Low stock + negative stock + articles about to expire</td></tr>
+    <tr><td><strong>Pending transports</strong></td><td>Transports that have not been dispatched or voided</td></tr>
+    <tr><td><strong>Last backup</strong></td><td>When the last backup was made (alerts if more than 7 days ago or never)</td></tr>
+  </tbody>
+</table>
+<p>Click <strong>Hide</strong> / <strong>Show</strong> to collapse/expand the panel.</p>
+
+<hr>
+
+<h2>2.3 Inventory</h2>
+<p>View after clicking <strong>Inventory</strong> (📦): search, filters, stat cards, and the article table.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-inventario.png" alt="Inventory tab" loading="lazy" decoding="async">
+  <figcaption>Inventory tab</figcaption>
+</figure>
+
+<h3>Search articles</h3>
+<p>Type in the search field to filter by <strong>code, description, category, or location</strong>.</p>
+
+<h3>Tools menu (⋮)</h3>
+<p>Next to the search field, the <strong>⋮</strong> menu groups inventory actions: export XLSX, print, show or hide the inline filter strips (<strong>Box / location</strong>, <strong>Depot</strong>, <strong>Consumable inv.</strong>), problems-only and “low-stock alert ignored” filters, <strong>Stock as-of date</strong>, box summary, box stock management, and more.</p>
+<p>The <strong>first item</strong> is <strong>Hide inline filter bars</strong> (right-pointing chevron): it closes all three filter strips in one step when any strip is open and resets each dropdown to <strong>All</strong> when needed. It is <strong>disabled</strong> when no inline strip is open; when a strip is open, use it to collapse the filter area without toggling each filter separately.</p>
+
+<h3>Inventory "as-of date" view</h3>
+<p>Use the <strong>as-of date</strong> filter to view inventory exactly as it was on a selected date. This affects table values, cards, and print/export outputs while active.</p>
+
+<h3>Statistics cards</h3>
+<p>The top cards display:</p>
+<ul>
+  <li><strong>Total articles</strong>: total count</li>
+  <li><strong>Low stock</strong>: articles with stock at or below the minimum</li>
+  <li><strong>Expiration</strong>: expired or soon-to-expire articles</li>
+  <li><strong>Overstock</strong>: articles above the maximum stock</li>
+  <li><strong>Negative stock</strong>: articles with stock below 0</li>
+</ul>
+<blockquote>Clicking any card (except "totals") opens a <strong>detail modal</strong> with the list of affected articles, option to export XLSX, and print.</blockquote>
+<p>In the <strong>low stock</strong> modal, the first columns are <strong>Ignore low-stock alert</strong>, <strong>Actions</strong> (🛒 to add the item to the <strong>purchase list</strong>), <strong>Code</strong>, then the remaining fields (description, stocks, dates, location).</p>
+
+<h3>Inventory table</h3>
+<p>Columns: Code, Description, Category, Default price, Main Stock, Production Stock, Transformation Stock, Location, Expiration.</p>
+<p>In the <strong>Description</strong> column, the <strong>📝</strong> control (faded more when the item has no notes yet) opens a dialog to <strong>view and edit</strong> notes when it is active; <strong>Save</strong> persists changes. If editing is not offered but the item <strong>has</strong> notes, you can often open the same dialog in <strong>read-only</strong> mode; if there are no notes, the cell is plain text.</p>
+<p>Row colors indicate the article's status (red = negative, yellow = low, orange = expiring, etc.).</p>
+<p>If the window is narrow, <strong>scroll the table horizontally</strong> to see all columns without squashing the headers.</p>
+<p><strong>Location (article text field):</strong> for validations (movements, imports, stock consistency) only <strong>effective warehouse catalog</strong> labels and <strong>BOXn</strong> references count as <strong>canonical</strong> location. If stored text cannot be fully normalized to those tokens, saving from the editor may show a <strong>warning</strong>; no automatic relocation placeholder is inserted anymore.</p>
+<p>Use the <strong>Box / location</strong> dropdown for quick visual filtering by box number inferred from <strong>Location</strong> text and from <strong>box numbers</strong> that have stock in box management, and by <strong>predefined warehouse locations</strong> in the app catalog (e.g. E1R, ETOP, BIN 8, CONTAINEUR CHANTIER, ARMOIRE AVEC CLE) when the location text matches <strong>or</strong> the same location appears only in <strong>per-location stock</strong> (quantity chips); tags appear next to the cell. Next to export and print, <strong>Box summary (from location text)</strong> groups items when <strong>Location</strong> looks like <strong>BOX1</strong>, <strong>BOX 1</strong>, or variants (“box”, “caja” + number; optional space after BOX). Several boxes may appear in the same field, <strong>comma-separated</strong> (e.g. “BOX1, caja 2”). In that modal, <strong>click a row</strong> to see the article lines for that group. If an item has multiple boxes in location, it is counted under <strong>each detected box</strong>. Also, in <strong>Box stock management</strong>, you can <strong>add, edit, delete, and redistribute</strong> stock between <strong>boxes</strong> and <strong>Production</strong> / <strong>Transformation</strong> stock columns; you can also transfer from <strong>box to direct location (no box)</strong>. That action deducts from the origin box, appends the location to item text (without duplicates), and stores per-location quantity (chips such as <code>E2R: 12</code>) in the Location cell. You can still <strong>export</strong> all box stock (same layout as the template) for backup or editing and <strong>re-import</strong> it, download an empty template when needed, and import box quantities. The official first row is <strong>Codigo, Caja, UbicacionCaja, CantidadCaja, CantidadCajas, Vacia</strong> (<strong>Datos</strong> sheet, the one G-NEEX generates). In <strong>Vacia</strong>, use <code>1/true/yes</code> to mark a box as empty (forces quantity 0). For negative movements (consumption/output), box selection is optional: if selected, stock is discounted from both box and main inventory; if not selected, discount applies only to main inventory.</p>
+<p>Recommended quick test (Location):</p>
+<ul>
+  <li><code>BOX1</code></li>
+  <li><code>E1R</code> or <code>e1r</code> (case-insensitive)</li>
+  <li><code>BIN 8</code>, <code>BIN2</code>, or <code>BIN 2</code></li>
+  <li><code>CONTAINEUR CHANTIER</code></li>
+  <li><code>BOX1, BOX2</code></li>
+  <li><code>caja 3, BOX4</code></li>
+  <li><code>no box</code></li>
+  <li><code>BOX52</code> (out of range, ignored)</li>
+  <li><code>BOX1, BOX1</code> (same box is not duplicated)</li>
+</ul>
+
+<h3>Export and print</h3>
+<ul>
+  <li><strong>Export XLSX</strong>: Downloads the current inventory view (formatted table)</li>
+  <li><strong>Print list</strong>: Opens the print window with the formatted table</li>
+</ul>
+<p>Print windows across the app use <strong>A4 portrait</strong> (standard margins); tables <strong>do not compress every column to the same width</strong> (the article <strong>code</strong> stays on one line and readable); other long text <strong>wraps inside cells</strong> as needed (inventory, history, movement detail, and other printable lists).</p>
+<blockquote><strong>Export</strong> and <strong>print</strong> here need those buttons to be visible and active on your screen.</blockquote>
+
+<hr>
+
+<h2>2.4 Movements</h2>
+<p><strong>Movements</strong> (➕) in the bar: type grid; choosing a type opens the overlay form.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-movimientos.png" alt="Movements tab" loading="lazy" decoding="async">
+  <figcaption>Movements tab</figcaption>
+</figure>
+
+<h3>Create a movement</h3>
+<ol>
+  <li>Go to the <strong>Movements</strong> tab</li>
+  <li>Select the <strong>movement type</strong> by clicking its button — an <strong>in-app overlay window</strong> opens with the form for that type (the Movements view keeps showing only the type grid and recent list).</li>
+  <li>In that window, fill in <strong>Project ID</strong> (required or automatic depending on the type) and <strong>Notes</strong></li>
+  <li><strong>Search articles</strong>: type at least 2 characters → select an article → enter <strong>quantity</strong> as for other types → the line is added (<strong>Quantity</strong> column)</li>
+  <li><strong>Stock source</strong> (types that <strong>subtract</strong> stock): if the <strong>Stock source</strong> column appears, choose <strong>which depot</strong> the quantity comes from: <strong>General warehouse</strong> (main stock, quantity shown); each <strong>box</strong> (same quantity as in <strong>Box stock management</strong>); <strong>locations</strong> from per-location stock (label only in the list); and when available, <strong>production stock</strong> or <strong>transformation stock</strong> (quantity shown). You can <strong>add several lines</strong> for the same item to split quantities across sources. For types that also show a <strong>Destination</strong> column (e.g. Hardware, E.M. Production, E.M. Site), <strong>source</strong> is the physical depot deducted; <strong>destination</strong> classifies the movement and may differ from the source.</li>
+  <li>Review and adjust <strong>quantities</strong> in the list before processing</li>
+  <li>Click <strong>Process movement</strong>. For <strong>Site E.M.</strong>, you are asked for the <strong>total boxes</strong> for that shipment (not per item); boxes are allocated across lines by line quantity for Site E.M. stock</li>
+</ol>
+<p>If <strong>all</strong> quantities are <strong>0</strong>, the app <strong>blocks</strong> processing (no stock change).</p>
+<blockquote>Use <strong>Create</strong> and <strong>Process movement</strong> when they appear; if they stay inactive, the form or action is not enabled for the current state.</blockquote>
+
+<h3>Movement types</h3>
+<table>
+  <thead>
+    <tr><th>Type</th><th>Effect on stock</th><th>Project</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Adjustment</td><td>Add or subtract</td><td>Optional</td></tr>
+    <tr><td>Daily Consumption</td><td>Subtract</td><td>Automatic</td></tr>
+    <tr><td>Hardware</td><td>Subtract</td><td>Required</td></tr>
+    <tr><td>Special</td><td>Add or subtract</td><td>Optional</td></tr>
+    <tr><td>Checklist</td><td>Subtract</td><td>Required</td></tr>
+    <tr><td>Waste</td><td>Subtract</td><td>Required</td></tr>
+    <tr><td>Return</td><td>Add</td><td>Optional</td></tr>
+    <tr><td>Dismantle</td><td>Add</td><td>Required</td></tr>
+    <tr><td>Transfer</td><td>Add or subtract</td><td>Optional</td></tr>
+    <tr><td>Transformation</td><td>Subtract</td><td>Optional</td></tr>
+    <tr><td>Send to Production</td><td>Subtract</td><td>Optional</td></tr>
+    <tr><td>E.M. Production</td><td>Subtract</td><td>Required</td></tr>
+    <tr><td>E.M. Site</td><td>Subtract</td><td>Required</td></tr>
+    <tr><td>Stand-By</td><td>No effect (pending)</td><td>Optional</td></tr>
+    <tr><td>Stock Purchase</td><td>Add</td><td>Special form</td></tr>
+    <tr><td>Material Reception</td><td>Add (or provisional, depending on category rules)</td><td>Required</td></tr>
+  </tbody>
+</table>
+
+<h3>Stand-By</h3>
+<p>Stand-By movements are saved as drafts without affecting inventory:</p>
+<ol>
+  <li>Create a <strong>Stand-By</strong> type movement</li>
+  <li>Select the <strong>release type</strong> (what type it will become when processed)</li>
+  <li>Process the movement</li>
+</ol>
+<p><strong>Stand-By list</strong>: Shows pending drafts with options:</p>
+<ul>
+  <li><strong>Edit</strong>: Modify articles and quantities</li>
+  <li><strong>Process</strong>: Apply the movement to the inventory</li>
+  <li><strong>Cancel</strong>: Delete the draft</li>
+</ul>
+
+<h3>Floating shortcuts (Stand-by and Daily consumption)</h3>
+<p>With an active session, there are up to two floating shortcuts (bottom-right by default), <strong>hidden until you use them</strong>. To show the <strong>Stand-by</strong> or <strong>Daily consumption</strong> shortcut, open <strong>Movements</strong> and select that type; it stays visible until you hide it.</p>
+<table>
+  <thead><tr><th>Shortcut</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stand-by</strong> (⏸)</td><td>Quick access to pending Stand-by drafts; panel with list, go to Movements, or hide the shortcut.</td></tr>
+    <tr><td><strong>Daily consumption</strong> (📅)</td><td>Panel of lines for Daily consumption not yet processed as a single movement.</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>Hide:</strong> from each panel (⏬ icon); the choice is stored in this browser.</li>
+  <li><strong>Drag:</strong> press and hold the <strong>round button</strong> and move it anywhere on screen; position is saved on this device. A short tap without movement opens or closes the panel as usual.</li>
+</ul>
+<p><strong>Daily consumption (close &amp; catch-up):</strong> pending lines are tied to the <strong>local calendar day</strong>. If lines were left from a previous day (app closed overnight, date change with the tab open, etc.), on return you may see a notice and an <strong>automatic close/catch-up</strong> may run when stock rules allow; if it cannot run due to overdraft, review the cart manually. <strong>Daily consumption does not use a project number</strong> in the form. <strong>While Daily consumption is the selected movement type</strong>, the nightly auto-close (~23:00) and midnight roll do <strong>not</strong> interrupt you; <strong>when you switch to another movement type</strong>, any pending automatic close runs if applicable.</p>
+<p><strong>Movement date/time (Daily consumption):</strong> each time you add a line to the cart, that moment is stored. When you <strong>process</strong>, the movement’s saved timestamp is the <strong>first line</strong> added in that batch (if an older line had no stamp, the process time is used as a fallback).</p>
+<p><strong>Decimal quantities:</strong> quantities and stocks are shown and stored with <strong>at most four digits</strong> after the decimal separator (rounding).</p>
+<p><strong>Recipient with “Other (name not on list)”:</strong> type the name freely when it is not in the dropdown. This section only requires identifying who receives the material; there is no extra classification.</p>
+<p><strong>Daily consumption by recipient (History):</strong> everyone with access can expand the section and filters; <strong>editing the ledger, export, and print</strong> from that block are <strong>administrator only</strong>.</p>
+
+<h3>Overdraft</h3>
+<p>Movements that <strong>withdraw</strong> more stock than available (consumption, transfers, send to production, etc.) may open a modal for a <strong>mandatory reason</strong> and are marked in history with the overdraft indicator (<code>!</code> and a notice in the detail view).</p>
+<p><strong>Stock purchase</strong> and <strong>Material reception</strong> are <strong>inbound</strong> goods: they do <strong>not</strong> use that overdraft-justification flow. If older data incorrectly had an overdraft flag on those types, the app does <strong>not</strong> show them as overdraft in lists, filters, or detail, may <strong>fix the stored value on load</strong>, and reports follow the same rule.</p>
+<p>When <strong>releasing Stand-by</strong>, the “would overdraft” check uses the Stand-by <strong>target movement type</strong> (not whichever type happened to be selected on the Movements form at that moment), avoiding false positives.</p>
+
+<h3>Stock purchase (detail)</h3>
+<ul>
+  <li>Same movement type whether created <strong>only under Movements</strong> or <strong>after a receipt from the Orders panel</strong> (see §2.5).</li>
+  <li>Extra fields: <strong>PO number</strong> (required), <strong>packing slip</strong>, <strong>supplier</strong>.</li>
+  <li>Each movement gets a <strong>type prefix + 6-digit sequence per movement type</strong> (e.g. adjustment <code>AJU000042</code>, purchase <code>COM000003</code>). Older refs with more digits, purely numeric (<code>000042</code>) or hyphen form (<code>COM-001</code>) normalize when history loads.</li>
+  <li>Some reception categories require <strong>PO</strong> and are stored as <strong>provisional reception</strong> (not applied to main stock until corresponding logistics flow).</li>
+</ul>
+
+<hr>
+
+<h2>2.5 Supplier orders (order lines)</h2>
+<p><strong>Path:</strong> <strong>Orders</strong> tab (📋 in the top bar).</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-pedidos.png" alt="Orders tab" loading="lazy" decoding="async">
+  <figcaption>Orders</figcaption>
+</figure>
+<p>Plan supplier lines tied to inventory (code, description, supplier, quantity). The <strong>PO/OC number</strong> is captured when you <strong>receive</strong> in Stock purchase (packing slip), not when you create the draft.</p>
+<h3>List filters</h3>
+<p>Above the list, switch <strong>View</strong> between the full <strong>details table</strong> (default) and <strong>tile</strong> cards; the choice is stored in this browser.</p>
+<p>Above the table you can filter by:</p>
+<ul>
+  <li><strong>Text search</strong> (reference, code, description, supplier, quantities only),</li>
+  <li><strong>Status</strong>,</li>
+  <li><strong>Key date</strong> range (from / to),</li>
+  <li><strong>Timeline preset</strong> (with/without receipt, ordered, cancelled).</li>
+</ul>
+<p><strong>Clear filters</strong> resets everything.</p>
+<h3>Line states</h3>
+<table>
+  <thead><tr><th>State</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Inactive</strong></td><td>Draft; you can edit quantity and supplier.</td></tr>
+    <tr><td><strong>Ordered</strong></td><td>Order confirmed; order date stored; awaiting goods.</td></tr>
+    <tr><td><strong>Partial / full receipt</strong></td><td>According to quantity received vs ordered.</td></tr>
+    <tr><td><strong>Cancelled</strong></td><td>Only if nothing was received.</td></tr>
+  </tbody>
+</table>
+<h3>Receipt and stock purchase</h3>
+<p>When you use <strong>Partial receipt</strong> or <strong>Full receipt (remaining)</strong>, the app switches to <strong>Movements</strong>, selects <strong>Stock purchase</strong>, and fills the form. Review and click <strong>Process movement</strong>. If you change item or quantity incompatibly with the line, the purchase may still save without linking (a warning is shown).</p>
+<p><strong>Stock purchase entered only under Movements (not from Orders first):</strong> after <strong>Process movement</strong>, if there is an <strong>Ordered</strong> or <strong>partial receipt</strong> line for the <strong>same inventory item</strong> — and when a supplier was filled in on the purchase, the <strong>same supplier</strong> — you may get a prompt asking whether this purchase belongs to that open order. Buttons are <strong>Yes</strong> / <strong>No</strong> (<strong>No</strong> only skips linking; the movement remains saved). If you confirm, <strong>Received qty</strong>, <strong>line status</strong>, and <strong>row actions</strong> in Orders update like a receipt opened from the panel (including partial vs over-quantity prompts). If nothing links, you may be offered to <strong>register</strong> the purchase as a new order line (again <strong>Yes</strong> / <strong>No</strong>).</p>
+<h3>Timeline and export</h3>
+<p>Each line shows a reference like <strong>#AJU000012</strong> (prefix per type; legacy rows may still be digits-only) and a date timeline.</p>
+<ul>
+  <li><strong>Export XLSX / Print table:</strong> both use the <strong>current filtered view</strong> (visible rows only).</li>
+  <li><strong>Bulk cleanup:</strong> button removes lines in <strong>full receipt</strong> state older than 1 year.</li>
+  <li><strong>Per-line removal:</strong> for <strong>full receipt</strong> lines, a row action is available when receipt age is over 3 months.</li>
+  <li><strong>Actual receipt date (optional):</strong> in Stock purchase and Material reception, you may set a past “real receipt date” for traceability (notes/timeline reference), while movement registration timestamp remains the actual save time.</li>
+</ul>
+<h3>History (link)</h3>
+<p>If the purchase comes from the Orders panel, movement detail shows a banner; list cards may show 📋.</p>
+<blockquote>Managing lines, receipts, and the panel XLSX export depends on the actions and buttons you see when using <strong>Orders</strong> and <strong>Movements</strong> in your copy.</blockquote>
+
+<hr>
+
+<h2>2.6 History</h2>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-historial.png" alt="History tab" loading="lazy" decoding="async">
+  <figcaption>History tab</figcaption>
+</figure>
+
+<h3>View movements</h3>
+<p>The <strong>History</strong> tab shows filtered movements with color and icon according to the type.</p>
+<p>Use the <strong>View</strong> control for <strong>Tiles</strong> (icon grid, default), <strong>List</strong> (compact rows, file-explorer style), <strong>Details</strong> (columnar table), or <strong>Chronological carousel</strong> (horizontal card sequence from newest to oldest; the top strip and each card show <strong>day, 3-letter month, 4-digit year, and local time</strong>; side arrows step <strong>one movement</strong>). Minimized cards also show the <strong>Project ID</strong> when applicable. The choice is stored in this browser.</p>
+<p><strong>Date format:</strong> throughout the app, on-screen dates use <strong>day</strong>, <strong>3-letter month</strong>, and <strong>4-digit year</strong>; when time is shown, it is <strong>local time in 24-hour format</strong> (inventory, tables, reminders, transport, readable export metadata, etc.).</p>
+<p><strong>Fully annulled</strong> movements and <strong>partial annulments</strong> (some lines annulled without voiding the whole movement) appear in <strong>Tiles</strong>, <strong>List</strong>, and <strong>Carousel</strong> as a <strong>diagonal stamp</strong> (dashed tilted frame); the label <strong>«Partial annulment»</strong> identifies the latter. In <strong>Details</strong> view and in the modal, <strong>status</strong> uses the same wording.</p>
+
+<h3>Filters</h3>
+<p>You can filter by:</p>
+<ul>
+  <li>Movement type</li>
+  <li>Reference (partial)</li>
+  <li>Article code or description (partial)</li>
+  <li>Recipient (daily consumption, partial)</li>
+  <li>Date range</li>
+  <li>Location</li>
+  <li>Project ID (partial)</li>
+  <li>Performed by (partial)</li>
+  <li>Overdraft (yes/no; matches movement detail — stock purchase and reception ignore erroneous legacy markers)</li>
+  <li>Negative stock (yes/no — based on <strong>current</strong> stock)</li>
+  <li>Annulment (all / not fully annulled / partial annulment / fully annulled)</li>
+</ul>
+<p><strong>Clear filters</strong> empties all criteria.</p>
+
+<h3>Movement detail</h3>
+<p>Click a card to see the full detail:</p>
+<ul>
+  <li>Type, reference, project, date and time, status</li>
+  <li>Who performed it</li>
+  <li>Notes</li>
+  <li>List of articles with <strong>previous stock</strong>, <strong>change</strong> (+/−), and <strong>resulting stock</strong> per line (rebuilt from inventory and history)</li>
+  <li>Overdraft information if applicable (see § <strong>Overdraft</strong> above)</li>
+  <li><strong>Attachments (📎):</strong> link PDFs, photos, or documents already on your PC; <strong>nothing is copied</strong> into the app folder. The app stores the link and can <strong>open</strong> them via «Open file» (Chrome or Edge). After restoring a backup on another machine you must <strong>link the files again</strong>. Very old attachments may still point to copies under <code>Adjuntos/…</code>; use «Copy path (legacy)» and open from Explorer.</li>
+  <li><strong>Print</strong> opens a window with <strong>tables</strong> (movement header and lines aligned with <strong>Export XLSX</strong>), not a visual copy of the modal.</li>
+</ul>
+
+<h3>Void movement</h3>
+<p>In the detail modal:</p>
+<ul>
+  <li><strong>Void entire movement</strong>: Reverts all affected stock</li>
+  <li><strong>Void individual line</strong>: Reverts only a specific line</li>
+</ul>
+<blockquote>Voiding or rolling back in the detail view requires the modal to show those actions as active (depending on type and state).</blockquote>
+
+<hr>
+
+<h2>2.7 Transport</h2>
+<p>Open the <strong>Transport</strong> (🚚) button. The tab shows the board and actions (create, ship, void, and so on) as enabled for your current screen.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-transporte.png" alt="Transport tab" loading="lazy" decoding="async">
+  <figcaption>Transport tab</figcaption>
+</figure>
+
+<h3>Transport panel</h3>
+<p>Shows cards for each transport with: project, dispatch date, line status (Ready/Partial), linked receptions.</p>
+<p><strong>View</strong> switches between <strong>Tiles</strong> (card grid) and <strong>List</strong> (single column of full-width cards); the choice is stored in this browser.</p>
+<p>Click a card to expand its detail. In the expanded detail, <strong>Attachments (📎)</strong> links shipment documents from any folder (no copy into the app); viewing works in Chrome/Edge like movement attachments.</p>
+<p>At the top of the tab, <strong>Cargo prepared to depart</strong> summarizes each <strong>active</strong> transport (not yet shipped, not voided): counts of linked checklists, site and production electrical movements, and project material <strong>receipts</strong> that are <strong>not</strong> yet marked as shipped. Material may appear <strong>queued</strong> when no active transport exists yet for that project.</p>
+
+<h3>Dispatch and on-premise traceability</h3>
+<p>When you click <strong>Ship truck</strong>, the app records the shipment and marks the linked <strong>checklist</strong>, <strong>site E.M.</strong>, and <strong>production E.M.</strong> movements on that load, plus any <strong>material receipts</strong> for the same project that were still pending shipment (when several trucks serve one project, each shipment marks only what was still pending). <strong>Movement detail</strong> in History shows the timestamp once it left with a transport. <strong>Void dispatch</strong>, <strong>reopen planning</strong>, or <strong>delete transport</strong> clears those marks tied to that transport.</p>
+
+<h3>Create manual transport</h3>
+<ol>
+  <li>Click <strong>+ New transport</strong></li>
+  <li>Enter the <strong>Project ID</strong></li>
+  <li>Set the <strong>dispatch date</strong></li>
+  <li>The transport is created (can link pending site electrical material)</li>
+</ol>
+<blockquote>If an action is unavailable, the on-screen control is inactive or missing.</blockquote>
+
+<h3>Automatic transport</h3>
+<p>Movements of type <strong>Checklist</strong> and <strong>E.M. Site</strong> automatically create or link transports. If an active transport already exists for the project, lines are added to the existing one.</p>
+
+<h3>Transport actions</h3>
+<ul>
+  <li><strong>Dispatch</strong>: Only when the status is "Ready" (all lines resolved)</li>
+  <li><strong>Void dispatch</strong>: Reverts the dispatch status</li>
+  <li><strong>Delete</strong>: Deletes the entire transport</li>
+  <li><strong>Merge lines</strong>: Tool to combine or split lines within the transport</li>
+  <li><strong>Truck cargo report</strong>: In the truck detail you can use <strong>Export cargo report</strong> (XLSX) and <strong>Print cargo report</strong> with loaded materials, quantities, and dimensions. If a line has <strong>several packages</strong>, the XLSX and printout list each package on <strong>consecutive rows</strong> with fixed columns <strong>Package</strong>, <strong>L</strong>, <strong>W</strong>, <strong>H</strong> (the table does not grow sideways with “Package 1 L”, “Package 2 L”, …).</li>
+</ul>
+<blockquote>Critical actions (e.g. <strong>Ship</strong>, <strong>Delete</strong>) only become available when line status allows it.</blockquote>
+
+<hr>
+
+<h2>2.8 Reports and exports</h2>
+
+<h3>Generate a report</h3>
+<ol>
+  <li>Click the <strong>report</strong> button (available in History and Transport)</li>
+  <li>Select the report type:
+    <ul>
+      <li><strong>Transport summary</strong></li>
+      <li><strong>Transport lines</strong></li>
+      <li><strong>Filtered movements</strong> (uses active history filters)</li>
+      <li><strong>Filtered movement lines</strong></li>
+      <li><strong>All movements</strong></li>
+      <li><strong>Consumption by article</strong> (search by code or description; inventory suggestions as you type; picking one fills the item <strong>code</strong>)</li>
+    </ul>
+  </li>
+  <li>Click <strong>Download XLSX</strong></li>
+</ol>
+<p>Files are descriptively named with the date range (<code>.xlsx</code>; <strong>Datos</strong> sheet with themed styling and <strong>Info</strong> sheet with export metadata):</p>
+<ul>
+  <li><code>GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx</code></li>
+  <li><code>GNEEX_Item_Consumption_cable_2025-01-10_to_2026-03-20.xlsx</code></li>
+</ul>
+<blockquote>Use the report or XLSX download when the button is visible; pick report types in the dialog.</blockquote>
+
+<hr>
+
+<h2>2.9 Receptions</h2>
+<p><strong>Path:</strong> ⚙️ Settings → <strong>Receptions</strong> tab</p>
+<p>Table with all registered receptions. They can be searched by text.</p>
+<ul>
+  <li><strong>Export</strong> / <strong>Print</strong> (filtered list): same layout when a reception has <strong>multiple packages</strong> — stacked rows with <strong>Package</strong>, <strong>L</strong>, <strong>W</strong>, <strong>H</strong>, without widening the sheet with many package columns.</li>
+  <li><strong>Edit</strong>: Modify data of an existing reception (reverts and reapplies stock)</li>
+  <li><strong>Delete</strong>: Delete reception and revert its effect on stock</li>
+</ul>
+<blockquote>Requires <strong>Recep.</strong> permission.</blockquote>
+
+<hr>
+
+<h2>2.10 Theme, demo mode, and language</h2>
+<ul>
+  <li><strong>Theme</strong>: Click 🌙/☀️ in the upper right corner to toggle between <strong>dark</strong> and <strong>light</strong> mode</li>
+  <li><strong>Test / demo mode</strong>: <strong>Test</strong> switch next to Help. Enables a <strong>blue</strong> theme and a <strong>temporary working copy</strong>: you can use the app normally (movements, inventory, settings, etc.). When you <strong>turn the switch off</strong>, the app <strong>restores</strong> inventory, movements, history, users, session, and all other data stored in the browser <strong>to how it was when you turned demo mode on</strong>; anything done only while demo mode was on is <strong>discarded</strong>. <strong>Light/dark theme and language are not reverted</strong> (whatever you chose during the demo stays). A <strong>banner</strong> appears under the header while the mode is on. <strong>Confirmation</strong> is required to exit</li>
+  <li><strong>Language</strong>: Select 🇪🇸 Español, 🇺🇸 English, or 🇫🇷 Français in the language selector</li>
+</ul>
+<p>Theme and language preferences are saved automatically. The demo snapshot is separate from the JSON backup file. <strong>Note:</strong> files you export to a folder on your computer during the demo (for example XLSX in the project folder) are <strong>not</strong> removed when you leave demo mode; only <strong>localStorage</strong> in the browser is reverted.</p>
+
+<hr>
+
+<h2>2.11 Session bar</h2>
+<p>The top bar shows, among other things, the active session label, a role or mode summary (as your build presents it), and <strong>Log out</strong> to return to the access screen.</p>
+
+<hr>
+
+<h2>2.12 Inactive buttons and messages</h2>
+<p>Depending on context (task, data state, current tab), some actions are dimmed or a short message explains that the action does not apply. That is not a fault of the app: in another flow or with other data, the same control can become available again.</p>
+
+<hr>
+
+<h2>2.13 Reminders</h2>
+<p><strong>Path:</strong> reminders button in the top bar, <strong>Reminders</strong> tab when you can open it.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-en-recordatorios.png" alt="Reminders tab" loading="lazy" decoding="async">
+  <figcaption>Reminders</figcaption>
+</figure>
+<p>You create and manage operational reminders with due date and priority from that screen when the module is available in your environment.</p>
+<ul>
+  <li>Priorities: <strong>When possible</strong>, <strong>Attention</strong>, <strong>Urgent</strong></li>
+  <li>Priority can escalate automatically over working days</li>
+  <li>Dashboard shows a reminders preview and quick access</li>
+  <li>Completed reminders keep completion date for follow-up</li>
+  <li><strong>Visibility:</strong> each user only sees reminders <strong>they created</strong> (the JSON backup on the machine may hold everyone’s reminders; the UI filters by session).</li>
+</ul>
+
+<hr>
+
+<hr>
+<h2>About the author</h2>
+<p>The application is created by <strong>Luis Goire</strong>, who builds it as a programming enthusiast and with the goal of growing into a developer role.</p>
+<p><strong>Email:</strong> <a href="mailto:blakillbyte@gmail.com">blakillbyte@gmail.com</a></p>
+
+<hr>
+
+<h1>Summary</h1>
+<p>The manual walks through <strong>Inventory</strong>, <strong>Movements</strong>, <strong>Orders</strong>, <strong>History</strong>, <strong>Transport</strong>, <strong>receptions in Settings</strong>, <strong>reports</strong>, <strong>data import/export</strong>, and <strong>demo mode</strong>. Each module is used with the visible tabs and buttons: when something does not apply, the interface dims or hides it without blocking the rest of your work.</p>
+
+<div class="footer">Phoenix Cell G-NEEX v1.6 · Luis Goire</div>
+
+</body>
+</html>

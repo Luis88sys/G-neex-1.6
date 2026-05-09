@@ -47,13 +47,13 @@ Elle gère tout le cycle de vie du matériel :
 
 *Captures réelles v1.6 (Playwright). Régénération : `docs/app-screenshots/README.md`.*
 
-![Écran de connexion](../docs/app-screenshots/capture-fr-01-login.png)
+![Écran de connexion](../app-screenshots/capture-fr-01-login.png)
 
 ---
 
 ## Inventaire en Temps Réel
 
-![Onglet Inventaire](../docs/app-screenshots/capture-fr-inventario.png)
+![Onglet Inventaire](../app-screenshots/capture-fr-inventario.png)
 
 | Fonction | Description |
 |----------|-------------|
@@ -75,7 +75,7 @@ Elle gère tout le cycle de vie du matériel :
 
 ## 16 Types de Mouvement
 
-![Onglet Mouvements (grille des types)](../docs/app-screenshots/capture-fr-movimientos.png)
+![Onglet Mouvements (grille des types)](../app-screenshots/capture-fr-movimientos.png)
 
 G-NEEX supporte **16 types de mouvement** couvrant toutes les opérations d'un entrepôt industriel :
 
@@ -116,12 +116,13 @@ Chaque mouvement enregistre automatiquement :
 
 ## Commandes fournisseur (lignes de commande)
 
-![Onglet Commandes](../docs/app-screenshots/capture-fr-pedidos.png)
+![Onglet Commandes](../app-screenshots/capture-fr-pedidos.png)
 
 - Onglet **Commandes** : lignes liées à l'inventaire (fournisseur, quantité) ; le **BC/PO** est enregistré à la **réception** dans Achat de stock.
 - Filtres du panneau : recherche texte (référence/code/description/fournisseur/quantités), statut, date clé (du/au) et préréglage d'historique (avec/sans réception, commandée, annulée).
 - États : brouillon → commandée → réception partielle / totale ou annulée ; dates conservées pour le suivi.
 - La **réception** ouvre le même formulaire **Achat de stock** que dans Mouvements, puis **Traiter le mouvement**.
+- Une saisie **uniquement** depuis Mouvements peut afficher **Oui / Non** pour lier l’achat à une ligne ouverte et actualiser le panneau Commandes.
 - **Exporter / Imprimer le tableau** utilisent la vue filtrée ; nettoyage massif (+1 an) et suppression par ligne (>3 mois).
 - **Références** : **sigle du type + 6 chiffres corrélés par type** (ex. `AJU000001`, `COM000002`) ; les anciennes valeurs sont normalisées au chargement.
 - Certaines catégories passent en **réception provisoire** avec BC/PO obligatoire avant impact sur le stock principal.
@@ -131,7 +132,7 @@ Chaque mouvement enregistre automatiquement :
 
 ## Dispositions de liste (style Explorateur)
 
-![Onglet Historique (mosaïque / tableau / carrousel)](../docs/app-screenshots/capture-fr-historial.png)
+![Onglet Historique (mosaïque / tableau / carrousel)](../app-screenshots/capture-fr-historial.png)
 
 - **Historique**, **Transport** et **Commandes** proposent un sélecteur **Affichage** : **mosaïque**, **liste compacte** et, selon l’écran, **tableau détaillé** ; dans **Historique**, un **Carrousel chronologique** est aussi disponible pour parcourir les cartes à l’horizontale. Les cartes minimisées affichent aussi l’**ID projet** quand pertinent.
 - Dans **Historique**, les mouvements entièrement annulés ou avec **annulation partielle** affichent un **tampon diagonal** (cadre en pointillés incliné) ; les filtres incluent aussi le type d’annulation.
@@ -145,7 +146,7 @@ Chaque mouvement enregistre automatiquement :
 
 ## Transport Intelligent
 
-![Onglet Transport](../docs/app-screenshots/capture-fr-transporte.png)
+![Onglet Transport](../app-screenshots/capture-fr-transporte.png)
 
 Le module transport automatise la logistique d'envoi vers le chantier :
 
@@ -162,7 +163,7 @@ Le module transport automatise la logistique d'envoi vers le chantier :
 
 ## Tableau de Bord — Vue d'Ensemble Instantanée
 
-![Tableau de bord après connexion](../docs/app-screenshots/capture-fr-panel.png)
+![Tableau de bord après connexion](../app-screenshots/capture-fr-panel.png)
 
 À la connexion, un panneau affiche l'état actuel des opérations :
 
@@ -183,7 +184,7 @@ Des indicateurs visuels alertent en cas de stock critique ou de sauvegarde de pl
 
 ## Rappels (Admin)
 
-![Onglet Rappels](../docs/app-screenshots/capture-fr-recordatorios.png)
+![Onglet Rappels](../app-screenshots/capture-fr-recordatorios.png)
 
 - Onglet dédié pour les rappels opérationnels avec date cible et priorité.
 - Les priorités peuvent monter automatiquement selon les jours ouvrables.
@@ -193,7 +194,7 @@ Des indicateurs visuels alertent en cas de stock critique ou de sauvegarde de pl
 
 ## L’application à l’écran (usage)
 
-![Tableau de bord (G-NEEX)](../docs/app-screenshots/capture-fr-panel.png)
+![Tableau de bord (G-NEEX)](../app-screenshots/capture-fr-panel.png)
 
 - G-NEEX regroupe le travail quotidien en modules accessibles depuis la barre : inventaire, mouvements, historique, transport, commandes, rappels et paramètres.
 - Le manuel décrit chaque écran et parcours. **Comment** l’accès et les copies sont gérés sur votre site relève de l’exploitation ; l’accent est mis ici sur l’**usage** de l’interface et des fonctions d’inventaire.

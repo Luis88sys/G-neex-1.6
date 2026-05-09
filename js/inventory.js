@@ -94,7 +94,6 @@ const InventoryManager = {
       if (expSaved) this.expAlertDays = parseInt(expSaved, 10) || 30;
       this.render();
       this.setupEventListeners();
-      console.log("✅ InventoryManager iniciado con", this.items.length, "artículos");
     } catch (err) {
       console.error("❌ Error inicializando InventoryManager:", err);
     }
@@ -1605,11 +1604,11 @@ const InventoryManager = {
    * Una fila «sintética» cuando hay caducidad solo a nivel artículo (sin lotes en expirations).
    */
   getArticleOnlyLotProxyRow(item) {
-    if (!item || item.inventoryConsumable || !this.itemTracksExpiration(item)) return null;
+    if (!item || item.inventoryConsumable) return null;
     const exp = Array.isArray(item.expirations) ? item.expirations : [];
     const hasLots = exp.some(l => Utils.roundDecimal(parseFloat(l.qty) || 0) > 0);
     if (hasLots) return null;
-    const eff = this.getEffectiveExpirationDate(item);
+    const eff = this.getEffectiveExpirationDateForDisplay(item);
     if (!eff) return null;
     const alertDays = Math.max(1, parseInt(this.expAlertDays, 10) || 30);
     const days = this.daysTo(eff);
@@ -1739,11 +1738,12 @@ const InventoryManager = {
   },
 
   /**
-   * Fecha de caducidad efectiva: la más próxima entre
-   * expedición artículo + vida útil, fecha expiración manual y lotes en expirations[].
+   * Fecha de caducidad efectiva para listados, vista rápida y pastillas de lotes:
+   * usa las mismas fuentes que {@link getEffectiveExpirationDate} pero **sin** exigir
+   * el checkbox «Controlar caducidad» (muchas piezas tienen fechas/lotes por compra sin ese flag).
    */
-  getEffectiveExpirationDate(item) {
-    if (!item || !this.itemTracksExpiration(item)) return null;
+  getEffectiveExpirationDateForDisplay(item) {
+    if (!item || item.inventoryConsumable) return null;
     const candidates = [];
     const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
     if (item.expDate && months > 0) {
@@ -1763,9 +1763,18 @@ const InventoryManager = {
     return candidates.reduce((a, b) => (new Date(a) < new Date(b) ? a : b));
   },
 
+  /**
+   * Fecha de caducidad efectiva cuando el artículo tiene activado el control FEFO en edición.
+   * Movimientos y reglas estrictas siguen usando esto.
+   */
+  getEffectiveExpirationDate(item) {
+    if (!item || !this.itemTracksExpiration(item)) return null;
+    return this.getEffectiveExpirationDateForDisplay(item);
+  },
+
   getExpirationInsight(item) {
-    if (!this.itemTracksExpiration(item)) return { has: false, days: null, expired: false, soon: false };
-    const eff = this.getEffectiveExpirationDate(item);
+    if (!item || item.inventoryConsumable) return { has: false, days: null, expired: false, soon: false };
+    const eff = this.getEffectiveExpirationDateForDisplay(item);
     if (!eff) return { has: false, days: null, expired: false, soon: false };
     const days = this.daysTo(eff);
     const parsed = {
@@ -2423,7 +2432,7 @@ const InventoryManager = {
       } else {
         descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}">${this.esc(it.description)}</span></td>`;
       }
-      const eff = this.getEffectiveExpirationDate(it);
+      const effUi = this.getEffectiveExpirationDateForDisplay(it);
       const insight = this.getExpirationInsight(it);
       const lot = this.getNearestExpiration(it);
       const fmt = v => Utils.formatDecimalDisplay(v);
@@ -2438,7 +2447,7 @@ const InventoryManager = {
         isAdmin && typeof I18n !== "undefined" && I18n.t
           ? ` title="${Utils.escapeAttr(I18n.t("inventory.codeDblClickAdminHint"))}"`
           : "";
-      const expTxt = eff ? Utils.formatDate(eff) : lot ? `${Utils.formatDate(lot.date)} (${fmt(lot.qty)})` : "-";
+      const expTxt = effUi ? Utils.formatDate(effUi) : lot ? `${Utils.formatDate(lot.date)} (${fmt(lot.qty)})` : "-";
       const boxNums = this._collectWarehouseBoxesFromItem(it);
       const slotIds = this._collectWarehouseSlotsFromItem(it);
       const tipFor = n => I18n.t("inventory.boxInferredTooltip").replace("{n}", String(n));
@@ -3681,7 +3690,7 @@ const InventoryManager = {
     const rows = items
       .map(it => {
         const tot = this.itemTotalStock(it);
-        const eff = this.getEffectiveExpirationDate(it);
+        const eff = this.getEffectiveExpirationDateForDisplay(it);
         const ins = this.getExpirationInsight(it);
         const days =
           ins.has && ins.days !== null
@@ -5483,7 +5492,7 @@ const InventoryManager = {
         window.__gneexLastBoxImportReport = report;
       }
       Utils.showToast(summary, skipped ? "warning" : "success");
-      if (skippedRows.length) {
+      if (skippedRows.length && typeof window !== "undefined" && window.__GNEEX_DEBUG) {
         console.group("G-NEEX Box Import Report");
         console.log("Resumen:", summary);
         console.log("Por motivo:", skipReasonCounts);
@@ -6490,7 +6499,7 @@ const InventoryManager = {
     const rows = items
       .map(it => {
         const tot = this.itemTotalStock(it);
-        const eff = this.getEffectiveExpirationDate(it);
+        const eff = this.getEffectiveExpirationDateForDisplay(it);
         const ins = this.getExpirationInsight(it);
         const days =
           ins.has && ins.days !== null

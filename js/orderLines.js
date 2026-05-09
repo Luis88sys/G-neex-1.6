@@ -408,6 +408,75 @@ const OrderLinesManager = {
     return out;
   },
 
+  _normOrdText(s) {
+    return String(s ?? "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  },
+
+  /** Código artículo mostrado en pedido (normalizado). */
+  _orderLineArticleCodeNorm(orderLine) {
+    return this._normOrdText(orderLine?.code ?? "");
+  },
+
+  /** Código en línea de compra / inventario (normalizado). */
+  _compraMovementArticleCodeNorm(movItem) {
+    if (!movItem) return "";
+    const raw = String(movItem.code ?? "").trim();
+    const inv =
+      movItem.itemId && typeof InventoryManager !== "undefined"
+        ? InventoryManager.items.find(i => i.id === movItem.itemId)
+        : null;
+    return this._normOrdText(raw || inv?.code || "");
+  },
+
+  /**
+   * Pedido ↔ compra (stock): mismo código de artículo y mismo proveedor.
+   * El PO no filtra el vínculo; se aplica por línea de compra al confirmar recepción.
+   */
+  _codesAlignOrderLineAndCompra(orderLine, movItem) {
+    if (!orderLine || !movItem) return false;
+    const oc = this._orderLineArticleCodeNorm(orderLine);
+    const mc = this._compraMovementArticleCodeNorm(movItem);
+    const oid = String(orderLine.itemId ?? "").trim();
+    const mid = String(movItem.itemId ?? "").trim();
+    if (oc && mc) {
+      if (oc !== mc) return false;
+      if (oid && mid && oid !== mid) return false;
+      return true;
+    }
+    if (oid && mid && oid === mid) return true;
+    return false;
+  },
+
+  /**
+   * Vínculo compra ↔ línea de pedido (inventario): código pedido = código compra y proveedor pedido = proveedor compra.
+   */
+  _orderLineMatchesCompraInventoryItem(orderLine, movItem, purchaseMeta) {
+    const pm = purchaseMeta && typeof purchaseMeta === "object" ? purchaseMeta : {};
+    if (!orderLine || !movItem || movItem.consumableReceipt) return false;
+    if (!this._codesAlignOrderLineAndCompra(orderLine, movItem)) return false;
+    const ms = String(movItem.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+    const ls = String(orderLine.supplier ?? "").trim().toLowerCase();
+    return !!(ms && ls && ms === ls);
+  },
+
+  _movementInventoryReceiptMatchesOrderLine(it, orderLine, purchaseMeta) {
+    return this._orderLineMatchesCompraInventoryItem(orderLine, it, purchaseMeta);
+  },
+
+  _consumableMovementLineMatchesOrderLine(it, orderLine, purchaseMeta) {
+    const pm = purchaseMeta && typeof purchaseMeta === "object" ? purchaseMeta : {};
+    if (!it || !it.consumableReceipt || !this._isConsumableLine(orderLine)) return false;
+    const nameNorm = String(orderLine.consumableName || "").trim().toLowerCase();
+    const b = String(it.description || it.code || "").trim().toLowerCase();
+    if (!nameNorm || b !== nameNorm) return false;
+    const ms = String(it.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+    const ls = String(orderLine.supplier ?? "").trim().toLowerCase();
+    return !!ms && ms === ls;
+  },
+
   receiveBatchSelected(ids) {
     if (typeof Auth !== "undefined" && !Auth.guardOrderLinesEdit()) return;
     if (typeof Auth !== "undefined" && !Auth.guardFineAction("ordBatchReceive")) return;
@@ -470,6 +539,10 @@ const OrderLinesManager = {
         }
       }
       if (!it || idxFound < 0) return false;
+      const pm = movement.purchaseMeta || {};
+      const movementSup = String(it.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+      const lineSup = String(line.supplier || "").trim().toLowerCase();
+      if (!movementSup || !lineSup || movementSup !== lineSup) return false;
       const q = Math.abs(parseFloat(it.quantity) || 0);
       const remaining =
         Math.max(0, parseFloat(line.orderedQty) || 0) - Math.max(0, parseFloat(line.receivedQty) || 0);
@@ -493,6 +566,7 @@ const OrderLinesManager = {
         const x = items[idx];
         if (!x || x.consumableReceipt) continue;
         if (String(x.itemId ?? "") !== penItemIdNorm) continue;
+        if (!this._codesAlignOrderLineAndCompra(line, x)) continue;
         const q = Math.abs(parseFloat(x.quantity) || 0);
         if (q <= 0) continue;
         if (qExpected > 0 && Math.abs(q - qExpected) > 1e-6) continue;
@@ -510,6 +584,11 @@ const OrderLinesManager = {
     if (pen.lineItemId != null && String(pen.lineItemId).trim() !== "" && String(it.itemId ?? "") !== String(pen.lineItemId)) {
       return false;
     }
+    const pm = movement.purchaseMeta || {};
+    const movementSup = String(it.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+    const lineSup = String(line.supplier || "").trim().toLowerCase();
+    if (!movementSup || !lineSup || movementSup !== lineSup) return false;
+    if (!this._codesAlignOrderLineAndCompra(line, it)) return false;
     const q = Math.abs(parseFloat(it.quantity) || 0);
     const remaining =
       Math.max(0, parseFloat(line.orderedQty) || 0) - Math.max(0, parseFloat(line.receivedQty) || 0);
@@ -530,20 +609,132 @@ const OrderLinesManager = {
     if (typeof Auth !== "undefined" && !Auth.guardOrderLinesEdit()) return;
     if (typeof Auth !== "undefined" && !Auth.guardFineAction("ordLineMutations")) return;
     if (!movement || movement.type !== "COMPRA_STOCK" || movement.orderLineId) return;
-    const items = movement.items || [];
+    const items = Array.isArray(movement.items) ? movement.items : [];
     if (items.some(x => x.consumableReceipt)) return;
-    const it = items.find(x => x.itemId && !x.consumableReceipt && !x.transformationOutput);
-    if (!it) return;
-    const inv = InventoryManager.items.find(i => i.id === it.itemId);
-    if (!inv || inv.inventoryConsumable) return;
-    const received = Math.abs(parseFloat(it.quantity) || 0);
-    if (received <= 0) return;
     if (typeof App === "undefined" || !App.showConfirmAsync) return;
 
-    const register = await App.showConfirmAsync(I18n.t("orderLines.backfillAskRegister"));
+    const pm = movement.purchaseMeta || {};
+    const grouped = new Map();
+    for (const x of items) {
+      if (!x || x.consumableReceipt || x.transformationOutput) continue;
+      if (!x.itemId) continue;
+      const inv = InventoryManager.items.find(i => i.id === x.itemId);
+      if (!inv || inv.inventoryConsumable) continue;
+      const q = Math.max(0, Math.abs(parseFloat(x.quantity) || 0));
+      if (q <= 0) continue;
+      const supplierNorm = String(x.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+      const codeNorm = this._normOrdText(x.code || inv.code || "");
+      if (!supplierNorm || !codeNorm) continue;
+      const key = `${String(x.itemId)}|${codeNorm}|${supplierNorm}`;
+      const prev = grouped.get(key);
+      if (prev) {
+        prev.received = Utils.roundDecimal(prev.received + q);
+      } else {
+        grouped.set(key, {
+          itemId: x.itemId,
+          codeNorm,
+          code: String(x.code || inv.code || ""),
+          description: String(x.description || inv.description || ""),
+          received: Utils.roundDecimal(q),
+          supplierNorm
+        });
+      }
+    }
+
+    const attachBatch = [];
+    let changedOrderedQty = false;
+    /** Grupo sin línea de pedido con mismo artículo+código+proveedor (solo ahí ofrecemos alta nueva). */
+    let groupNeedsNewPedidoLine = null;
+    const sortByOldest = arr =>
+      [...arr].sort((a, b) => {
+        const ta = new Date(String(a.orderedAt || a.createdAt || "")).getTime();
+        const tb = new Date(String(b.orderedAt || b.createdAt || "")).getTime();
+        const va = Number.isFinite(ta) ? ta : Number.POSITIVE_INFINITY;
+        const vb = Number.isFinite(tb) ? tb : Number.POSITIVE_INFINITY;
+        if (va !== vb) return va - vb;
+        return String(a.id || "").localeCompare(String(b.id || ""));
+      });
+    for (const g of grouped.values()) {
+      const baseList = (this.lines || []).filter(l => {
+        if (!l || l.lineKind !== "inventory") return false;
+        if (String(l.itemId ?? "") !== String(g.itemId ?? "")) return false;
+        if (l.status !== this.STATUS.PEDIDA && l.status !== this.STATUS.RECEPCION_PARCIAL) return false;
+        const lineSup = String(l.supplier || "").trim().toLowerCase();
+        if (!lineSup || lineSup !== g.supplierNorm) return false;
+        if (this._normOrdText(l.code || "") !== g.codeNorm) return false;
+        return true;
+      });
+      if (!baseList.length) {
+        groupNeedsNewPedidoLine = groupNeedsNewPedidoLine || g;
+        continue;
+      }
+      const chosen = sortByOldest(baseList)[0];
+      if (!chosen) continue;
+      const remaining =
+        Math.max(0, parseFloat(chosen.orderedQty) || 0) - Math.max(0, parseFloat(chosen.receivedQty) || 0);
+      const itemLabel = [String(g.code || "").trim(), String(g.description || "").trim()].filter(Boolean).join(" — ");
+      const sameOrder = await App.showConfirmAsync(
+        `Se encontró un pedido pendiente para el artículo «${itemLabel || "sin código"}» (proveedor: ${chosen.supplier || "—"}, PO: ${chosen.poNumber || "—"}). ¿Esta compra corresponde a ese pedido?`,
+        { yesNo: true }
+      );
+      if (!sameOrder) continue;
+      if (g.received < remaining - 1e-9) {
+        const partial = await App.showConfirmAsync(
+          `La compra (${g.received}) es parcial frente al pendiente (${Utils.roundDecimal(remaining)}). ¿Registrar recepcion parcial?`,
+          { yesNo: true }
+        );
+        if (!partial) continue;
+      } else if (g.received > remaining + 1e-9) {
+        const suggested = Utils.roundDecimal(Math.max(0, parseFloat(chosen.receivedQty) || 0) + g.received);
+        const grow = await App.showConfirmAsync(
+          `La compra (${g.received}) supera lo pendiente (${Utils.roundDecimal(
+            remaining
+          )}). ¿Actualizar cantidad pedida a ${suggested} para asociar este pedido?`,
+          { yesNo: true }
+        );
+        if (!grow) continue;
+        chosen.orderedQty = suggested;
+        if (chosen.receivedQty >= chosen.orderedQty - 1e-9) chosen.status = this.STATUS.RECEPCION_TOTAL;
+        changedOrderedQty = true;
+      }
+      attachBatch.push({
+        orderLineId: chosen.id,
+        lineItemId: chosen.itemId,
+        quantity: g.received,
+        consumableReceipt: false
+      });
+    }
+    if (attachBatch.length) {
+      if (changedOrderedQty) this.save();
+      movement.orderLineBatchReceipts = attachBatch;
+      if (typeof MovementManager !== "undefined" && MovementManager.save) MovementManager.save();
+      this.commitBatchReceiptAfterCompra(movement);
+      return;
+    }
+
+    if (!groupNeedsNewPedidoLine) {
+      return;
+    }
+
+    const first = groupNeedsNewPedidoLine;
+    const it = first
+      ? items.find(x => {
+          if (!x || String(x?.itemId ?? "") !== String(first.itemId ?? "")) return false;
+          const pm = movement.purchaseMeta || {};
+          const inv0 = InventoryManager.items.find(i => i.id === x.itemId);
+          const cn = this._normOrdText(x.code || inv0?.code || "");
+          const sup = String(x.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+          return cn === first.codeNorm && sup === first.supplierNorm;
+        })
+      : null;
+    const inv = it ? InventoryManager.items.find(i => i.id === it.itemId) : null;
+    const received = first ? first.received : 0;
+    if (!it || !inv || received <= 0) return;
+
+    const register = await App.showConfirmAsync(I18n.t("orderLines.backfillAskRegister"), { yesNo: true });
     if (!register) return;
 
-    const fullReceipt = await App.showConfirmAsync(I18n.t("orderLines.backfillAskFullReceipt"));
+    const fullReceipt = await App.showConfirmAsync(I18n.t("orderLines.backfillAskFullReceipt"), { yesNo: true });
     let orderedQty = received;
     if (!fullReceipt) {
       const raw = await App.showPrompt({
@@ -562,6 +753,37 @@ const OrderLinesManager = {
     this._createBackfillLineFromCompra(movement, it, inv, orderedQty, received);
   },
 
+  _sumStandaloneCompraReceivedQtyForLine(movement, line) {
+    const items = Array.isArray(movement?.items) ? movement.items : [];
+    const pm = movement?.purchaseMeta && typeof movement.purchaseMeta === "object" ? movement.purchaseMeta : {};
+    if (!line) return 0;
+    if (this._isConsumableLine(line)) {
+      const nameNorm = String(line.consumableName || "").trim().toLowerCase();
+      if (!nameNorm) return 0;
+      const lineSup = String(line.supplier || "").trim().toLowerCase();
+      return Utils.roundDecimal(
+        items.reduce((acc, x) => {
+          if (!x || !x.consumableReceipt) return acc;
+          const b = String(x.description || x.code || "").trim().toLowerCase();
+          if (b !== nameNorm) return acc;
+          const ms = String(x.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+          if (ms !== lineSup) return acc;
+          return acc + Math.abs(parseFloat(x.quantity) || 0);
+        }, 0)
+      );
+    }
+    const itemIdNorm = String(line.itemId ?? "");
+    if (!itemIdNorm) return 0;
+    return Utils.roundDecimal(
+      items.reduce((acc, x) => {
+        if (!x || x.consumableReceipt || x.transformationOutput) return acc;
+        if (String(x.itemId ?? "") !== itemIdNorm) return acc;
+        if (!this._movementInventoryReceiptMatchesOrderLine(x, line, pm)) return acc;
+        return acc + Math.abs(parseFloat(x.quantity) || 0);
+      }, 0)
+    );
+  },
+
   /**
    * @param {object} movement
    * @param {object} lineItem
@@ -573,8 +795,11 @@ const OrderLinesManager = {
     if (typeof Auth !== "undefined" && !Auth.guardOrderLinesEdit()) return;
     if (typeof Auth !== "undefined" && !Auth.guardFineAction("ordLineMutations")) return;
     const pm = movement.purchaseMeta || {};
-    const supplier = String(pm.supplier || "").trim() || String(invItem.supplier || "").trim();
-    const poNumber = String(pm.poNumber || "").trim();
+    const supplier =
+      String(lineItem.compraLineSupplier ?? "").trim() ||
+      String(pm.supplier || "").trim() ||
+      String(invItem.supplier || "").trim();
+    const poNumber = String(lineItem.compraLinePo ?? pm.poNumber ?? "").trim();
     const nowIso = new Date().toISOString();
     const pmYmd = String(pm.realReceiptDate || "").trim();
     let receiptInstantIso = movement.date || nowIso;
@@ -624,26 +849,32 @@ const OrderLinesManager = {
   commitReceiptAfterCompra(movement) {
     const line = this.getLine(movement.orderLineId);
     if (!line || !movement.items?.length) return;
-    const it = movement.items[0];
-    const q = Math.abs(parseFloat(it.quantity) || 0);
+    const q = this._sumStandaloneCompraReceivedQtyForLine(movement, line);
     const remaining =
       Math.max(0, parseFloat(line.orderedQty) || 0) - Math.max(0, parseFloat(line.receivedQty) || 0);
+    if (q <= 0 || q > remaining + 1e-6) return;
 
     if (this._isConsumableLine(line)) {
-      if (!it.consumableReceipt || q <= 0 || q > remaining + 1e-6) return;
       const a = String(line.consumableName || "").trim().toLowerCase();
-      const b = String(it.description || it.code || "").trim().toLowerCase();
-      if (!a || a !== b) return;
+      if (!a) return;
     } else {
-      if (q <= 0 || q > remaining + 1e-6 || String(it.itemId ?? "") !== String(line.itemId ?? "")) return;
+      if (!String(line.itemId ?? "").trim()) return;
     }
 
-    line.receivedQty = Math.round((line.receivedQty + q) * 1000) / 1000;
-    line.movementIds.push(movement.id);
+    if (!Array.isArray(line.movementIds)) line.movementIds = [];
+    if (!Array.isArray(line.timeline)) line.timeline = [];
+
+    line.receivedQty = Math.round((Math.max(0, parseFloat(line.receivedQty) || 0) + q) * 1000) / 1000;
+    if (!line.movementIds.includes(movement.id)) line.movementIds.push(movement.id);
     const pm = movement.purchaseMeta || {};
-    if (pm.poNumber && String(pm.poNumber).trim()) {
-      line.poNumber = String(pm.poNumber).trim();
-    }
+    const matchIt = (movement.items || []).find(it => {
+      if (!it) return false;
+      return this._isConsumableLine(line)
+        ? this._consumableMovementLineMatchesOrderLine(it, line, pm)
+        : this._movementInventoryReceiptMatchesOrderLine(it, line, pm);
+    });
+    const poUpd = String(matchIt?.compraLinePo ?? pm.poNumber ?? "").trim();
+    if (poUpd) line.poNumber = poUpd;
     const now = new Date().toISOString();
     const ymd = String(pm.realReceiptDate || "").trim();
     let receiptInstantIso = now;
@@ -670,6 +901,57 @@ const OrderLinesManager = {
     if (typeof Auth !== "undefined") Auth.logAudit("orderLine.receipt", `${line.id} qty ${q} (compra form)`);
   },
 
+  /**
+   * Filas de inventario del movimiento que corresponden a una entrada del batch:
+   * una fila con la cantidad exacta, varias filas del mismo itemId que suman esa cantidad,
+   * o un subconjunto pequeño que suma exactamente (evita fallar cuando el mismo SKU va en varias líneas).
+   */
+  _findInventoryMovementIndicesForReceipt(items, usedMovementLineIdx, targetId, qtyExpected) {
+    const EPS = 1e-5;
+    const qExp = Math.abs(parseFloat(qtyExpected) || 0);
+    if (qExp <= 0) return null;
+    const tid = String(targetId ?? "");
+    const cand = [];
+    for (let idx = 0; idx < items.length; idx++) {
+      if (usedMovementLineIdx.has(idx)) continue;
+      const it = items[idx];
+      if (!it || it.consumableReceipt) continue;
+      if (String(it.itemId ?? "") !== tid) continue;
+      const qi = Math.abs(parseFloat(it.quantity) || 0);
+      if (qi <= 0) continue;
+      cand.push({ idx, qi });
+    }
+    if (!cand.length) return null;
+
+    for (const { idx, qi } of cand) {
+      if (Math.abs(qi - qExp) <= EPS) return { indices: [idx], totalQty: qi };
+    }
+
+    const sumAll = cand.reduce((s, c) => s + c.qi, 0);
+    if (Math.abs(sumAll - qExp) <= EPS) {
+      return { indices: cand.map(c => c.idx), totalQty: sumAll };
+    }
+
+    const n = cand.length;
+    if (n <= 15) {
+      const limit = 1 << n;
+      for (let mask = 1; mask < limit; mask++) {
+        let sum = 0;
+        const indices = [];
+        for (let b = 0; b < n; b++) {
+          if (mask & (1 << b)) {
+            sum += cand[b].qi;
+            indices.push(cand[b].idx);
+          }
+        }
+        if (indices.length && Math.abs(sum - qExp) <= EPS) {
+          return { indices, totalQty: sum };
+        }
+      }
+    }
+    return null;
+  },
+
   commitBatchReceiptAfterCompra(movement) {
     const batch = Array.isArray(movement?.orderLineBatchReceipts) ? movement.orderLineBatchReceipts : [];
     if (!batch.length || !Array.isArray(movement?.items) || !movement.items.length) return;
@@ -684,6 +966,9 @@ const OrderLinesManager = {
       if (qtyExpected <= 0) continue;
 
       let item = null;
+      let receiptQty = null;
+      /** Índices de movement.items a reservar tras validar cantidad vs pedido (inventario multi-fila). */
+      let pendingInvIndices = null;
       if (this._isConsumableLine(line) || rec.consumableReceipt) {
         const nameNorm = String(line.consumableName || "").trim().toLowerCase();
         for (let idx = 0; idx < items.length; idx++) {
@@ -703,31 +988,44 @@ const OrderLinesManager = {
           rec.lineItemId != null && String(rec.lineItemId).trim() !== ""
             ? String(rec.lineItemId)
             : String(line.itemId ?? "");
-        for (let idx = 0; idx < items.length; idx++) {
-          if (usedMovementLineIdx.has(idx)) continue;
-          const it = items[idx];
-          if (!it || it.consumableReceipt) continue;
-          if (String(it.itemId ?? "") !== targetId) continue;
-          const qi = Math.abs(parseFloat(it.quantity) || 0);
-          if (Math.abs(qi - qtyExpected) > 1e-6) continue;
-          item = it;
-          usedMovementLineIdx.add(idx);
-          break;
-        }
+        const pm = movement.purchaseMeta || {};
+
+        const match = this._findInventoryMovementIndicesForReceipt(items, usedMovementLineIdx, targetId, qtyExpected);
+        if (!match) continue;
+        const metaOk = match.indices.every(idx => {
+          const it0 = items[idx];
+          return it0 && this._movementInventoryReceiptMatchesOrderLine(it0, line, pm);
+        });
+        if (!metaOk) continue;
+        receiptQty = Utils.roundDecimal(match.totalQty);
+        if (Math.abs(receiptQty - qtyExpected) > 1e-5) continue;
+
+        pendingInvIndices = match.indices;
+        item = items[match.indices[0]] || null;
       }
       if (!item) continue;
-      const q = Math.abs(parseFloat(item.quantity) || 0);
+      if (this._isConsumableLine(line) || rec.consumableReceipt) {
+        const pm = movement.purchaseMeta || {};
+        const movementSup = String(item.compraLineSupplier ?? pm.supplier ?? "").trim().toLowerCase();
+        const lineSup = String(line.supplier || "").trim().toLowerCase();
+        if (!movementSup || !lineSup || movementSup !== lineSup) continue;
+        receiptQty = Math.abs(parseFloat(item.quantity) || 0);
+      }
+      const q = receiptQty != null ? receiptQty : Math.abs(parseFloat(item.quantity) || 0);
       const remaining = Math.max(0, (parseFloat(line.orderedQty) || 0) - (parseFloat(line.receivedQty) || 0));
       if (q <= 0 || q > remaining + 1e-6) continue;
-      if (Math.abs(q - qtyExpected) > 1e-6) continue;
+      if (Math.abs(q - qtyExpected) > 1e-5) continue;
+
+      if (pendingInvIndices && pendingInvIndices.length) {
+        pendingInvIndices.forEach(i => usedMovementLineIdx.add(i));
+      }
 
       line.receivedQty = Math.round((line.receivedQty + q) * 1000) / 1000;
       line.movementIds = Array.isArray(line.movementIds) ? line.movementIds : [];
       line.movementIds.push(movement.id);
       const pm = movement.purchaseMeta || {};
-      if (pm.poNumber && String(pm.poNumber).trim()) {
-        line.poNumber = String(pm.poNumber).trim();
-      }
+      const poFrom = String(item.compraLinePo ?? pm.poNumber ?? "").trim();
+      if (poFrom) line.poNumber = poFrom;
       const now = new Date().toISOString();
       const ymd = String(pm.realReceiptDate || "").trim();
       let receiptInstantIso = now;

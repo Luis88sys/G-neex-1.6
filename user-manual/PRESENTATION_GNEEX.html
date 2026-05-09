@@ -186,16 +186,15 @@
     <h2>The Solution: G-NEEX</h2>
     <p><strong>G-NEEX</strong> is a web application that works <strong>100% offline</strong>, directly in the browser, with no need for external servers or internet connection.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Browser-stored data:</strong> inventory, movements, and session live in the browser’s local storage. Lock the workstation, use personal accounts, export backups regularly, and only import JSON backups from trusted sources.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Backup &amp; Import/Export:</strong> the Import/Export tab and critical backup actions are limited to the <strong>administrator account</strong>; temporary elevation does not replace that role. Login backgrounds may rotate per <code>assets/login-bg-manifest.json</code>. JSON import no longer removes keys that are absent from the file.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Stable URL:</strong> use one fixed launch address (e.g. local server <code>http://127.0.0.1:PORT/</code>); do not mix <code>file://</code> with HTTP.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Units of measure:</strong> ⚙️ Settings → <strong>Units</strong>; full JSON backup includes the catalog; reserved <strong>U</strong> row in catalog; each article sets a stock unit or none; inventory shows the symbol when set (optional <strong>≈</strong>). Movement forms still use plain numbers.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Backup &amp; Import/Export:</strong> the Import/Export tab and critical backup actions are limited to the <strong>administrator account</strong>; temporary elevation does not replace that role. Login backgrounds may rotate per <code>assets/login-bg-manifest.json</code>. JSON import no longer removes unrelated local data when keys are absent from the file.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Stable URL:</strong> use one fixed address (e.g. <code>http://127.0.0.1:PORT/</code>) and do not mix <code>file://</code> with HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Units of measure:</strong> the catalog keeps reserved <strong>U</strong>; each article may have a stock unit or none (no automatic assignment).</p>
     <p>It manages the entire material lifecycle:</p>
     <p class="flow"><strong>Intake</strong> → <strong>Warehouse</strong> → <strong>Dispatch</strong> → <strong>Transport</strong> → <strong>Job Site</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
-        <img class="pres-shot" style="max-height:40vh" src="../docs/app-screenshots/capture-en-01-login.png" alt="Login" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:40vh" src="../app-screenshots/capture-en-01-login.png" alt="Login" loading="lazy" decoding="async">
         <figcaption style="font-size:0.95em;color:#666;margin-top:0.5rem">Login screen</figcaption>
     </figure>
-    <p style="margin-top:0.6rem;font-size:0.88em;color:#666;">Real v1.6 captures (Playwright). Regenerate: <code>docs/app-screenshots/README.md</code></p>
     <div class="watermark">G-NEEX</div>
 </div>
 
@@ -203,7 +202,7 @@
 <div class="slide">
     <h2>Real-Time Inventory</h2>
     <figure style="text-align:center;margin:0 0 12px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-inventario.png" alt="Inventory tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-en-inventario.png" alt="Inventory tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Inventory</strong> tab (top bar)</figcaption>
     </figure>
     <table>
@@ -212,7 +211,6 @@
         </thead>
         <tbody>
             <tr><td><strong>Full overview</strong></td><td>Table with code, description, category, main/production/transformation stock, location, and expiration date</td></tr>
-            <tr><td><strong>Units of measure</strong></td><td>Symbol next to main stock when the article has a unit (optional <strong>≈</strong>); ⚙️ <strong>Units</strong> + per-article editor</td></tr>
             <tr><td><strong>3 independent stocks</strong></td><td>Main, Production, and Transformation — each with its own tracking</td></tr>
             <tr><td><strong>Instant search</strong></td><td>Live filter by code, description, category, or location</td></tr>
             <tr><td><strong>Tools menu (⋮)</strong></td><td>First item <strong>Hide inline filter bars</strong> (chevron): closes box / depot / consumable strips; <strong>disabled</strong> when no strip is open. The <strong>⋮</strong> menu groups export, print, filters, as-of date, summaries, etc.</td></tr>
@@ -233,7 +231,7 @@
 <div class="slide">
     <h2>16 Movement Types</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-en-movimientos.png" alt="Movements tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-en-movimientos.png" alt="Movements tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Movements</strong> tab — type grid</figcaption>
     </figure>
     <p>G-NEEX supports <strong>16 movement types</strong> covering all operations in an industrial warehouse:</p>
@@ -283,7 +281,7 @@
 <div class="slide">
     <h2>Supplier orders</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-pedidos.png" alt="Orders tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-en-pedidos.png" alt="Orders tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Orders</strong> tab</figcaption>
     </figure>
     <p><strong>Orders</strong> tab: lines tied to inventory (supplier, quantity); <strong>PO/OC</strong> is captured on <strong>receipt</strong> in Stock purchase.</p>
@@ -291,6 +289,7 @@
         <li><strong>Filters</strong>: status (inactive, ordered, partial, full, cancelled), supplier, and item (code or description).</li>
         <li><strong>States</strong>: draft → ordered → partial/full receipt or cancelled; dates for tracking.</li>
         <li><strong>Receipt</strong>: opens the same <strong>Stock purchase</strong> form as under Movements; confirm with <strong>Process movement</strong>.</li>
+        <li>If you log a purchase <strong>only</strong> under Movements and a matching order line is open, <strong>Yes / No</strong> prompts link the movement and refresh the Orders panel.</li>
         <li><strong>Export / Print table</strong>: use the current filtered view; there is bulk cleanup (+1 year) and per-line removal (&gt;3 months).</li>
         <li><strong>References</strong>: <strong>type letters + 6-digit sequence per type</strong> (e.g. <code>AJU000001</code>, <code>COM000002</code>); legacy refs normalize on load.</li>
         <li><strong>Provisional reception</strong>: some categories require PO and are handled as provisional before main-stock impact.</li>
@@ -303,7 +302,7 @@
 <div class="slide">
     <h2>List layouts</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:30vh" src="../docs/app-screenshots/capture-en-historial.png" alt="History tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:30vh" src="../app-screenshots/capture-en-historial.png" alt="History tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>History</strong> tab (tiles / table / carousel)</figcaption>
     </figure>
     <p><strong>History</strong>, <strong>Transport</strong>, and <strong>Orders</strong> include a <strong>View</strong> control for <strong>tiles</strong>, a compact <strong>list</strong>, and (where relevant) a <strong>detailed table</strong>; in <strong>History</strong>, a <strong>Chronological carousel</strong> is also available for horizontal card browsing. Minimized cards also show the <strong>Project ID</strong> when relevant.</p>
@@ -320,7 +319,7 @@
 <div class="slide">
     <h2>Smart Transport</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-transporte.png" alt="Transport tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-en-transporte.png" alt="Transport tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Transport</strong> tab</figcaption>
     </figure>
     <p>The transport module automates shipment logistics to job sites:</p>
@@ -332,7 +331,7 @@
         <li><strong>Manual creation</strong> — For exceptional cases without an associated checklist</li>
         <li><strong>Full history</strong> — Record of every action performed on the transport</li>
         <li><strong>Traceability</strong> — Transport tab summary (receptions waiting to ship, quantities on active truck lines, recent shipments, stock on hand) plus an editable <strong>manual list</strong> by material family and phase (on-site / truck / departed)</li>
-        <li><strong>Per-truck report</strong> — Each truck can <strong>Export</strong> or <strong>Print</strong> a cargo table with materials, quantities, and current dimensions</li>
+        <li><strong>Per-truck report</strong> — Each truck can <strong>Export</strong> or <strong>Print</strong> a cargo table with materials, quantities, and current dimensions; with <strong>multiple packages</strong> per line, XLSX and print use <strong>stacked rows</strong> (fixed Package, L, W, H columns), not many horizontal columns.</li>
     </ul>
     <div class="watermark">G-NEEX</div>
 </div>
@@ -341,7 +340,7 @@
 <div class="slide">
     <h2>Dashboard — Instant Overview</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-panel.png" alt="Main dashboard" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-en-panel.png" alt="Main dashboard" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Main screen after login (<strong>Summary</strong> tab)</figcaption>
     </figure>
     <p>Upon login, a panel displays the current operational status:</p>
@@ -359,15 +358,16 @@
 
 <!-- Slide: Reminders -->
 <div class="slide">
-    <h2>Reminders (Admin)</h2>
+    <h2>Reminders</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-recordatorios.png" alt="Reminders tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-en-recordatorios.png" alt="Reminders tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Reminders</strong> tab</figcaption>
     </figure>
     <ul>
-        <li><strong>Dedicated tab</strong> for operational reminders with due date and priority</li>
+        <li><strong>Dedicated tab</strong> for operational reminders with due date and priority (per profile permissions)</li>
         <li><strong>Auto-escalation</strong> of priorities by business-day aging</li>
         <li><strong>Dashboard preview</strong> with quick navigation to reminders</li>
+        <li><strong>Visibility:</strong> each user only sees reminders <strong>they created</strong> (the machine’s JSON backup may hold everyone’s).</li>
     </ul>
     <div class="watermark">G-NEEX</div>
 </div>
@@ -376,11 +376,12 @@
 <div class="slide">
     <h2>The app in use (on-screen)</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-en-panel.png" alt="G-NEEX dashboard" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-en-panel.png" alt="G-NEEX dashboard" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Dashboard: navigation to the main modules</figcaption>
     </figure>
     <ul>
         <li>G-NEEX groups daily work in modules you open from the top bar: inventory, movements, history, transport, orders, reminders, and settings.</li>
+        <li>An administrator sets users under <strong>⚙️ Settings → Users</strong> using generic templates or <strong>reference profiles</strong> (same behaviour as built-in accounts); keys are documented in <code>PlantillasPermisos.xlsx.csv</code>.</li>
         <li>The user manual explains each screen and workflow. <strong>How</strong> access and copies are run on your site is an operational matter; the focus here is day-to-day <strong>use</strong> of the interface and inventory features.</li>
     </ul>
     <div class="watermark">G-NEEX</div>
@@ -400,6 +401,8 @@
     </ul>
     <p>Files include the date range in their name:</p>
     <p><code>GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx</code></p>
+    <p><strong>Receptions (Settings):</strong> exporting or printing the filtered list uses the same <strong>packages-as-rows</strong> layout as the truck cargo report.</p>
+    <p><strong>Consumables:</strong> marking an item <strong>inventory consumable</strong> in the editor and saving adds its name to <strong>Settings → Consumables</strong>; unchecking removes the matching entry.</p>
     <div class="watermark">G-NEEX</div>
 </div>
 

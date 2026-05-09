@@ -451,9 +451,13 @@ const Auth = {
       ...this.TAB_FEATURE_ACTION_KEYS
     ]);
     if (!allowed.has(key)) return "none";
+    /** Herramienta retirada para todos los roles (incl. administrador): borrar datos de caducidad en inventario. */
+    if (key === "invDangerClearExpiry") return "none";
     if (this.isAdmin()) return "edit";
     const u = this.getCurrentUser();
     if (!u) return "none";
+    /** Importar respaldo JSON completo: mismo derecho para todos los usuarios con sesión (no administrador exclusivo). */
+    if (key === "cfgActBackupImport") return "edit";
     const mx = this.getSessionMatrix();
     const raw = u.permissionActionMatrix && u.permissionActionMatrix[key];
     let lvl;
@@ -469,7 +473,8 @@ const Auth = {
     if (this.ORDER_ACTION_KEYS.includes(key) || this.TAB_FEATURE_ACTION_KEYS.includes(key)) {
       lvl = this._capFineActionLevelToParentTab(lvl, key, mx);
     }
-    if (this.isElevated() && lvl === "none") lvl = "view";
+    if (this.isElevated() && lvl === "none" && key !== "invDangerClearExpiry") lvl = "view";
+    if (key === "movRecent" && this.historyMaterialReceptionOnly()) lvl = "none";
     return lvl;
   },
 
@@ -630,9 +635,38 @@ const Auth = {
     return out;
   },
 
+  /**
+   * Convierte un payload de cuenta integrada (matriz + acciones) al formato de plantilla
+   * que usan `addUser` y `updateUserProfile` (rol usuario + matrices normalizadas).
+   */
+  _personaTemplateFromBuiltinPayload(p) {
+    if (!p || !p.permissionMatrix) return null;
+    return {
+      role: "user",
+      canEdit: !!p.canEdit,
+      permissionMatrix: p.permissionMatrix,
+      permissionActionMatrix: p.permissionActionMatrix
+    };
+  },
+
   _buildUserTemplatePayload(templateKey) {
     const key = String(templateKey || "").trim();
     if (!key) return null;
+
+    const personaMap = {
+      perfil_keith_lake: () => this._keithSupervisorLikeBuiltinPayload(),
+      perfil_alex_beaulieu: () => this._keithSupervisorLikeBuiltinPayload(),
+      perfil_guest_demo: () => this._guestReadonlyConsultanteBuiltinPayload(),
+      perfil_patrick: () => this._patrickInventoryLeadBuiltinPayload(),
+      perfil_stephane_demers: () => this._stephaneReadonlyConsultanteBuiltinPayload(),
+      perfil_wen_deng: () => this._wenBuyerBuiltinPayload(),
+      perfil_barbara_bonny: () => this._barbaraTransportLeadBuiltinPayload(),
+      perfil_annie_larose: () => this._annieTeamCmcBuiltinPayload()
+    };
+    if (Object.prototype.hasOwnProperty.call(personaMap, key)) {
+      return this._personaTemplateFromBuiltinPayload(personaMap[key].call(this));
+    }
+
     const matrix = this.defaultPermissionMatrix();
     Object.keys(matrix).forEach(k => {
       matrix[k] = "none";
@@ -697,6 +731,12 @@ const Auth = {
       setMx("orderLinesEdit", "edit");
       setMx("movementsExport", "edit");
       setMx("dashboardAlerts", "edit");
+      setAct("movPicker", "edit");
+      setAct("movRecent", "view");
+      setAct("dashHero", "edit");
+      setAct("dashOverview", "edit");
+      setAct("dashToday", "edit");
+      setAct("remPanel", "edit");
       setAct("cfgModalOpen", "edit");
       setAct("cfgTabImport", "edit");
       setAct("cfgTabReceptions", "edit");
@@ -773,34 +813,430 @@ const Auth = {
     };
   },
 
+  /**
+   * Keith: plantilla «supervisor» sin gestión de usuarios ni códigos de elevación, sin wipe BD
+   * ni vista previa masiva de destinatarios (resto operativo en edición). Importar respaldo JSON: igual que el resto de cuentas.
+   */
+  _keithSupervisorLikeBuiltinPayload() {
+    const base = this._buildUserTemplatePayload("supervisor");
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.expirationConfig = "view";
+    const act = { ...base.permissionActionMatrix };
+    ["cfgTabUsers", "cfgTabElevation", "cfgActWipeDb", "cfgActRecipientsPreview"].forEach(k => {
+      act[k] = "none";
+    });
+    act.invBrowse = "edit";
+    act.invTools = "edit";
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = this.PERMISSIONS.some(pk => out.permissions[pk]);
+    return out;
+  },
+
+  /**
+   * Guest: modo presentación — mismas zonas que un consultante (pestañas y panel visibles en vista),
+   * sin ejecutar movimientos ni mutar datos; administración peligrosa oculta (usuarios, elevación, wipe, respaldos masivos, etc.).
+   */
+  _guestReadonlyConsultanteBuiltinPayload() {
+    const base = this._buildUserTemplatePayload("operario_consultante");
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.tabDashboard = "view";
+    mx.tabReminders = "view";
+    mx.tabInventory = "view";
+    mx.tabMovements = "view";
+    mx.tabHistory = "view";
+    mx.tabTransport = "view";
+    mx.tabOrderlines = "view";
+    mx.receptionsEdit = "view";
+    mx.expirationConfig = "view";
+    mx.dashboardAlerts = "none";
+    mx.inventoryEdit = "none";
+    mx.loadInventoryCsv = "none";
+    mx.movementsExport = "none";
+    mx.orderLinesEdit = "none";
+
+    const act = { ...base.permissionActionMatrix };
+    this.TAB_FEATURE_ACTION_KEYS.filter(k => String(k).startsWith("movType_")).forEach(k => {
+      act[k] = "view";
+    });
+    act.movPicker = "view";
+    act.movRecent = "view";
+    act.movAnnul = "none";
+    act.invBrowse = "view";
+    act.invTools = "view";
+    act.invDangerClearExpiry = "none";
+    act.dashHero = "view";
+    act.dashOverview = "view";
+    act.dashToday = "view";
+    act.remPanel = "view";
+    act.histExports = "view";
+    act.histFilters = "view";
+    act.histLedger = "view";
+    act.histResults = "view";
+    act.trnToolbar = "view";
+    act.trnMain = "view";
+    act.ordSuggestions = "view";
+    act.ordFilters = "view";
+    act.ordPrint = "view";
+    act.ordFormNewLine = "none";
+    act.ordLineMutations = "none";
+    act.ordBatchReceive = "none";
+    act.ordPurgeOld = "none";
+    act.ordExportXlsx = "none";
+
+    act.cfgModalOpen = "view";
+    act.cfgTabAbout = "view";
+    act.cfgTabImport = "view";
+    act.cfgTabExpirations = "view";
+    act.cfgTabReceptions = "view";
+    act.cfgTabEmployees = "view";
+    act.cfgTabSuppliers = "view";
+    act.cfgTabConsumables = "view";
+    act.cfgTabMeasureUnits = "view";
+    act.cfgActExportTemplate = "view";
+    act.cfgActMovementsExport = "view";
+    act.cfgActTransportsExport = "view";
+
+    act.cfgTabUsers = "none";
+    act.cfgTabElevation = "none";
+    act.cfgTabItemEdit = "none";
+    act.cfgActImportInventory = "none";
+    act.cfgActArchive = "none";
+    act.cfgActReimportArchive = "none";
+    act.cfgActBackupExport = "none";
+    act.cfgActBackupImport = "none";
+    act.cfgActMovementsMerge = "none";
+    act.cfgActTransportsMerge = "none";
+    act.cfgActWipeDb = "none";
+    act.cfgActRecipientsPreview = "none";
+
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = false;
+    return out;
+  },
+
+  /**
+   * Stephane — presentación sin movimientos, transporte, pedidos ni recepciones (pestañas ocultas).
+   * Config → Import/Export: solo respaldo completo JSON (import/export); el resto de acciones de esa pestaña ocultas.
+   */
+  _stephaneReadonlyConsultanteBuiltinPayload() {
+    const base = this._guestReadonlyConsultanteBuiltinPayload();
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.tabMovements = "none";
+    mx.tabTransport = "none";
+    mx.tabOrderlines = "none";
+    mx.receptionsEdit = "none";
+
+    const act = { ...base.permissionActionMatrix };
+    this.TAB_FEATURE_ACTION_KEYS.filter(k => String(k).startsWith("movType_")).forEach(k => {
+      act[k] = "none";
+    });
+    act.movPicker = "none";
+    act.movRecent = "none";
+    act.trnToolbar = "none";
+    act.trnMain = "none";
+    this.ORDER_ACTION_KEYS.forEach(k => {
+      act[k] = "none";
+    });
+
+    act.cfgTabReceptions = "none";
+    act.cfgActBackupExport = "edit";
+    act.cfgActBackupImport = "edit";
+    act.cfgActImportInventory = "none";
+    act.cfgActExportTemplate = "none";
+    act.cfgActArchive = "none";
+    act.cfgActReimportArchive = "none";
+    act.cfgActMovementsExport = "none";
+    act.cfgActMovementsMerge = "none";
+    act.cfgActTransportsExport = "none";
+    act.cfgActTransportsMerge = "none";
+
+    act.invDangerClearExpiry = "none";
+
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = false;
+    return out;
+  },
+
+  /**
+   * Barbara — solo pestañas Transporte y Recepciones; exportar recepciones (Config → Recepciones).
+   * Sin panel, recordatorios, inventario, pedidos, movimientos ni historial.
+   */
+  _barbaraTransportLeadBuiltinPayload() {
+    const base = this._buildUserTemplatePayload("operario_recepcion_expedicion");
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.tabDashboard = "none";
+    mx.tabReminders = "none";
+    mx.tabInventory = "none";
+    mx.inventoryEdit = "none";
+    mx.tabMovements = "none";
+    mx.tabHistory = "none";
+    mx.tabTransport = "edit";
+    mx.tabOrderlines = "none";
+    mx.orderLinesEdit = "none";
+    mx.dashboardAlerts = "none";
+    mx.expirationConfig = "none";
+    mx.movementsExport = "none";
+    mx.loadInventoryCsv = "none";
+    mx.receptionsEdit = "edit";
+
+    const act = { ...base.permissionActionMatrix };
+    act.dashHero = "none";
+    act.dashOverview = "none";
+    act.dashToday = "none";
+    act.remPanel = "none";
+    act.histExports = "none";
+    act.histFilters = "none";
+    act.histLedger = "none";
+    act.histResults = "none";
+    act.movPicker = "none";
+    act.movRecent = "none";
+    act.movAnnul = "none";
+    this.TAB_FEATURE_ACTION_KEYS.filter(k => String(k).startsWith("movType_")).forEach(k => {
+      act[k] = "none";
+    });
+    this.ORDER_ACTION_KEYS.forEach(k => {
+      act[k] = "none";
+    });
+
+    act.cfgModalOpen = "edit";
+    act.cfgTabReceptions = "edit";
+    act.trnToolbar = "edit";
+    act.trnMain = "edit";
+
+    [
+      "cfgTabUsers",
+      "cfgTabElevation",
+      "cfgTabImport",
+      "cfgTabExpirations",
+      "cfgTabEmployees",
+      "cfgTabSuppliers",
+      "cfgTabConsumables",
+      "cfgTabMeasureUnits",
+      "cfgTabItemEdit",
+      "cfgActWipeDb",
+      "cfgActRecipientsPreview",
+      "cfgActBackupExport",
+      "cfgActImportInventory",
+      "cfgActExportTemplate",
+      "cfgActArchive",
+      "cfgActReimportArchive",
+      "cfgActMovementsExport",
+      "cfgActMovementsMerge"
+    ].forEach(k => {
+      act[k] = "none";
+    });
+
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = this.PERMISSIONS.some(pk => out.permissions[pk]);
+    return out;
+  },
+
+  /**
+   * Wen — comprador: inventario y pedidos a proveedor (completo); caducidades; sin panel, recordatorios,
+   * movimientos, historial, transporte ni recepciones (pestañas y acciones acordes).
+   */
+  _wenBuyerBuiltinPayload() {
+    const base = this._buildUserTemplatePayload("operario_pedidos");
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.tabTransport = "none";
+    mx.tabDashboard = "none";
+    mx.tabReminders = "none";
+    mx.tabMovements = "none";
+    mx.tabHistory = "none";
+    mx.receptionsEdit = "none";
+    mx.dashboardAlerts = "none";
+    mx.expirationConfig = "edit";
+    mx.tabOrderlines = "edit";
+    mx.orderLinesEdit = "edit";
+
+    const act = { ...base.permissionActionMatrix };
+    ["cfgTabUsers", "cfgTabElevation", "cfgActWipeDb", "cfgActRecipientsPreview"].forEach(k => {
+      act[k] = "none";
+    });
+    act.cfgTabExpirations = "edit";
+    act.cfgTabReceptions = "none";
+    act.cfgActExportTemplate = "edit";
+    act.trnToolbar = "none";
+    act.trnMain = "none";
+
+    act.dashHero = "none";
+    act.dashOverview = "none";
+    act.dashToday = "none";
+    act.remPanel = "none";
+
+    this.TAB_FEATURE_ACTION_KEYS.filter(k => String(k).startsWith("movType_")).forEach(k => {
+      act[k] = "none";
+    });
+    act.movPicker = "none";
+    act.movRecent = "none";
+    act.movAnnul = "none";
+    act.histExports = "none";
+    act.histFilters = "none";
+    act.histLedger = "none";
+    act.histResults = "none";
+
+    this.ORDER_ACTION_KEYS.forEach(k => {
+      act[k] = "edit";
+    });
+
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = this.PERMISSIONS.some(pk => out.permissions[pk]);
+    return out;
+  },
+
+  /**
+   * Patrick — inventario operativo completo (cajas, ubicaciones, stock, prod./transf. en la vista de inventario),
+   * panel completo (mismo layout que administrador en zonas del panel + alertas) y recordatorios propios (remPanel);
+   * movimientos: consumo diario + ajuste/transferencia para ubicar stock.
+   * Caducidad/lotes visibles en inventario (matriz «view»); sin pestaña Config → Expiraciones ni umbral global.
+   * Sin administración global; transporte/recepciones solo lectura. Sin pestaña ni acciones de pedidos a proveedor.
+   */
+  _patrickInventoryLeadBuiltinPayload() {
+    const base = this._buildUserTemplatePayload("supervisor");
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.tabTransport = "view";
+    mx.tabOrderlines = "none";
+    mx.orderLinesEdit = "none";
+    mx.receptionsEdit = "view";
+    mx.expirationConfig = "view";
+    const act = { ...base.permissionActionMatrix };
+    ["cfgTabUsers", "cfgTabElevation", "cfgTabExpirations", "cfgActWipeDb", "cfgActRecipientsPreview"].forEach(k => {
+      act[k] = "none";
+    });
+    act.movAnnul = "none";
+    this.TAB_FEATURE_ACTION_KEYS.filter(k => String(k).startsWith("movType_")).forEach(k => {
+      act[k] = "none";
+    });
+    [
+      "movType_CONSUMO_DIARIO",
+      "movType_AJUSTE",
+      "movType_TRANSFERENCIA",
+      "movType_TRANSFORMACION",
+      "movType_ENVIAR_PRODUCCION"
+    ].forEach(k => {
+      act[k] = "edit";
+    });
+    act.invBrowse = "edit";
+    act.invTools = "edit";
+    act.invDangerClearExpiry = "none";
+    this.ORDER_ACTION_KEYS.forEach(k => {
+      act[k] = "none";
+    });
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = this.PERMISSIONS.some(pk => out.permissions[pk]);
+    return out;
+  },
+
+  /**
+   * Annie — inventario como Patrick; movimientos solo lectura (tipos en vista); sin panel, recordatorios ni transporte;
+   * historial solo recepción de material; sin caducidades globales ni pedidos a proveedor.
+   */
+  _annieTeamCmcBuiltinPayload() {
+    const base = this._patrickInventoryLeadBuiltinPayload();
+    if (!base) return null;
+    const mx = { ...base.permissionMatrix };
+    mx.expirationConfig = "none";
+    mx.tabDashboard = "none";
+    mx.tabReminders = "none";
+    mx.tabTransport = "none";
+    mx.tabOrderlines = "none";
+    mx.orderLinesEdit = "none";
+    mx.dashboardAlerts = "none";
+    mx.tabMovements = "view";
+    mx.tabHistory = "view";
+    const act = { ...base.permissionActionMatrix };
+    act.cfgTabExpirations = "none";
+    this.TAB_FEATURE_ACTION_KEYS.filter(k => String(k).startsWith("movType_")).forEach(k => {
+      act[k] = "view";
+    });
+    act.movPicker = "view";
+    act.movRecent = "none";
+    act.movAnnul = "none";
+    act.dashHero = "none";
+    act.dashOverview = "none";
+    act.dashToday = "none";
+    act.remPanel = "none";
+    /* Supervisor deja hist* en «none» explícito; el suelo Patrick no sube hist* para Annie (skip) — habilitar zona de historial en solo lectura. */
+    act.histExports = "view";
+    act.histFilters = "view";
+    act.histResults = "view";
+    act.histLedger = "none";
+    const out = {
+      ...base,
+      permissionMatrix: this._normalizePermissionMatrix(mx),
+      permissionActionMatrix: this._normalizePermissionActionMatrix(act)
+    };
+    out.permissions = this.deriveLegacyPermissionsFromMatrix(out.permissionMatrix);
+    out.canEdit = this.PERMISSIONS.some(pk => out.permissions[pk]);
+    return out;
+  },
+
   getUserCreationTemplates() {
     return [
-      { key: "operario_picker", i18nKey: "auth.template.operario_picker" },
-      { key: "operario_recepcion", i18nKey: "auth.template.operario_recepcion" },
-      { key: "operario_produccion", i18nKey: "auth.template.operario_produccion" },
-      { key: "operario_transporte", i18nKey: "auth.template.operario_transporte" },
-      { key: "supervisor", i18nKey: "auth.template.supervisor" },
-      { key: "operario_pedidos", i18nKey: "auth.template.operario_pedidos" },
-      { key: "operario_recepcion_expedicion", i18nKey: "auth.template.operario_recepcion_expedicion" },
-      { key: "operario_consultante", i18nKey: "auth.template.operario_consultante" }
+      { key: "supervisor", i18nKey: "auth.template.supervisor", hintKey: "auth.template.supervisor.hint" },
+      { key: "perfil_keith_lake", i18nKey: "auth.template.perfil_keith_lake", hintKey: "auth.template.perfil_keith_lake.hint" },
+      { key: "perfil_alex_beaulieu", i18nKey: "auth.template.perfil_alex_beaulieu", hintKey: "auth.template.perfil_alex_beaulieu.hint" },
+      { key: "perfil_guest_demo", i18nKey: "auth.template.perfil_guest_demo", hintKey: "auth.template.perfil_guest_demo.hint" },
+      { key: "perfil_patrick", i18nKey: "auth.template.perfil_patrick", hintKey: "auth.template.perfil_patrick.hint" },
+      { key: "perfil_stephane_demers", i18nKey: "auth.template.perfil_stephane_demers", hintKey: "auth.template.perfil_stephane_demers.hint" },
+      { key: "perfil_wen_deng", i18nKey: "auth.template.perfil_wen_deng", hintKey: "auth.template.perfil_wen_deng.hint" },
+      { key: "perfil_barbara_bonny", i18nKey: "auth.template.perfil_barbara_bonny", hintKey: "auth.template.perfil_barbara_bonny.hint" },
+      { key: "perfil_annie_larose", i18nKey: "auth.template.perfil_annie_larose", hintKey: "auth.template.perfil_annie_larose.hint" }
     ];
   },
 
-  /** Plantilla invitada: lectura en inventario/historial/pedidos/transporte sin mutaciones sensibles. */
+  /** Referencia de matriz «invitado consultante»: navegación amplia en vista; sin permisos de edición en matriz. */
   builtinGuestPermissionMatrix() {
     const m = this.defaultPermissionMatrix();
-    m.tabDashboard = "edit";
+    m.tabDashboard = "view";
+    m.tabReminders = "view";
     m.tabInventory = "view";
-    m.tabMovements = "edit";
+    m.tabMovements = "view";
     m.tabHistory = "view";
     m.tabTransport = "view";
     m.tabOrderlines = "view";
     m.dashboardAlerts = "view";
+    m.expirationConfig = "view";
+    m.receptionsEdit = "view";
     m.inventoryEdit = "none";
     m.movementsExport = "none";
     m.loadInventoryCsv = "none";
-    m.expirationConfig = "none";
-    m.receptionsEdit = "none";
     m.orderLinesEdit = "none";
     return m;
   },
@@ -844,14 +1280,16 @@ const Auth = {
     const tab = k => m[k] || "none";
     return {
       editItems: tab("inventoryEdit") === "edit",
-      movements: tab("tabMovements") === "edit",
+      /** Ver/pestaña Movimientos (incl. solo lectura); ejecutar tipos sigue en actions movType_* / guardMovementTypeProcess. */
+      movements: tab("tabMovements") !== "none",
       transport: tab("tabTransport") === "edit",
       receptions: tab("receptionsEdit") === "edit",
       reminders: tab("tabReminders") !== "none",
       orderLinesEdit: tab("orderLinesEdit") === "edit",
       movementsExport: tab("movementsExport") !== "none",
       loadInventoryCsv: tab("loadInventoryCsv") === "edit",
-      expirationConfig: tab("expirationConfig") === "edit"
+      /** Ver caducidad/lotes en inventario y alertas: «view» o «edit» (no solo administradores). */
+      expirationConfig: tab("expirationConfig") !== "none"
     };
   },
 
@@ -866,7 +1304,14 @@ const Auth = {
       });
       return full;
     }
-    let mx = u.permissionMatrix && typeof u.permissionMatrix === "object" ? u.permissionMatrix : null;
+    let mx = null;
+    if (this.isBuiltinId(u.id)) {
+      const mergedUser = this.getUserById(u.id);
+      if (mergedUser && mergedUser.permissionMatrix && typeof mergedUser.permissionMatrix === "object") {
+        mx = mergedUser.permissionMatrix;
+      }
+    }
+    if (!mx) mx = u.permissionMatrix && typeof u.permissionMatrix === "object" ? u.permissionMatrix : null;
     if (!mx) mx = this._matrixFromLegacyPermissions(u.permissions || {});
     mx = this._normalizePermissionMatrix(mx);
     if (this.isElevated()) {
@@ -874,6 +1319,16 @@ const Auth = {
       this.MATRIX_KEYS.forEach(k => {
         if (out[k] === "none") out[k] = "view";
       });
+      /* Cuentas integradas: lo que la plantilla en código deja en «none» no se revela con elevación temporal (p. ej. Wen sin historial). */
+      if (this.isBuiltinId(u.id)) {
+        const tmpl = this._getBuiltinUser(u.id);
+        if (tmpl && tmpl.permissionMatrix && tmpl.role !== "admin") {
+          const tmx = tmpl.permissionMatrix;
+          this.MATRIX_KEYS.forEach(k => {
+            if ((tmx[k] || "none") === "none") out[k] = "none";
+          });
+        }
+      }
       return out;
     }
     return mx;
@@ -917,9 +1372,9 @@ const Auth = {
         : null;
     if (!mx) mx = this._matrixFromLegacyPermissions(userLike.permissions || {});
     if (this.isBuiltinId(userLike.id)) {
-      const id = String(userLike.id);
-      if (id === "gneex-builtin-3") {
-        mx = { ...this.builtinGuestPermissionMatrix(), ...mx };
+      const tmpl = this._getBuiltinUser(userLike.id);
+      if (tmpl && tmpl.permissionMatrix) {
+        mx = { ...tmpl.permissionMatrix, ...mx };
       }
     }
     return this._normalizePermissionMatrix(mx);
@@ -957,6 +1412,36 @@ const Auth = {
     "gneex-builtin-9"
   ]),
 
+  /**
+   * KPI inventario (stats + resumen panel): totales, stock bajo, caducidad, overstock, cero, negativo — solo admin + estas cuentas.
+   */
+  FULL_INVENTORY_INSIGHT_BUILTIN_IDS: new Set([
+    "gneex-builtin-2",
+    "gneex-builtin-4",
+    "gneex-builtin-5",
+    "gneex-builtin-7"
+  ]),
+
+  /** KPI inventario + modal/resumen de alertas completos (stats barra inventario + bloque «Resumen general» del panel). */
+  hasFullInventoryInsightWidgets() {
+    if (this.isAdmin()) return true;
+    return this.FULL_INVENTORY_INSIGHT_BUILTIN_IDS.has(String(this.getUserId() || ""));
+  },
+
+  /** Annie: solo movimientos tipo recepción de material en Historial (integrada o mismo usuario reservado). */
+  historyMaterialReceptionOnly() {
+    const sid = String(this.sessionUserId || "").trim();
+    if (sid === "gneex-builtin-9") return true;
+    try {
+      const row = Array.isArray(this.users) ? this.users.find(u => u && String(u.id) === sid) : null;
+      const un = (row?.username || "").trim().toLowerCase();
+      if (un === "lranniecmc05??") return true;
+    } catch (e) {
+      /* ignore */
+    }
+    return false;
+  },
+
   /** Orden estable para tablas de administración (usuarios integrados). */
   BUILTIN_IDS_ORDERED: [
     "gneex-builtin-1",
@@ -969,6 +1454,123 @@ const Auth = {
     "gneex-builtin-8",
     "gneex-builtin-9"
   ],
+
+  _authLevelOrder(lvl) {
+    const order = { none: 0, view: 1, edit: 2 };
+    return lvl != null && Object.prototype.hasOwnProperty.call(order, lvl) ? order[lvl] : 0;
+  },
+
+  /** Mayor nivel de permiso (none < view < edit). */
+  _maxAuthLevel(a, b) {
+    return this._authLevelOrder(a) >= this._authLevelOrder(b) ? a || "none" : b || "none";
+  },
+
+  /** Menor nivel (el más restrictivo). Sirve para limitar respaldos viejos por la plantilla integrada en código. */
+  _minAuthLevel(a, b) {
+    return this._authLevelOrder(a) <= this._authLevelOrder(b) ? a || "none" : b || "none";
+  },
+
+  /**
+   * Cuentas integradas (Keith, Alex, Wen, Barbara, Annie) que reciben suelo «≥ Patrick» en {@link getUserById}.
+   * Excluye administrador, Patrick (referencia), e invitados consultantes (guest / Stephane).
+   */
+  _PATRICK_FLOOR_BUILTIN_IDS: new Set([
+    "gneex-builtin-2",
+    "gneex-builtin-4",
+    "gneex-builtin-7",
+    "gneex-builtin-8",
+    "gneex-builtin-9"
+  ]),
+
+  /** Matriz: no aplicar suelo Patrick a estas claves (excepciones acordadas por cuenta). */
+  _patrickFloorSkipMatrixKey(builtinId, key) {
+    if (
+      builtinId === "gneex-builtin-7" &&
+      [
+        "tabTransport",
+        "tabMovements",
+        "tabReminders",
+        "tabDashboard",
+        "tabHistory",
+        "receptionsEdit",
+        "dashboardAlerts"
+      ].includes(key)
+    )
+      return true;
+    if (
+      builtinId === "gneex-builtin-8" &&
+      [
+        "tabDashboard",
+        "tabReminders",
+        "tabInventory",
+        "inventoryEdit",
+        "tabMovements",
+        "tabHistory",
+        "tabOrderlines",
+        "orderLinesEdit",
+        "dashboardAlerts",
+        "expirationConfig",
+        "movementsExport",
+        "loadInventoryCsv"
+      ].includes(key)
+    )
+      return true;
+    if (
+      builtinId === "gneex-builtin-9" &&
+      [
+        "expirationConfig",
+        "tabOrderlines",
+        "orderLinesEdit",
+        "tabDashboard",
+        "tabReminders",
+        "tabTransport",
+        "tabMovements",
+        "tabHistory",
+        "dashboardAlerts"
+      ].includes(key)
+    )
+      return true;
+    return false;
+  },
+
+  /** Acciones finas: no subir con suelo Patrick (prefijos / pedidos / inventario según perfil). */
+  _patrickFloorSkipActionKey(builtinId, key) {
+    if (builtinId === "gneex-builtin-7") {
+      if (key === "trnToolbar" || key === "trnMain") return true;
+      if (key === "cfgTabReceptions") return true;
+      if (key === "movPicker" || key === "movRecent" || String(key).startsWith("movType_")) return true;
+      if (String(key).startsWith("hist")) return true;
+      if (key === "remPanel" || /^dash/.test(String(key))) return true;
+    }
+    if (builtinId === "gneex-builtin-8") {
+      if (String(key).startsWith("inv")) return true;
+      if (key === "cfgTabItemEdit" || key === "cfgActExportTemplate") return true;
+      if (/^dash/.test(String(key)) || key === "remPanel") return true;
+      if (String(key).startsWith("hist")) return true;
+      if (key === "movPicker" || key === "movRecent" || key === "movAnnul" || String(key).startsWith("movType_"))
+        return true;
+      if (this.ORDER_ACTION_KEYS.includes(key)) return true;
+      if (
+        [
+          "cfgTabImport",
+          "cfgTabExpirations",
+          "cfgTabEmployees",
+          "cfgTabSuppliers",
+          "cfgTabConsumables",
+          "cfgTabMeasureUnits"
+        ].includes(key)
+      )
+        return true;
+    }
+    if (builtinId === "gneex-builtin-9") {
+      if (key === "cfgTabExpirations") return true;
+      if (this.ORDER_ACTION_KEYS.includes(key)) return true;
+      if (String(key).startsWith("movType_")) return true;
+      if (key === "movPicker" || key === "movRecent") return true;
+      if (/^dash/.test(String(key)) || key === "remPanel") return true;
+    }
+    return false;
+  },
 
   isBuiltinId(id) {
     return id && this.BUILTIN_IDS.has(String(id));
@@ -1051,7 +1653,7 @@ const Auth = {
       if (ids.has(seed.id)) continue;
       const tmpl = this._getBuiltinUser(seed.id);
       if (!tmpl) continue;
-      this.users.push({
+      const row = {
         id: seed.id,
         username: tmpl.username,
         displayName: tmpl.displayName,
@@ -1062,11 +1664,18 @@ const Auth = {
         canEdit: tmpl.canEdit,
         permissions: { ...tmpl.permissions },
         builtin: true
-      });
+      };
+      if (tmpl.permissionMatrix) row.permissionMatrix = { ...tmpl.permissionMatrix };
+      if (tmpl.permissionActionMatrix) row.permissionActionMatrix = { ...tmpl.permissionActionMatrix };
+      this.users.push(row);
       added = true;
       ids.add(seed.id);
     }
-    if (added) this.saveUsers();
+    if (added) {
+      this.users.forEach(u => this.migrateUserPerms(u));
+      this.syncBuiltinStoredUsersWithTemplate();
+      this.saveUsers();
+    }
   },
 
   _getBuiltinUser(id) {
@@ -1083,86 +1692,130 @@ const Auth = {
         builtin: true
       };
     }
-    /* Keith: movimientos, transporte (lectura), recordatorios, pedidos, export solo mov., CSV inventario, caducidad, recepciones. */
+    /* Keith: casi supervisor (acuerdo explícito); sin usuarios / elevación / wipe / import respaldo / preview destinatarios. */
     if (id === "gneex-builtin-2") {
+      const k = this._keithSupervisorLikeBuiltinPayload();
+      if (!k) return null;
       return {
         id: "gneex-builtin-2",
         username: "KeithL",
         displayName: "Keith Lake",
         role: "user",
-        canEdit: false,
-        permissions: {
-          movements: true,
-          transport: true,
-          reminders: true,
-          receptions: true,
-          orderLinesEdit: true,
-          movementsExport: true,
-          loadInventoryCsv: true,
-          expirationConfig: true
-        },
+        canEdit: k.canEdit,
+        permissions: { ...k.permissions },
+        permissionMatrix: k.permissionMatrix,
+        permissionActionMatrix: k.permissionActionMatrix,
         builtin: true
       };
     }
-    /* Invitado: inventario/movimientos; transporte y pedidos en lectura; sin recordatorios ni export de movimientos. */
+    /* Guest: solo lectura tipo consultante (acuerdo explícito). */
     if (id === "gneex-builtin-3") {
-      const permissionMatrix = this.builtinGuestPermissionMatrix();
+      const g = this._guestReadonlyConsultanteBuiltinPayload();
+      if (!g) return null;
       return {
         id: "gneex-builtin-3",
         username: "guestCMC",
         displayName: "Guest",
         role: "user",
-        canEdit: false,
-        permissions: this.deriveLegacyPermissionsFromMatrix(permissionMatrix),
-        permissionMatrix,
+        canEdit: g.canEdit,
+        permissions: { ...g.permissions },
+        permissionMatrix: g.permissionMatrix,
+        permissionActionMatrix: g.permissionActionMatrix,
         builtin: true
       };
     }
-    /* Alex: como Keith salvo recepciones y configuración de caducidad en Expiraciones. */
+    /* Alex: igual que Keith — casi supervisor (acuerdo explícito). */
     if (id === "gneex-builtin-4") {
+      const k = this._keithSupervisorLikeBuiltinPayload();
+      if (!k) return null;
       return {
         id: "gneex-builtin-4",
         username: "AlexB",
         displayName: "Alex Beaulieu",
         role: "user",
-        canEdit: false,
-        permissions: {
-          movements: true,
-          transport: true,
-          reminders: true,
-          orderLinesEdit: true,
-          movementsExport: true,
-          loadInventoryCsv: true
-        },
+        canEdit: k.canEdit,
+        permissions: { ...k.permissions },
+        permissionMatrix: k.permissionMatrix,
+        permissionActionMatrix: k.permissionActionMatrix,
         builtin: true
       };
     }
-    /* Equipo CMC: mismo perfil operativo amplio que Keith (ajustable en Configuración → Permisos detallados). */
-    const teamCmc = {
-      "gneex-builtin-5": { username: "PhatCMC5!", displayName: "Patrick" },
-      "gneex-builtin-6": { username: "StephCMC4!!", displayName: "Stephane Demers" },
-      "gneex-builtin-7": { username: "WdengCMCB1?", displayName: "Wen Deng" },
-      "gneex-builtin-8": { username: "BarbonB2CMC?", displayName: "Barbara Bonny" },
-      "gneex-builtin-9": { username: "LRAnnieCMC05??", displayName: "Annie Larose" }
-    };
-    const team = teamCmc[id];
-    if (team) {
+    /* Equipo CMC — perfiles acordados individualmente (véase comentarios por id). */
+    if (id === "gneex-builtin-5") {
+      const p = this._patrickInventoryLeadBuiltinPayload();
+      if (!p) return null;
       return {
-        id,
-        username: team.username,
-        displayName: team.displayName,
+        id: "gneex-builtin-5",
+        username: "PhatCMC5!",
+        displayName: "Patrick",
         role: "user",
-        canEdit: false,
-        permissions: {
-          movements: true,
-          transport: true,
-          reminders: true,
-          receptions: true,
-          orderLinesEdit: true,
-          movementsExport: true,
-          loadInventoryCsv: true,
-          expirationConfig: true
-        },
+        canEdit: p.canEdit,
+        permissions: { ...p.permissions },
+        permissionMatrix: p.permissionMatrix,
+        permissionActionMatrix: p.permissionActionMatrix,
+        builtin: true
+      };
+    }
+    if (id === "gneex-builtin-6") {
+      const s = this._stephaneReadonlyConsultanteBuiltinPayload();
+      if (!s) return null;
+      return {
+        id: "gneex-builtin-6",
+        username: "StephCMC4!!",
+        displayName: "Stephane Demers",
+        role: "user",
+        canEdit: s.canEdit,
+        permissions: { ...s.permissions },
+        permissionMatrix: s.permissionMatrix,
+        permissionActionMatrix: s.permissionActionMatrix,
+        builtin: true
+      };
+    }
+    /* Wen: comprador — inventario, pedidos, caducidades, alertas, COMPRA_STOCK. */
+    if (id === "gneex-builtin-7") {
+      const w = this._wenBuyerBuiltinPayload();
+      if (!w) return null;
+      return {
+        id: "gneex-builtin-7",
+        username: "WdengCMCB1?",
+        displayName: "Wen Deng",
+        role: "user",
+        canEdit: w.canEdit,
+        permissions: { ...w.permissions },
+        permissionMatrix: w.permissionMatrix,
+        permissionActionMatrix: w.permissionActionMatrix,
+        builtin: true
+      };
+    }
+    /* Barbara: solo transporte y recepciones (export XLSX recepciones); sin panel, recordatorios, movimientos ni historial. */
+    if (id === "gneex-builtin-8") {
+      const b = this._barbaraTransportLeadBuiltinPayload();
+      if (!b) return null;
+      return {
+        id: "gneex-builtin-8",
+        username: "BarbonB2CMC?",
+        displayName: "Barbara Bonny",
+        role: "user",
+        canEdit: b.canEdit,
+        permissions: { ...b.permissions },
+        permissionMatrix: b.permissionMatrix,
+        permissionActionMatrix: b.permissionActionMatrix,
+        builtin: true
+      };
+    }
+    /* Annie — inventario tipo Patrick; movimientos/historial en solo lectura restringida; sin panel ni caducidades globales ni pedidos. */
+    if (id === "gneex-builtin-9") {
+      const a = this._annieTeamCmcBuiltinPayload();
+      if (!a) return null;
+      return {
+        id: "gneex-builtin-9",
+        username: "LRAnnieCMC05??",
+        displayName: "Annie Larose",
+        role: "user",
+        canEdit: a.canEdit,
+        permissions: { ...a.permissions },
+        permissionMatrix: a.permissionMatrix,
+        permissionActionMatrix: a.permissionActionMatrix,
         builtin: true
       };
     }
@@ -1208,6 +1861,9 @@ const Auth = {
       }
       u.permissions = this.deriveLegacyPermissionsFromMatrix(u.permissionMatrix);
       u.canEdit = this.PERMISSIONS.some(pk => u.permissions[pk]);
+      if (u.builtin && (u.id === "gneex-builtin-3" || u.id === "gneex-builtin-6")) {
+        u.canEdit = false;
+      }
     }
   },
 
@@ -1345,10 +2001,6 @@ const Auth = {
       this.denyEditToast();
       return false;
     }
-    if (!this._fineActionMeets("cfgActBackupImport", "edit")) {
-      this.denyEditToast();
-      return false;
-    }
     return true;
   },
 
@@ -1445,12 +2097,36 @@ const Auth = {
     return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, "0")).join("");
   },
 
+  /**
+   * Persiste la matriz efectiva de cuentas integradas (merge plantilla en código + datos del respaldo).
+   * Un respaldo antiguo puede traer `permissionMatrix` / `permissionActionMatrix` por debajo de la plantilla actual.
+   */
+  syncBuiltinStoredUsersWithTemplate() {
+    let changed = false;
+    for (const u of this.users) {
+      if (!u || !this.isBuiltinId(u.id) || u.id === "gneex-builtin-1") continue;
+      const merged = this.getUserById(u.id);
+      if (!merged || !merged.permissionMatrix) continue;
+      const pmEq = JSON.stringify(u.permissionMatrix ?? null) === JSON.stringify(merged.permissionMatrix);
+      const amEq =
+        JSON.stringify(u.permissionActionMatrix ?? null) === JSON.stringify(merged.permissionActionMatrix ?? {});
+      if (pmEq && amEq) continue;
+      u.permissionMatrix = merged.permissionMatrix;
+      u.permissionActionMatrix = merged.permissionActionMatrix;
+      u.permissions = merged.permissions;
+      u.canEdit = merged.canEdit;
+      changed = true;
+    }
+    return changed;
+  },
+
   loadUsers() {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.USERS);
       this.users = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(this.users)) this.users = [];
       this.users.forEach(u => this.migrateUserPerms(u));
+      if (this.syncBuiltinStoredUsersWithTemplate()) this.saveUsers();
     } catch (e) {
       this.users = [];
     }
@@ -1733,13 +2409,64 @@ const Auth = {
         ...tmplMx,
         ...(stored.permissionMatrix || {})
       });
+      let mergedActMx = { ...(tmpl.permissionActionMatrix || {}), ...(stored.permissionActionMatrix || {}) };
+      /**
+       * Cuentas integradas: la plantilla en código es la referencia. Respaldos viejos pueden tener menos
+       * permiso (se sube con max hacia la plantilla) o más (se baja con min); combinación min(max(stored, tmpl), tmpl) === tmpl.
+       */
+      if (this.isBuiltinId(id)) {
+        this.MATRIX_KEYS.forEach(k => {
+          const t = tmplMx[k] || "none";
+          mergedMatrix[k] = this._minAuthLevel(this._maxAuthLevel(mergedMatrix[k] || "none", t), t);
+        });
+        const floorAct = this.getEffectivePermissionActionMatrix({
+          id,
+          role: "user",
+          permissionMatrix: tmplMx,
+          permissionActionMatrix: tmpl.permissionActionMatrix || {}
+        });
+        const tmplActRaw = tmpl.permissionActionMatrix || {};
+        [...this.CONFIG_ACTION_KEYS, ...this.ORDER_ACTION_KEYS, ...this.TAB_FEATURE_ACTION_KEYS].forEach(k => {
+          const rawT = tmplActRaw[k];
+          if (rawT === "none" || rawT === "view" || rawT === "edit") {
+            mergedActMx[k] = this._minAuthLevel(this._maxAuthLevel(mergedActMx[k] || "none", rawT), rawT);
+          } else {
+            mergedActMx[k] = this._maxAuthLevel(mergedActMx[k] || "none", floorAct[k] || "none");
+          }
+        });
+        if ((tmpl.permissionActionMatrix || {}).invDangerClearExpiry === "none") {
+          mergedActMx.invDangerClearExpiry = "none";
+        }
+        const patrickFloorRef = this._patrickInventoryLeadBuiltinPayload();
+        if (patrickFloorRef && this._PATRICK_FLOOR_BUILTIN_IDS.has(id)) {
+          const patMx = patrickFloorRef.permissionMatrix;
+          const patFloorAct = this.getEffectivePermissionActionMatrix({
+            id,
+            role: "user",
+            permissionMatrix: patMx,
+            permissionActionMatrix: patrickFloorRef.permissionActionMatrix || {}
+          });
+          this.MATRIX_KEYS.forEach(k => {
+            if (this._patrickFloorSkipMatrixKey(id, k)) return;
+            mergedMatrix[k] = this._maxAuthLevel(mergedMatrix[k] || "none", patMx[k] || "none");
+          });
+          [...this.CONFIG_ACTION_KEYS, ...this.ORDER_ACTION_KEYS, ...this.TAB_FEATURE_ACTION_KEYS].forEach(k => {
+            if (this._patrickFloorSkipActionKey(id, k)) return;
+            mergedActMx[k] = this._maxAuthLevel(mergedActMx[k] || "none", patFloorAct[k] || "none");
+          });
+          if ((patrickFloorRef.permissionActionMatrix || {}).invDangerClearExpiry === "none") {
+            mergedActMx.invDangerClearExpiry = "none";
+          }
+        }
+      }
       const mergedPerms = this.deriveLegacyPermissionsFromMatrix(mergedMatrix);
-      const canEdit = this.PERMISSIONS.some(k => mergedPerms[k]);
+      let canEdit = this.PERMISSIONS.some(k => mergedPerms[k]);
+      if (id === "gneex-builtin-3" || id === "gneex-builtin-6") canEdit = false;
       return {
         ...tmpl,
         ...stored,
         permissionMatrix: mergedMatrix,
-        permissionActionMatrix: { ...(tmpl.permissionActionMatrix || {}), ...(stored.permissionActionMatrix || {}) },
+        permissionActionMatrix: mergedActMx,
         permissions: mergedPerms,
         role: tmpl.role,
         canEdit,
@@ -2050,7 +2777,11 @@ const Auth = {
       tplSel.innerHTML =
         `<option value="">${Utils.escapeHtml(I18n.t("auth.template.none"))}</option>` +
         opts
-          .map(t => `<option value="${Utils.escapeAttr(t.key)}">${Utils.escapeHtml(I18n.t(t.i18nKey))}</option>`)
+          .map(t => {
+            const hint = t.hintKey ? Utils.escapeAttr(I18n.t(t.hintKey)) : "";
+            const titleAttr = hint ? ` title="${hint}"` : "";
+            return `<option value="${Utils.escapeAttr(t.key)}"${titleAttr}>${Utils.escapeHtml(I18n.t(t.i18nKey))}</option>`;
+          })
           .join("");
       tplSel.value = "";
       tplSel.disabled = target.role === "admin";
@@ -2139,6 +2870,7 @@ const Auth = {
     });
     document.body.classList.toggle("auth-no-dashboardAlerts", mx.dashboardAlerts === "none");
     document.body.classList.toggle("auth-dashboardAlerts-viewonly", mx.dashboardAlerts === "view");
+    document.body.classList.toggle("auth-inv-full-insights", this.hasFullInventoryInsightWidgets());
 
     const cfgUsersBtn = document.querySelector('[data-config-tab="users"]');
     if (cfgUsersBtn) cfgUsersBtn.style.display = admin ? "" : "none";
@@ -2147,6 +2879,10 @@ const Auth = {
 
     if (typeof RemindersManager !== "undefined" && RemindersManager.refreshAll) {
       RemindersManager.refreshAll();
+    }
+
+    if (typeof HistoryManager !== "undefined" && HistoryManager.applyMaterialReceptionHistoryLock) {
+      HistoryManager.applyMaterialReceptionHistoryLock();
     }
 
     this.updateUserBar();
@@ -2384,6 +3120,35 @@ const Auth = {
     if (gate) gate.classList.add("login-gate--hidden");
     App.initApplication();
     this.applyPermissions();
+  },
+
+  /**
+   * Conserva solo al administrador integrado (Luis), borra el resto de usuarios y recrea las cuentas integradas
+   * con los mismos hashes de contraseña y los perfiles definidos en {@link _getBuiltinUser}.
+   */
+  resetToAdminAndReseedBuiltins() {
+    this.loadUsers();
+    if (!this.isAdmin()) {
+      console.warn("resetToAdminAndReseedBuiltins: inicie sesión como administrador.");
+      return { ok: false, msg: "session-not-admin" };
+    }
+    const admin = this.users.find(u => u.id === "gneex-builtin-1" && u.role === "admin");
+    if (!admin) {
+      console.warn("resetToAdminAndReseedBuiltins: no existe gneex-builtin-1 como administrador.");
+      return { ok: false, msg: "no-builtin-admin" };
+    }
+    this.users = [JSON.parse(JSON.stringify(admin))];
+    this.saveUsers();
+    this.ensureBuiltinAccountsSeeded();
+    this.loadUsers();
+    if (this.sessionUserId) this.applyPermissions();
+    console.info("resetToAdminAndReseedBuiltins: listo. Recargue la página si sigue en sesión.");
+    return { ok: true };
+  },
+
+  /** @deprecated Use {@link resetToAdminAndReseedBuiltins}. */
+  resetToAdminAndReseedWideViewBuiltins() {
+    return this.resetToAdminAndReseedBuiltins();
   },
 
   init() {

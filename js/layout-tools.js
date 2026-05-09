@@ -12,9 +12,8 @@ const LayoutTools = {
   init() {
     if (this._inited) return;
     this._inited = true;
-    // Sin persistencia entre recargas: sólo sesión activa.
-    this._modalLayouts = {};
-    this._tableLayouts = {};
+    this._modalLayouts = this._loadJson(STORAGE_KEYS.MODAL_LAYOUTS, {});
+    this._tableLayouts = this._loadJson(STORAGE_KEYS.TABLE_COLUMN_LAYOUTS, {});
     this._applyAll();
     this._installObserver();
     window.addEventListener("resize", () => {
@@ -23,10 +22,24 @@ const LayoutTools = {
     });
   },
 
+  _loadJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return fallback;
+      return parsed;
+    } catch (e) {
+      return fallback;
+    }
+  },
+
   _saveJson(key, value) {
-    // Persistencia desactivada por requerimiento del usuario.
-    void key;
-    void value;
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      /* ignore storage quota errors */
+    }
   },
 
   _applyAll() {
@@ -148,7 +161,9 @@ const LayoutTools = {
     const ths = Array.from(table.querySelectorAll("thead tr:first-child th"));
     if (!ths.length) return;
     table.classList.add("gneex-cols-custom");
-    table.style.tableLayout = "fixed";
+    table.style.tableLayout = "auto";
+    table.style.width = "max-content";
+    table.style.minWidth = "100%";
     widths.forEach((w, i) => {
       if (!ths[i] || !Number.isFinite(w) || w < 48) return;
       ths[i].style.width = `${Math.round(w)}px`;
@@ -166,7 +181,9 @@ const LayoutTools = {
     const startW = th.getBoundingClientRect().width;
 
     table.classList.add("gneex-cols-custom");
-    table.style.tableLayout = "fixed";
+    table.style.tableLayout = "auto";
+    table.style.width = "max-content";
+    table.style.minWidth = "100%";
 
     const onMove = e => {
       const dx = e.clientX - startX;

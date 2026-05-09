@@ -727,7 +727,6 @@ const TransportManager = {
       this.save();
       this.bindBoardEvents();
       this.render();
-      console.log("✅ TransportManager iniciado con", this.transports.length, "transportes");
     } catch (e) {
       console.error("❌ Error iniciando TransportManager:", e);
     }
@@ -981,7 +980,9 @@ const TransportManager = {
       picked = await window.showOpenFilePicker({ multiple: true });
     } catch (e) {
       if (e && e.name === "AbortError") return false;
-      console.error(e);
+      if (typeof window !== "undefined" && window.__GNEEX_DEBUG) {
+        console.error(e);
+      }
       Utils.showToast((e && e.message) || I18n.t("msg.attachmentsLinkError"), "error");
       return false;
     }

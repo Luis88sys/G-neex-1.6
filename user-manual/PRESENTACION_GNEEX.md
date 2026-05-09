@@ -47,13 +47,13 @@ Gestiona todo el ciclo de vida del material:
 
 *Capturas reales v1.6 (Playwright). Regenerar: `docs/app-screenshots/README.md`.*
 
-![Inicio de sesión (entrada a la app)](../docs/app-screenshots/capture-es-01-login.png)
+![Inicio de sesión (entrada a la app)](../app-screenshots/capture-es-01-login.png)
 
 ---
 
 ## Inventario en Tiempo Real
 
-![Pestaña Inventario](../docs/app-screenshots/capture-es-inventario.png)
+![Pestaña Inventario](../app-screenshots/capture-es-inventario.png)
 
 | Función | Descripción |
 |---------|-------------|
@@ -75,7 +75,7 @@ Gestiona todo el ciclo de vida del material:
 
 ## 16 Tipos de Movimiento
 
-![Pestaña Movimientos (rejilla de tipos)](../docs/app-screenshots/capture-es-movimientos.png)
+![Pestaña Movimientos (rejilla de tipos)](../app-screenshots/capture-es-movimientos.png)
 
 G-NEEX soporta **16 tipos de movimiento** que cubren todas las operaciones de un almacén industrial:
 
@@ -116,12 +116,13 @@ Cada movimiento registra automáticamente:
 
 ## Pedidos a proveedor (órdenes por línea)
 
-![Pestaña Pedidos](../docs/app-screenshots/capture-es-pedidos.png)
+![Pestaña Pedidos](../app-screenshots/capture-es-pedidos.png)
 
-- Pestaña **Pedidos**: líneas vinculadas al inventario (proveedor, cantidad); el **OC/PO** se registra al **recibir** en Compra de stock.
+- Pestaña **Pedidos**: líneas vinculadas al inventario (código, proveedor, cantidad); el **OC/PO** se informa **por línea** en **Compra de stock** al recibir (no filtra el vínculo con el pedido: deben coincidir **código de artículo** y **proveedor**).
 - Filtros en el panel: búsqueda de texto (referencia/código/descripción/proveedor/cantidades), estado, fecha clave (desde/hasta) e historial (con/sin recepción, con pedido, con anulación).
 - Estados: borrador → pedida → recepción parcial/total o cancelada; fechas guardadas para seguimiento.
 - La **recepción** abre el mismo formulario **Compra de stock** que en Movimientos; se confirma con **Procesar movimiento**.
+- Si registra **Compra de stock** solo desde Movimientos y hay un pedido pendiente con **mismo código y mismo proveedor** que la línea de compra, pueden aparecer diálogos **Sí / No** para enlazar y actualizar cantidad recibida y estado.
 - **Exportar / Imprimir tabla** trabajan sobre la vista filtrada; hay limpieza masiva (+1 año) y eliminación por línea (>3 meses).
 - **Referencias** de movimiento: **siglas del tipo + 6 dígitos correlativos por tipo** (p. ej. `AJU000001`, `COM000002`); los datos antiguos con más dígitos se normalizan al cargar.
 - Algunas categorías se gestionan como **recepción provisional** con PO obligatoria antes de impactar stock principal.
@@ -131,7 +132,7 @@ Cada movimiento registra automáticamente:
 
 ## Vistas de listado (estilo Explorador)
 
-![Pestaña Historial (vistas mosaico / tabla / carrusel)](../docs/app-screenshots/capture-es-historial.png)
+![Pestaña Historial (vistas mosaico / tabla / carrusel)](../app-screenshots/capture-es-historial.png)
 
 - **Historial**, **Transporte** y **Pedidos** incluyen un selector **Vista** con disposición en **mosaico** (tarjetas o iconos), **lista compacta** y, donde aplica, **tabla detallada**; además, en **Historial** hay **Carrusel cronológico** para recorrer tarjetas en secuencia horizontal. Las tarjetas minimizadas muestran también el **ID Proyecto** cuando corresponde.
 - En **Historial**, movimientos anulados en total o con **anulado parcial** muestran un **sello diagonal** (marco discontinuo inclinado); también hay filtro por tipo de anulación.
@@ -145,7 +146,7 @@ Cada movimiento registra automáticamente:
 
 ## Transporte Inteligente
 
-![Pestaña Transporte](../docs/app-screenshots/capture-es-transporte.png)
+![Pestaña Transporte](../app-screenshots/capture-es-transporte.png)
 
 El módulo de transporte automatiza la logística de envío a obra:
 
@@ -162,7 +163,7 @@ El módulo de transporte automatiza la logística de envío a obra:
 
 ## Dashboard — Visión General al Instante
 
-![Panel tras el inicio de sesión (resumen)](../docs/app-screenshots/capture-es-panel.png)
+![Panel tras el inicio de sesión (resumen)](../app-screenshots/capture-es-panel.png)
 
 Al iniciar sesión, un panel muestra el estado actual de la operación:
 
@@ -183,7 +184,7 @@ Indicadores visuales alertan si hay stock crítico o si el respaldo tiene más d
 
 ## Recordatorios (Admin)
 
-![Pestaña Recordatorios](../docs/app-screenshots/capture-es-recordatorios.png)
+![Pestaña Recordatorios](../app-screenshots/capture-es-recordatorios.png)
 
 - Pestaña dedicada para recordatorios operativos con fecha objetivo y prioridad.
 - Las prioridades pueden escalar automáticamente por antigüedad en días hábiles.
@@ -193,9 +194,10 @@ Indicadores visuales alertan si hay stock crítico o si el respaldo tiene más d
 
 ## Aplicación en pantalla (visión de uso)
 
-![Panel o dashboard (G-NEEX)](../docs/app-screenshots/capture-es-panel.png)
+![Panel o dashboard (G-NEEX)](../app-screenshots/capture-es-panel.png)
 
 - G-NEEX organiza el trabajo en módulos con acceso directo desde la barra: inventario, movimientos, historial, transporte, pedidos, recordatorios y ajustes.
+- El administrador define usuarios en **⚙️ Configuración → Usuarios** con plantillas genéricas o **perfiles de referencia** (mismo comportamiento que las cuentas integradas del proyecto); la tabla **`PlantillasPermisos.xlsx.csv`** documenta cada clave.
 - El manual de usuario explica qué hace cada pantalla y flujo. Cómo se despliega o gobierna el acceso en su planta es un tema operativo; aquí se prioriza el **uso cotidiano** de la interfaz y las funciones de inventario.
 
 ---

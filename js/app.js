@@ -108,6 +108,7 @@ const App = {
       if (typeof Auth !== "undefined" && Auth.loadUsers) Auth.loadUsers();
       Utils.syncEntityIdCounter();
       this.setupGlobalEvents();
+      this.refreshActiveTabTableExportButton();
       this._setupModalStackObserver();
       this.setupDraftFloatStacking();
       if (typeof LayoutTools !== "undefined" && LayoutTools.init) LayoutTools.init();
@@ -436,6 +437,137 @@ const App = {
     if (cb) cb.checked = currentlyOn;
   },
 
+  /** Primera tabla principal visible en la pestaña activa (exportación rápida). */
+  pickPrimaryExportTable(panel) {
+    if (!panel) return null;
+    const pid = panel.id || "";
+    if (pid === "inventory-tab") {
+      return panel.querySelector("table.inventory-table--main") || panel.querySelector("table.inventory-table") || null;
+    }
+    if (pid === "history-tab") {
+      return panel.querySelector("table.history-details-table") || panel.querySelector("table.inventory-table") || null;
+    }
+    if (pid === "orderlines-tab") {
+      return panel.querySelector("table.orderlines-table") || panel.querySelector("table.data-table") || null;
+    }
+    if (pid === "movements-tab") {
+      return (
+        panel.querySelector("table.selected-items-table") ||
+        panel.querySelector("table.mov-tf-stock-table") ||
+        panel.querySelector("table.inventory-table") ||
+        null
+      );
+    }
+    if (pid === "transport-tab") {
+      return panel.querySelector("table.inventory-table") || panel.querySelector("table.data-table") || panel.querySelector("table") || null;
+    }
+    if (pid === "receptions-tab") {
+      const wrap = panel.querySelector("#receptions-config-table");
+      if (wrap) return wrap.querySelector("table");
+      return panel.querySelector("table");
+    }
+    return (
+      panel.querySelector("table.inventory-table, table.data-table, table.history-details-table") ||
+      panel.querySelector("table")
+    );
+  },
+
+  exportActiveMainTabContent() {
+    try {
+      const panel = document.querySelector(".tab-content.active");
+      if (!panel || typeof Utils === "undefined") return;
+      const slug = (panel.id || "").replace(/-tab$/, "");
+      if (slug === "dashboard" || slug === "reminders") {
+        Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
+        return;
+      }
+      if (slug === "history") {
+        const tbl = panel.querySelector("table.history-details-table");
+        if (tbl && tbl.querySelector("tbody tr")) {
+          const ok = Utils.exportDomTableToStyledDownload(tbl, `GNEEX_Historial_${new Date().toISOString().slice(0, 10)}`);
+          if (ok) {
+            Utils.showToast(I18n.t("ui.exportDone"), "success");
+            return;
+          }
+        }
+        if (typeof HistoryManager !== "undefined" && HistoryManager.exportFilteredMovementsSpreadsheet) {
+          HistoryManager.exportFilteredMovementsSpreadsheet();
+        }
+        return;
+      }
+      const tbl = this.pickPrimaryExportTable(panel);
+      if (!tbl || !tbl.querySelector("tr")) {
+        Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
+        return;
+      }
+      const ok = Utils.exportDomTableToStyledDownload(tbl, `GNEEX_${slug}_${new Date().toISOString().slice(0, 10)}`);
+      if (ok) Utils.showToast(I18n.t("ui.exportDone"), "success");
+      else Utils.showToast(I18n.t("msg.errorExportingReport"), "error");
+    } catch (e) {
+      console.warn("exportActiveMainTabContent", e);
+    }
+  },
+
+  printActiveMainTabContent() {
+    try {
+      const panel = document.querySelector(".tab-content.active");
+      if (!panel || typeof Utils === "undefined") return;
+      const slug = (panel.id || "").replace(/-tab$/, "");
+      if (slug === "dashboard" || slug === "reminders") {
+        Utils.showToast(I18n.t("ui.printActiveTabNoTable"), "info");
+        return;
+      }
+      if (slug === "history") {
+        if (typeof HistoryManager !== "undefined" && HistoryManager.printFilteredHistoryList) {
+          void HistoryManager.printFilteredHistoryList();
+          return;
+        }
+      }
+      if (slug === "orderlines") {
+        if (typeof OrderLinesManager !== "undefined" && OrderLinesManager.printFilteredTable) {
+          void OrderLinesManager.printFilteredTable();
+          return;
+        }
+      }
+      const tbl = this.pickPrimaryExportTable(panel);
+      if (!tbl || !tbl.querySelector("tr")) {
+        Utils.showToast(I18n.t("ui.printActiveTabNoTable"), "info");
+        return;
+      }
+      const clone = tbl.cloneNode(true);
+      Utils.printHtmlDocument(I18n.t("ui.printActiveTabTitle"), "", clone.outerHTML);
+    } catch (e) {
+      console.warn("printActiveMainTabContent", e);
+    }
+  },
+
+  refreshActiveTabTableExportButton() {
+    const btn = document.getElementById("header-export-active-table-btn");
+    const pbtn = document.getElementById("header-print-active-table-btn");
+    if (!btn && !pbtn) return;
+    const panel = document.querySelector(".tab-content.active");
+    if (!panel) {
+      if (btn) btn.hidden = true;
+      if (pbtn) pbtn.hidden = true;
+      return;
+    }
+    const slug = (panel.id || "").replace(/-tab$/, "");
+    if (slug === "dashboard" || slug === "reminders") {
+      if (btn) btn.hidden = true;
+      if (pbtn) pbtn.hidden = true;
+      return;
+    }
+    if (slug === "history") {
+      if (btn) btn.hidden = false;
+      if (pbtn) pbtn.hidden = false;
+      return;
+    }
+    const tbl = this.pickPrimaryExportTable(panel);
+    const show = !!(tbl && tbl.querySelector("tr"));
+    if (btn) btn.hidden = !show;
+    if (pbtn) pbtn.hidden = !show;
+  },
+
   // =========================================================
   // Navegación entre pestañas
   // =========================================================
@@ -485,6 +617,7 @@ const App = {
     if (tab === "reminders" && typeof RemindersManager !== "undefined" && RemindersManager.refreshAll) {
       RemindersManager.refreshAll();
     }
+    this.refreshActiveTabTableExportButton();
   },
 
   // =========================================================
@@ -525,11 +658,23 @@ const App = {
     }
   },
 
+  /** Devuelve el texto de Confirmar/Cancelar (p. ej. tras un diálogo Sí/No). */
+  _resetConfirmModalChrome() {
+    if (typeof I18n === "undefined" || !I18n.t) return;
+    const tit = document.getElementById("confirm-modal-title");
+    const accept = document.getElementById("confirm-accept");
+    const cancel = document.getElementById("confirm-cancel");
+    if (tit) tit.textContent = I18n.t("confirm.title");
+    if (accept) accept.textContent = I18n.t("buttons.confirm");
+    if (cancel) cancel.textContent = I18n.t("buttons.cancel");
+  },
+
   showConfirm(msg, cb) {
     const m = document.getElementById("confirm-modal");
     if (!m) return;
 
     this.confirmCallback = cb;
+    this._resetConfirmModalChrome();
     const t = document.getElementById("confirm-message");
     if (t) t.textContent = msg;
     this._bringModalToFront(m);
@@ -537,9 +682,12 @@ const App = {
   },
 
   /**
-   * Igual que showConfirm pero devuelve Promise: true si Confirma, false si Cancelar / cerrar / Escape.
+   * Igual que showConfirm pero devuelve Promise: true botón derecho («Confirmar» o «Sí»), false en cancelar/cerrar.
+   * @param {string} msg
+   * @param {{ yesNo?: boolean }} [options] Si `yesNo`, botones **Sí** / **No** (preguntas cerradas).
    */
-  showConfirmAsync(msg) {
+  showConfirmAsync(msg, options) {
+    const opts = options && typeof options === "object" ? options : null;
     return new Promise(resolve => {
       this.confirmPromiseResolve = resolve;
       const m = document.getElementById("confirm-modal");
@@ -548,6 +696,15 @@ const App = {
         this.confirmPromiseResolve = null;
         resolve(false);
         return;
+      }
+      this._resetConfirmModalChrome();
+      if (opts && opts.yesNo && typeof I18n !== "undefined" && I18n.t) {
+        const accept = document.getElementById("confirm-accept");
+        const cancel = document.getElementById("confirm-cancel");
+        const tit = document.getElementById("confirm-modal-title");
+        if (accept) accept.textContent = I18n.t("buttons.yes");
+        if (cancel) cancel.textContent = I18n.t("buttons.no");
+        if (tit) tit.textContent = I18n.t("confirm.titleYesNo");
       }
       if (t) t.textContent = msg;
       this.confirmCallback = null;
@@ -567,6 +724,7 @@ const App = {
   hideConfirm() {
     const m = document.getElementById("confirm-modal");
     if (m) m.classList.remove("active");
+    this._resetConfirmModalChrome();
     this._resolveConfirmAsync(false);
     this.confirmCallback = null;
   },
@@ -709,6 +867,13 @@ const App = {
   },
 
   setupGlobalEvents() {
+    document.getElementById("header-export-active-table-btn")?.addEventListener("click", () => {
+      this.exportActiveMainTabContent();
+    });
+    document.getElementById("header-print-active-table-btn")?.addEventListener("click", () => {
+      this.printActiveMainTabContent();
+    });
+
     // navegación principal: click izquierdo abre aquí; click derecho abre menú contextual
     document.querySelectorAll(".nav-btn").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -788,6 +953,7 @@ const App = {
           const m = document.getElementById("confirm-modal");
           if (m) m.classList.remove("active");
           this.confirmCallback = null;
+          this._resetConfirmModalChrome();
         } else {
           if (this.confirmCallback) this.confirmCallback();
           this.hideConfirm();
@@ -856,81 +1022,116 @@ const App = {
       );
     }
 
+    this._setupGlobalTableCellHoverTitles();
     this._setupGlobalCodeHoldCopy();
   },
 
   /**
-   * Mantener pulsado ~1,2 s: copia código o descripción al portapapeles.
-   * Código: `td.inv-code-cell`, `td.app-code-copy-cell`, `td[data-app-code-copy]`.
-   * Descripción: `td.inv-desc-cell`, `td.app-desc-copy-cell`, `td[data-app-desc-copy]`.
-   * Pedidos: `td.orderline-col-article` — pulsación sobre `strong` = código; sobre `.orderline-desc` = descripción.
+   * Añade title automático en celdas truncadas para mostrar texto completo en hover.
+   */
+  _setupGlobalTableCellHoverTitles() {
+    if (this._globalTableTitleBound) return;
+    this._globalTableTitleBound = true;
+    const cellSel =
+      ".inventory-table td, .inventory-table th, .data-table td, .data-table th, " +
+      ".selected-items-table td, .selected-items-table th, .history-details-table td, .history-details-table th";
+    const hasInteractive = el => !!el.querySelector("button, a, input, select, textarea, [contenteditable='true']");
+    const setTitleIfNeeded = cell => {
+      if (!cell || hasInteractive(cell)) return;
+      if (cell.hasAttribute("data-title-lock")) return;
+      const txt = String(cell.getAttribute("data-copy-text") || cell.textContent || "").replace(/\s+/g, " ").trim();
+      if (!txt) return;
+      const overflowed = cell.scrollWidth > cell.clientWidth + 1 || cell.scrollHeight > cell.clientHeight + 1;
+      if (!overflowed && txt.length < 48) return;
+      cell.title = txt;
+      cell.setAttribute("data-title-lock", "1");
+    };
+    document.addEventListener(
+      "pointerover",
+      e => {
+        const cell = e.target?.closest?.(cellSel);
+        if (!cell) return;
+        setTitleIfNeeded(cell);
+      },
+      true
+    );
+  },
+
+  /**
+   * Mantener pulsado ~1,2 s: copia texto al portapapeles en toda la app.
    */
   _setupGlobalCodeHoldCopy() {
     if (this._globalCodeHoldBound) return;
     this._globalCodeHoldBound = true;
     const HOLD_MS = 1200;
+    const MOVE_CANCEL_PX = 8;
     let timer = null;
+    let longPressTriggered = false;
+    let startPoint = null;
+    const nonCopyRootSel = "button, a, input, select, textarea, option, label[for], [contenteditable='true']";
+    const textNodeSel =
+      "[data-copy-text], td, th, code, strong, span, p, li, small, em, b, i, h1, h2, h3, h4, h5, h6, div";
     const cancel = () => {
       if (timer) {
         clearTimeout(timer);
         timer = null;
       }
+      longPressTriggered = false;
+      startPoint = null;
+    };
+    const isScrollbarHit = (evt, src) => {
+      let node = src && src.nodeType === 1 ? src : src?.parentElement;
+      while (node && node !== document.body) {
+        const hasVert = node.scrollHeight > node.clientHeight;
+        const hasHorz = node.scrollWidth > node.clientWidth;
+        if (hasVert || hasHorz) {
+          const rect = node.getBoundingClientRect();
+          const sbW = Math.max(0, (node.offsetWidth || 0) - (node.clientWidth || 0));
+          const sbH = Math.max(0, (node.offsetHeight || 0) - (node.clientHeight || 0));
+          const inX = evt.clientX >= rect.left && evt.clientX <= rect.right;
+          const inY = evt.clientY >= rect.top && evt.clientY <= rect.bottom;
+          if (hasVert && sbW > 0 && inY && evt.clientX >= rect.right - sbW) return true;
+          if (hasHorz && sbH > 0 && inX && evt.clientY >= rect.bottom - sbH) return true;
+        }
+        node = node.parentElement;
+      }
+      return false;
+    };
+    const normalizeText = raw => String(raw || "").replace(/\s+/g, " ").trim();
+    const resolveTextTarget = src => {
+      const explicit = src.closest?.("[data-copy-text]");
+      if (explicit) {
+        const val = normalizeText(explicit.getAttribute("data-copy-text"));
+        if (val) return val;
+      }
+      const node = src.closest?.(textNodeSel);
+      if (!node || node.closest(nonCopyRootSel)) return "";
+      const directText = normalizeText(node.textContent);
+      if (directText && directText.length <= 280) return directText;
+      const targetText = normalizeText(src.textContent);
+      if (targetText && targetText.length <= 280) return targetText;
+      return directText.slice(0, 280).trim();
     };
     document.addEventListener(
       "pointerdown",
       e => {
-        let text = "";
-        let toastOkKey = "inventory.codeCopied";
-
-        const articleTd = e.target.closest("td.orderline-col-article");
-        if (articleTd) {
-          if (e.target.closest("button, a, input, select, textarea")) return;
-          if (e.target.closest(".orderline-desc")) {
-            const el = articleTd.querySelector(".orderline-desc");
-            text = String(el?.textContent || "").trim();
-            toastOkKey = "msg.descriptionCopied";
-          } else if (e.target.closest("strong")) {
-            const el = articleTd.querySelector("strong");
-            text = String(el?.textContent || "").trim();
-            toastOkKey = "inventory.codeCopied";
-          } else {
-            return;
-          }
-        } else {
-          const td = e.target.closest(
-            "td.inv-code-cell, td.app-code-copy-cell, td[data-app-code-copy], " +
-              "td.inv-desc-cell, td.app-desc-copy-cell, td[data-app-desc-copy]"
-          );
-          if (!td) return;
-          if (e.target.closest("button, a, input, select, textarea")) return;
-          const isDesc = td.matches(".inv-desc-cell, .app-desc-copy-cell, [data-app-desc-copy]");
-          const explicit = td.getAttribute("data-copy-text");
-          if (explicit != null && String(explicit).trim() !== "") {
-            text = String(explicit).trim();
-            toastOkKey = isDesc ? "msg.descriptionCopied" : "inventory.codeCopied";
-          } else if (isDesc) {
-            const sub = td.querySelector(".inv-desc-text, .result-description, .detail-item-desc");
-            text = String((sub && sub.textContent) || td.textContent || "").trim();
-            toastOkKey = "msg.descriptionCopied";
-          } else {
-            const strong = td.querySelector("strong");
-            text = String((strong && strong.textContent) || td.textContent || "").trim();
-            toastOkKey = "inventory.codeCopied";
-          }
-        }
-
+        if (e.button != null && e.button !== 0) return;
+        if (e.target.closest?.(nonCopyRootSel)) return;
+        if (isScrollbarHit(e, e.target)) return;
+        const text = resolveTextTarget(e.target);
         if (!text) return;
         cancel();
+        startPoint = { x: e.clientX, y: e.clientY };
         timer = setTimeout(async () => {
           timer = null;
+          longPressTriggered = true;
           const ok =
             typeof Utils !== "undefined" && Utils.copyTextToClipboard
               ? await Utils.copyTextToClipboard(text)
               : false;
-          const okMsg =
-            typeof I18n !== "undefined" && I18n.t ? I18n.t(toastOkKey) : "Copied";
+          const okMsg = typeof I18n !== "undefined" && I18n.t ? I18n.t("ui.textCopied") : "Texto copiado";
           const failMsg =
-            typeof I18n !== "undefined" && I18n.t ? I18n.t("inventory.codeCopyFailed") : "Failed";
+            typeof I18n !== "undefined" && I18n.t ? I18n.t("ui.copyFailed") : "No se pudo copiar";
           if (typeof Utils !== "undefined" && Utils.showToast) {
             Utils.showToast(ok ? okMsg : failMsg, ok ? "success" : "warning");
           }
@@ -938,8 +1139,27 @@ const App = {
       },
       true
     );
+    document.addEventListener(
+      "pointermove",
+      e => {
+        if (!timer || !startPoint) return;
+        const dx = Math.abs((e.clientX || 0) - startPoint.x);
+        const dy = Math.abs((e.clientY || 0) - startPoint.y);
+        if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) cancel();
+      },
+      true
+    );
     document.addEventListener("pointerup", cancel, true);
     document.addEventListener("pointercancel", cancel, true);
+    document.addEventListener(
+      "click",
+      e => {
+        if (!longPressTriggered) return;
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      true
+    );
     document.addEventListener("keydown", e => {
       if (e.key === "Escape") cancel();
     }, true);

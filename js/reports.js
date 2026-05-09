@@ -3,7 +3,6 @@
 const ReportExporter = {
   init() {
     document.getElementById("open-report-modal")?.addEventListener("click", () => this.openModal("movements_filtered"));
-    document.getElementById("open-report-modal-transport")?.addEventListener("click", () => this.openModal("transports"));
     document.getElementById("transport-export-summary-btn")?.addEventListener("click", () => void this.exportTransportsQuick());
     document.getElementById("transport-print-summary-btn")?.addEventListener("click", () => this.printTransportsQuick());
     document.getElementById("close-report-modal")?.addEventListener("click", () => this.closeModal());

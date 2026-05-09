@@ -39,29 +39,27 @@ const MovementManager = {
             }
             Utils.syncMovementRefCounterFromMovements(this.movements);
             let migAttachments = false;
+            let migOverdraftFlags = false;
             (this.movements || []).forEach(m => {
                 if (!Array.isArray(m.attachments)) {
                     m.attachments = [];
                     migAttachments = true;
                 }
-            });
-            if (migAttachments) this.save();
-            let migOverdraftFlags = false;
-            (this.movements || []).forEach(m => {
                 const t = m && m.type;
-                if (!t || typeof MOVEMENT_TYPES === 'undefined' || !MOVEMENT_TYPES[t]) return;
-                const c = MOVEMENT_TYPES[t];
-                if (
-                    (c.specialForm === 'compra' || c.specialForm === 'recepcion') &&
-                    m.hadOverdraft
-                ) {
-                    m.hadOverdraft = false;
-                    delete m.overdraftReason;
-                    delete m.overdraftAt;
-                    migOverdraftFlags = true;
+                if (t && typeof MOVEMENT_TYPES !== 'undefined' && MOVEMENT_TYPES[t]) {
+                    const c = MOVEMENT_TYPES[t];
+                    if (
+                        (c.specialForm === 'compra' || c.specialForm === 'recepcion') &&
+                        m.hadOverdraft
+                    ) {
+                        m.hadOverdraft = false;
+                        delete m.overdraftReason;
+                        delete m.overdraftAt;
+                        migOverdraftFlags = true;
+                    }
                 }
             });
-            if (migOverdraftFlags) this.save();
+            if (migAttachments || migOverdraftFlags) this.save();
             this.purgeZeroStockMovementsNow();
             this._loadConsumoCartFromStorage();
             this._migrateConsumoCartActivityDay();
@@ -105,7 +103,6 @@ const MovementManager = {
                 initSelTitle.textContent = I18n.t('movements.selectedItems');
             }
             this._syncMovementSearchPlaceholder(null);
-            console.log('✅ MovementManager iniciado con', this.movements.length, 'movimientos');
         } catch (err) {
             console.error('❌ Error inicializando MovementManager:', err);
         }
@@ -157,7 +154,9 @@ const MovementManager = {
                     quantity: qty,
                     target: "main",
                     location: item.location || "",
-                    annulled: false
+                    annulled: false,
+                    compraLinePo: (poNumber || "").trim(),
+                    compraLineSupplier: (supplier || "").trim()
                 }
             ],
             hadOverdraft: false,
@@ -203,6 +202,13 @@ const MovementManager = {
         this.movements.push(movement);
         this.save();
         if (typeof Auth !== "undefined") Auth.logAudit("movement.create", `COMPRA_STOCK ${reference} (order panel)`);
+        if (
+            movement.orderLineId &&
+            typeof OrderLinesManager !== "undefined" &&
+            OrderLinesManager.commitReceiptAfterCompra
+        ) {
+            OrderLinesManager.commitReceiptAfterCompra(movement);
+        }
         if (typeof HistoryManager !== "undefined" && HistoryManager.render) HistoryManager.render();
         InventoryManager.render();
         return movement;
@@ -470,6 +476,10 @@ const MovementManager = {
             if (typeof ConsumableManager !== "undefined") ConsumableManager.refreshDatalists();
             if (consOnly) consOnly.checked = true;
             if (qtyEl) qtyEl.value = String(q);
+            const cpEl = document.getElementById("mov-compra-consumible-po");
+            const csEl = document.getElementById("mov-compra-consumible-supplier");
+            if (cpEl) cpEl.value = String(line.poNumber || "").trim();
+            if (csEl) csEl.value = String(line.supplier || "").trim();
             const canon = String(line.consumableName || "").trim();
             if (cSel && cSel.style.display !== "none") {
                 const hit = [...(cSel.options || [])].find(
@@ -489,6 +499,11 @@ const MovementManager = {
                 notesEl.value = I18n.t("orderLines.movementNote").replace("{ref}", line.code || "");
             this.addItem(item);
             this.updateItemQuantity(0, q);
+            const row0 = this.selectedItems[0];
+            if (row0) {
+                row0.compraLinePo = String(line.poNumber || "").trim();
+                row0.compraLineSupplier = String(line.supplier || "").trim();
+            }
         }
 
         if (typeof this._syncCompraConsumibleInventoryVisibility === "function")
@@ -568,13 +583,20 @@ const MovementManager = {
                         boxId: "",
                         locationStockKey: "",
                         compraPlace: { kind: "main" },
-                        annulled: false
+                        annulled: false,
+                        compraLinePo: String(v.line.poNumber || "").trim(),
+                        compraLineSupplier: String(v.line.supplier || "").trim()
                     });
                     return;
                 }
                 this.addItem(v.item);
                 // `addItem` hace `unshift`: la línea recién añadida está siempre en el índice 0 (no en length-1).
                 this.updateItemQuantity(0, v.quantity);
+                const r0 = this.selectedItems[0];
+                if (r0) {
+                    r0.compraLinePo = String(v.line.poNumber || "").trim();
+                    r0.compraLineSupplier = String(v.line.supplier || "").trim();
+                }
             });
         } finally {
             this._compraBatchFromOrdersBuilding = false;
@@ -1388,6 +1410,7 @@ const MovementManager = {
             });
         }
         this.refreshMovementTypeIndicators();
+        if (typeof App !== "undefined" && App.refreshActiveTabTableExportButton) App.refreshActiveTabTableExportButton();
     },
 
     showMovementTypeHelp(type) {
@@ -1405,6 +1428,11 @@ const MovementManager = {
     renderRecentMovements() {
         const wrap = document.getElementById("movements-recent-list");
         if (!wrap || typeof I18n === "undefined" || !I18n.t) return;
+
+        if (typeof Auth !== "undefined" && Auth.getSessionActionLevel && Auth.getSessionActionLevel("movRecent") === "none") {
+            wrap.innerHTML = "";
+            return;
+        }
 
         const esc = s => Utils.escapeHtml(s);
         const escA = s => Utils.escapeAttr(s);
@@ -1511,6 +1539,17 @@ const MovementManager = {
         const movSlip = document.getElementById("mov-compra-slip")?.value?.trim() || "";
         const movSup = document.getElementById("mov-compra-supplier")?.value?.trim() || "";
         if (conf.specialForm === "compra" && (movPo || movSlip || movSup)) return true;
+        if (
+            conf.specialForm === "compra" &&
+            (this.selectedItems || []).some(
+                it => String(it?.compraLinePo || "").trim() || String(it?.compraLineSupplier || "").trim()
+            )
+        )
+            return true;
+        if (conf.specialForm === "compra" && document.getElementById("mov-compra-consumible-po")?.value?.trim())
+            return true;
+        if (conf.specialForm === "compra" && document.getElementById("mov-compra-consumible-supplier")?.value?.trim())
+            return true;
         if (
             conf.specialForm === "compra" &&
             document.getElementById("mov-compra-receipt-historical-date")?.value?.trim()
@@ -1726,6 +1765,10 @@ const MovementManager = {
                 thCompraPl.textContent = I18n.t('movCompra.stockPlacement');
             }
         }
+        const thCompraLinePo = document.getElementById('mov-compra-line-po-th');
+        const thCompraLineSup = document.getElementById('mov-compra-line-supplier-th');
+        if (thCompraLinePo) thCompraLinePo.style.display = type === 'COMPRA_STOCK' ? '' : 'none';
+        if (thCompraLineSup) thCompraLineSup.style.display = type === 'COMPRA_STOCK' ? '' : 'none';
         if (type === 'COMPRA_STOCK') {
             const dl = document.getElementById('mov-compra-loc-datalist');
             if (dl && typeof Utils !== 'undefined' && Utils.getEffectiveWarehouseLocationSlots) {
@@ -2261,6 +2304,8 @@ const MovementManager = {
                 base.compraPlace = { kind: 'main' };
                 base.compraLotExpiry = '';
                 base.compraLotExpedition = '';
+                base.compraLinePo = '';
+                base.compraLineSupplier = '';
             }
             this.selectedItems.unshift(base);
             if (this._movementTypeStockSourceDestMirror()) {
@@ -2289,16 +2334,7 @@ const MovementManager = {
         if (this.currentType === "COMPRA_STOCK" && this.isCompraConsumibleReceiptMode()) return;
         if (this.currentType === "CONSUMO_DIARIO") this._syncConsumoRecipientsFromDom();
         if (this.currentType === "COMPRA_STOCK" && !this.isCompraConsumibleReceiptMode()) {
-            const rows = document.querySelectorAll("#selected-items-body tr");
-            for (let i = 0; i < Math.min(rows.length, this.selectedItems.length); i++) {
-                const row = rows[i];
-                const it = this.selectedItems[i];
-                if (!it) continue;
-                const e1 = row.querySelector(".mov-compra-lot-expiry");
-                const e2 = row.querySelector(".mov-compra-lot-expedition");
-                if (e1) it.compraLotExpiry = e1.value || "";
-                if (e2) it.compraLotExpedition = e2.value || "";
-            }
+            this._pullCompraPurchaseFieldsFromDom();
         }
         const inputs = document.querySelectorAll("#selected-items-body tr .quantity-input");
         if (!inputs.length) return;
@@ -2392,18 +2428,33 @@ const MovementManager = {
     },
 
     _renderQuantityInputWithCalc(index, value, opts = {}) {
-        const min = opts.min != null ? String(opts.min) : "0";
+        const min =
+            Object.prototype.hasOwnProperty.call(opts, "min") && opts.min !== null && opts.min !== undefined
+                ? String(opts.min)
+                : null;
         const step = opts.step != null ? String(opts.step) : "any";
         const v = value != null && value !== "" ? String(value) : "";
         const calcTitle = this._escHtml(I18n.t("movements.qtyCalcBtn"));
+        const minAttr = min != null ? ` min="${this._escAttr(min)}"` : "";
         return `<div class="mov-qty-input-wrap">
           <input type="number" class="quantity-input"
-                 value="${this._escAttr(v)}" min="${this._escAttr(min)}" step="${this._escAttr(step)}"
+                 value="${this._escAttr(v)}"${minAttr} step="${this._escAttr(step)}"
                  data-index="${index}" onchange="MovementManager.updateItemQuantity(${index}, this.value)">
           <button type="button" class="btn btn-sm btn-secondary mov-qty-calc-btn"
                   data-calc-index="${index}" onclick="MovementManager.openQuantityCalculator(${index}); return false;"
                   title="${calcTitle}" aria-label="${calcTitle}">🧮</button>
         </div>`;
+    },
+
+    /** Para tipos "any" (AJUSTE), el input conserva signo; el resto trabaja en magnitud positiva. */
+    _movementQtyInputUi(item, conf) {
+        const raw = parseFloat(item?.quantity);
+        const signed = Number.isFinite(raw) ? Utils.roundDecimal(raw) : 0;
+        if (conf && conf.behavior === "any") {
+            return { value: Math.abs(signed) > 0 ? signed : "", min: null };
+        }
+        const absV = Utils.roundDecimal(Math.abs(signed));
+        return { value: absV > 0 ? absV : "", min: 0 };
     },
 
     _evaluateQuantityExpression(raw) {
@@ -3181,9 +3232,44 @@ const MovementManager = {
         this.renderSelectedItems();
     },
 
+    _setCompraLinePurchaseField(index, kind, raw) {
+        if (index < 0 || index >= (this.selectedItems || []).length) return;
+        if (this.currentType !== "COMPRA_STOCK") return;
+        const v = String(raw ?? "").trim();
+        const it = this.selectedItems[index];
+        if (!it) return;
+        if (kind === "po") it.compraLinePo = v;
+        else if (kind === "sup") it.compraLineSupplier = v;
+    },
+
+    /**
+     * Antes de re-renderizar la tabla: conserva PO, proveedor y fechas de lote desde el DOM.
+     * Sin esto, `updateItemQuantity` / calculadora / clic fuera disparan `renderSelectedItems` y se pierden los inputs.
+     */
+    _pullCompraPurchaseFieldsFromDom() {
+        if (this.currentType !== "COMPRA_STOCK" || this.isCompraConsumibleReceiptMode()) return;
+        const rows = document.querySelectorAll("#selected-items-body tr");
+        const items = this.selectedItems || [];
+        for (let i = 0; i < Math.min(rows.length, items.length); i++) {
+            const row = rows[i];
+            const it = items[i];
+            if (!it || row.querySelector("td[colspan]")) continue;
+            const poInp = row.querySelector(".mov-compra-line-po");
+            const supInp = row.querySelector(".mov-compra-line-supplier");
+            if (poInp) it.compraLinePo = String(poInp.value || "").trim();
+            if (supInp) it.compraLineSupplier = String(supInp.value || "").trim();
+            const e1 = row.querySelector(".mov-compra-lot-expiry");
+            const e2 = row.querySelector(".mov-compra-lot-expedition");
+            if (e1) it.compraLotExpiry = e1.value || "";
+            if (e2) it.compraLotExpedition = e2.value || "";
+        }
+    },
+
     renderSelectedItems() {
         const tbody = document.getElementById('selected-items-body');
         if (!tbody || !this.currentType) return;
+
+        this._pullCompraPurchaseFieldsFromDom();
 
         const esc = s => this._escHtml(s);
         const fmt = v => Utils.formatDecimalDisplay(v);
@@ -3227,7 +3313,13 @@ const MovementManager = {
             const hasBoxCol = thBox && thBox.style.display !== 'none';
             const thCom = document.getElementById('mov-compra-dest-th');
             const hasCompraCol = thCom && thCom.style.display !== 'none';
-            const emptyCols = (this.currentType === 'CONSUMO_DIARIO' ? 8 : 7) + (hasBoxCol ? 1 : 0) + (hasCompraCol ? 1 : 0);
+            const thPoL = document.getElementById('mov-compra-line-po-th');
+            const hasCompraPoCols = thPoL && thPoL.style.display !== 'none';
+            const emptyCols =
+                (this.currentType === 'CONSUMO_DIARIO' ? 8 : 7) +
+                (hasBoxCol ? 1 : 0) +
+                (hasCompraCol ? 1 : 0) +
+                (hasCompraPoCols ? 2 : 0);
             tbody.innerHTML = `
                 <tr>
                     <td colspan="${emptyCols}" style="text-align: center; color: var(--text-muted);">
@@ -3332,6 +3424,7 @@ const MovementManager = {
                 const newStock = currentStock + item.quantity;
                 const exceedsStock = conf.behavior === 'negative' && newStock < 0;
                 const destLabel = esc(this._formatStockSourceAsDestLabel(item));
+                const qtyUi = this._movementQtyInputUi(item, conf);
                 const recVal = esc(item.recipientName || '');
                 const staffNames =
                     typeof EmployeeManager !== 'undefined' && EmployeeManager.getSortedNames
@@ -3390,7 +3483,7 @@ const MovementManager = {
                     <td>
                         ${recipientCell}
                     </td>
-                    <td>${this._renderQuantityInputWithCalc(index, Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : "", { min: 0, step: "any" })}</td>
+                    <td>${this._renderQuantityInputWithCalc(index, qtyUi.value, { min: qtyUi.min, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td><span class="mov-same-dest-mirror">${destLabel}</span></td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
@@ -3464,10 +3557,14 @@ const MovementManager = {
                 const consBadge = item.consumableReceipt
                     ? ` <span class="status-badge muted">${esc(I18n.t('movements.compraConsumableLineBadge'))}</span>`
                     : '';
+                const poVal = this._escAttr(String(item.compraLinePo || ''));
+                const supVal = this._escAttr(String(item.compraLineSupplier || ''));
                 return `
                 <tr>
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}${consBadge}</td>
+                    <td><input type="text" class="form-input mov-compra-line-po" style="min-width:6rem;max-width:10rem;" value="${poVal}" autocomplete="off" oninput="MovementManager._setCompraLinePurchaseField(${index},'po',this.value)" onchange="MovementManager._setCompraLinePurchaseField(${index},'po',this.value)" /></td>
+                    <td><input type="text" class="form-input mov-compra-line-supplier" style="min-width:8rem;max-width:14rem;" value="${supVal}" list="mov-compra-supplier-datalist" autocomplete="off" oninput="MovementManager._setCompraLinePurchaseField(${index},'sup',this.value)" onchange="MovementManager._setCompraLinePurchaseField(${index},'sup',this.value)" /></td>
                     <td>${this._renderQuantityInputWithCalc(index, qAbs > 0 ? qAbs : "", { min: 0, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td>${esc(I18n.t('target.main'))}</td>
@@ -3483,11 +3580,12 @@ const MovementManager = {
                 const newStock = currentStock + item.quantity;
                 const exceedsStock = newStock < 0;
                 const destLabel = esc(this._formatStockSourceAsDestLabel(item));
+                const qtyUi = this._movementQtyInputUi(item, conf);
                 return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
-                    <td>${this._renderQuantityInputWithCalc(index, Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : "", { min: 0, step: "any" })}</td>
+                    <td>${this._renderQuantityInputWithCalc(index, qtyUi.value, { min: qtyUi.min, step: "any" })}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td><span class="mov-same-dest-mirror">${destLabel}</span></td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
@@ -3528,7 +3626,10 @@ const MovementManager = {
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
-                    <td>${this._renderQuantityInputWithCalc(index, Math.abs(item.quantity) > 0 ? Math.abs(item.quantity) : "", { min: 0, step: "any" })}</td>
+                    <td>${(() => {
+                        const qtyUi = this._movementQtyInputUi(item, conf);
+                        return this._renderQuantityInputWithCalc(index, qtyUi.value, { min: qtyUi.min, step: "any" });
+                    })()}</td>
                     ${this._renderMovementStockSourceCell(item, index, conf)}
                     <td>${targetSelect}</td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
@@ -3571,11 +3672,6 @@ const MovementManager = {
         const projectId = document.getElementById('project-id')?.value?.trim() || '';
 
         if (conf.specialForm === 'compra') {
-            const po = document.getElementById('mov-compra-po')?.value?.trim() || '';
-            if (!po) {
-                Utils.showToast(I18n.t('msg.compraPoRequired'), 'error');
-                return false;
-            }
             if (this.isCompraConsumibleReceiptMode()) {
                 if (typeof ConsumableManager === 'undefined' || !ConsumableManager.hasList()) {
                     Utils.showToast(I18n.t('consumables.configEmptyWarn'), 'error');
@@ -3590,6 +3686,16 @@ const MovementManager = {
                 const cq = this._parseQuantityInputValue(document.getElementById('mov-compra-consumible-qty')?.value);
                 if (!(cq > 0)) {
                     Utils.showToast(I18n.t('movements.compraConsumableQtyInvalid'), 'error');
+                    return false;
+                }
+                const cpo = document.getElementById('mov-compra-consumible-po')?.value?.trim() || '';
+                const csup = document.getElementById('mov-compra-consumible-supplier')?.value?.trim() || '';
+                if (!cpo) {
+                    Utils.showToast(I18n.t('msg.compraLinePoRequired'), 'error');
+                    return false;
+                }
+                if (!csup) {
+                    Utils.showToast(I18n.t('msg.compraLineSupplierRequired'), 'error');
                     return false;
                 }
                 return true;
@@ -3607,6 +3713,16 @@ const MovementManager = {
                 }
                 if (pl && pl.kind === 'location' && !String(pl.locationKey || '').trim()) {
                     Utils.showToast(I18n.t('msg.compraLocationRequired'), 'error');
+                    return false;
+                }
+                const lpo = String(it.compraLinePo ?? '').trim();
+                const lsup = String(it.compraLineSupplier ?? '').trim();
+                if (!lpo) {
+                    Utils.showToast(I18n.t('msg.compraLinePoRequired'), 'error');
+                    return false;
+                }
+                if (!lsup) {
+                    Utils.showToast(I18n.t('msg.compraLineSupplierRequired'), 'error');
                     return false;
                 }
             }
@@ -4198,9 +4314,7 @@ const MovementManager = {
                   };
         }
 
-        const poNumber = document.getElementById('mov-compra-po')?.value?.trim() || '';
         const packingSlip = document.getElementById('mov-compra-slip')?.value?.trim() || '';
-        const supplierCompra = document.getElementById('mov-compra-supplier')?.value?.trim() || '';
 
         let transformationTargetItemId = null;
         let transformationTargetCode = '';
@@ -4280,7 +4394,9 @@ const MovementManager = {
                     description: canon || "",
                     quantity: Utils.roundDecimal(Math.abs(qAbs)),
                     target: "main",
-                    annulled: false
+                    annulled: false,
+                    compraLinePo: document.getElementById("mov-compra-consumible-po")?.value?.trim() || "",
+                    compraLineSupplier: document.getElementById("mov-compra-consumible-supplier")?.value?.trim() || ""
                 }
             ];
         }
@@ -4317,15 +4433,14 @@ const MovementManager = {
         if (this.currentType === "COMPRA_STOCK") {
             const duplicate = (this.movements || []).some(m => {
                 if (!m || m.annulled || m.type !== "COMPRA_STOCK") return false;
-                const pm = m.purchaseMeta || {};
-                if (String(pm.poNumber || "").trim().toLowerCase() !== String(poNumber || "").trim().toLowerCase()) return false;
-                if (String(pm.supplier || "").trim().toLowerCase() !== String(supplierCompra || "").trim().toLowerCase()) return false;
+                const lineKey = it =>
+                    `${it?.itemId || ""}|${String(it?.description || "").trim().toLowerCase()}|${Utils.roundDecimal(Math.abs(parseFloat(it?.quantity) || 0))}|${String(it?.compraLinePo || "").trim().toLowerCase()}|${String(it?.compraLineSupplier || "").trim().toLowerCase()}`;
                 const a = (m.items || [])
-                    .map(it => `${it?.itemId || ""}|${String(it?.description || "").trim().toLowerCase()}|${Utils.roundDecimal(Math.abs(parseFloat(it?.quantity) || 0))}`)
+                    .map(lineKey)
                     .sort()
                     .join(";");
                 const b = (mappedItems || [])
-                    .map(it => `${it?.itemId || ""}|${String(it?.description || "").trim().toLowerCase()}|${Utils.roundDecimal(Math.abs(parseFloat(it?.quantity) || 0))}`)
+                    .map(lineKey)
                     .sort()
                     .join(";");
                 return a && a === b;
@@ -4470,31 +4585,34 @@ const MovementManager = {
         // COMPRA_STOCK: mismo formulario siempre; orderLineId solo si venía del panel y el movimiento coincide.
         if (this.currentType === 'COMPRA_STOCK') {
             movement.purchaseMeta = {
-                poNumber,
                 packingSlip,
-                supplier: supplierCompra,
                 ...(realReceiptYmd ? { realReceiptDate: realReceiptYmd } : {})
             };
-            if (poNumber && typeof ConfigManager !== 'undefined' && ConfigManager.getPurchaseOrders) {
+            if (typeof ConfigManager !== 'undefined' && ConfigManager.getPurchaseOrders && ConfigManager.savePurchaseOrders) {
                 const orders = ConfigManager.getPurchaseOrders();
-                const supplierPoNorm = String(supplierCompra || "").trim().toLowerCase();
-                const exists = orders.some(
-                    o =>
-                        (o.poNumber || '').trim().toLowerCase() === poNumber.toLowerCase() &&
-                        String(o.supplier || "").trim().toLowerCase() === supplierPoNorm
-                );
-                if (!exists) {
-                    orders.push({
-                        id: Utils.generateId(),
-                        poNumber,
-                        projectId: '',
-                        supplier: supplierCompra,
-                        notes: notes || '',
-                        status: 'open',
-                        created: new Date().toISOString()
-                    });
-                    ConfigManager.savePurchaseOrders(orders);
+                for (const li of movement.items || []) {
+                    const poNum = String(li?.compraLinePo || '').trim();
+                    const supLi = String(li?.compraLineSupplier || '').trim();
+                    if (!poNum || !supLi) continue;
+                    const supplierPoNorm = supLi.toLowerCase();
+                    const exists = orders.some(
+                        o =>
+                            (o.poNumber || '').trim().toLowerCase() === poNum.toLowerCase() &&
+                            String(o.supplier || '').trim().toLowerCase() === supplierPoNorm
+                    );
+                    if (!exists) {
+                        orders.push({
+                            id: Utils.generateId(),
+                            poNumber: poNum,
+                            projectId: '',
+                            supplier: supLi,
+                            notes: notes || '',
+                            status: 'open',
+                            created: new Date().toISOString()
+                        });
+                    }
                 }
+                ConfigManager.savePurchaseOrders(orders);
             }
             const receiptDate = realReceiptYmd || new Date().toISOString().slice(0, 10);
             (movement.items || []).forEach(li => {
@@ -5060,7 +5178,8 @@ const MovementManager = {
     },
 
     getMovementById(id) {
-        return this.movements.find(m => m.id === id);
+        const sid = id == null ? "" : String(id);
+        return this.movements.find(m => String(m.id) === sid);
     },
 
     async addMovementAttachments(movementId) {
@@ -5520,7 +5639,9 @@ const MovementManager = {
                     try {
                         OrderLinesManager.commitReceiptAfterCompra(m);
                     } catch (err) {
-                        console.warn("merge commitReceiptAfterCompra", err);
+                        if (typeof window !== "undefined" && window.__GNEEX_DEBUG) {
+                            console.warn("merge commitReceiptAfterCompra", err);
+                        }
                     }
                 }
 
@@ -5592,6 +5713,16 @@ const MovementManager = {
         if (movCS && movCS.options.length) movCS.selectedIndex = 0;
         const movCf = document.getElementById("mov-compra-consumible-fields");
         if (movCf) movCf.style.display = "none";
+        const movCpo = document.getElementById("mov-compra-consumible-po");
+        const movCsup = document.getElementById("mov-compra-consumible-supplier");
+        if (movCpo) movCpo.value = "";
+        if (movCsup) movCsup.value = "";
+        const thCompraLinePo = document.getElementById("mov-compra-line-po-th");
+        const thCompraLineSup = document.getElementById("mov-compra-line-supplier-th");
+        if (thCompraLinePo) thCompraLinePo.style.display = "none";
+        if (thCompraLineSup) thCompraLineSup.style.display = "none";
+        const thCompraPlRf = document.getElementById("mov-compra-dest-th");
+        if (thCompraPlRf) thCompraPlRf.style.display = "none";
         const mrp = document.getElementById('mov-rec-po');
         const mrs = document.getElementById('mov-rec-supplier');
         const mrprov = document.getElementById('mov-rec-provisional');

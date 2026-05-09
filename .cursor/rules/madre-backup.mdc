@@ -1,0 +1,12 @@
+---
+description: Cuando el usuario pide actualizar el respaldo Madre con la frase clave
+alwaysApply: true
+---
+
+# Respaldo GNEEX_Backup_Madre.json
+
+Si el usuario escribe **«Madre mia»** o **«Madre mía»** (sin importar mayúsculas), ejecutar desde la raíz del proyecto:
+
+`node scripts/repair-backup-users.mjs GNEEX_Backup_Madre.json`
+
+Eso reescribe `data["phoenix-users"]` en `GNEEX_Backup_Madre.json` alineado con las plantillas integradas en `js/auth.js` (incluye reset de cuentas `gneex-builtin-*` y deduplicación).

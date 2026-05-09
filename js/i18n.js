@@ -143,6 +143,15 @@ const I18n = {
             'ui.configTitle': 'Configuración',
             'ui.languageTitle': 'Idioma',
             'ui.helpTitle': 'Ayuda: guía y botón «Activar modo ayuda» (cursor con «?»)',
+            'ui.exportActiveTabTitle': 'Exportar tabla de la pestaña actual (XLSX)',
+            'ui.exportActiveTabAria': 'Exportar tabla visible de la pestaña actual',
+            'ui.exportActiveTabNoTable': 'No hay tabla exportable en esta vista. En Historial, pruebe la vista «detalle» o use el botón cuando haya resultados filtrados.',
+            'ui.printActiveTabTitle': 'Imprimir tabla de la pestaña actual',
+            'ui.printActiveTabAria': 'Imprimir tabla visible de la pestaña actual',
+            'ui.printActiveTabNoTable': 'No hay tabla imprimible en esta vista.',
+            'ui.textCopied': 'Texto copiado al portapapeles.',
+            'ui.copyFailed': 'No se pudo copiar al portapapeles.',
+            'ui.exportDone': 'Exportación descargada.',
             'navContext.openHere': 'Abrir aquí',
             'navContext.openTab': 'Abrir en nueva pestaña',
             'navContext.openWindow': 'Abrir en nueva ventana',
@@ -166,7 +175,7 @@ const I18n = {
             'help.hAdmin': 'Perfil de administrador',
             'help.pAdmin': 'Respaldo JSON, usuarios, listas, archivar movimientos, auditoría y demás opciones de Configuración según permisos.',
             'help.hOperator': 'Perfil operativo',
-            'help.pOperator': 'Movimientos y pestañas operativas según permisos. Importación/respaldo JSON y carga inicial de inventario: solo administrador. Empleados/proveedores y fusiones sensibles: administrador o elevación temporal donde aplique.',
+            'help.pOperator': 'Movimientos y pestañas operativas según permisos. Importar respaldo JSON completo: cualquier usuario con sesión. Exportar respaldo, carga inicial CSV/XLSX y demás opciones sensibles: según perfil (habitualmente administrador). Empleados/proveedores y fusiones sensibles: administrador o elevación temporal donde aplique.',
             'help.hViewer': 'Solo consulta',
             'help.pViewer': 'Consulta sin registrar movimientos ni importar/exportar, salvo lo que permita la cuenta.',
             'help.hBackup': 'Respaldo entre equipos',
@@ -799,6 +808,8 @@ const I18n = {
             'buttons.processRecepcion': 'Procesar recepción',
             'buttons.minimize': 'Minimizar',
             'buttons.confirm': 'Confirmar',
+            'buttons.yes': 'Sí',
+            'buttons.no': 'No',
             'buttons.save': 'Guardar',
             'buttons.close': 'Cerrar',
             'buttons.addItem': 'Agregar Artículo',
@@ -811,6 +822,7 @@ const I18n = {
 
             // Confirmaciones
             'confirm.title': 'Confirmar',
+            'confirm.titleYesNo': 'Pregunta',
             'confirm.annulMovement': '¿Está seguro de anular este movimiento completo? Se revertirán todos los cambios de stock.',
             'confirm.annulItem': '¿Está seguro de anular este artículo del movimiento? Se revertirá el cambio de stock.',
             'confirm.consumoLedgerClear': '¿Limpiar la tabla de consumo por destinatario? Se vaciará el destinatario de las filas visibles con los filtros actuales.',
@@ -873,6 +885,10 @@ const I18n = {
             'movCompra.po': 'PO / orden de compra',
             'movCompra.packingSlip': 'Packing slip',
             'movCompra.stockPlacement': 'Colocación',
+            'movCompra.linePoCol': 'PO *',
+            'movCompra.lineSupplierCol': 'Proveedor *',
+            'msg.compraLinePoRequired': 'Indique PO u orden de compra en cada línea de artículo.',
+            'msg.compraLineSupplierRequired': 'Indique proveedor en cada línea de artículo.',
             'movCompra.placeMain': 'Principal',
             'movCompra.placeBox': 'Caja',
             'movCompra.placeLocation': 'Ubicación',
@@ -1043,6 +1059,7 @@ const I18n = {
             'msg.receptionGlassPackingRequired': 'Para vidrio plano, curvo o pintado indique si viene en caja estándar o suelto / a combinar.',
             'msg.receptionProjectItemRequired': 'Proyecto y artículo son obligatorios.',
             'msg.compraPoRequired': 'Indique el número de PO u orden de compra.',
+            'msg.compraSupplierRequired': 'Indique el proveedor para la compra.',
             'msg.receptionItemRequired': 'Indique la descripción del artículo recibido.',
             'msg.receptionQtyRequired': 'La cantidad debe ser mayor que cero.',
             'msg.receptionUseFieldsAbove': 'Use los campos de recepción (proyecto, tipo, artículo, cantidad, PO). No añada líneas del inventario aquí.',
@@ -1742,13 +1759,50 @@ const I18n = {
             'auth.userTemplateInvalid': 'Plantilla de usuario inválida.',
             'auth.template.none': 'Sin plantilla (manual)',
             'auth.template.operario_picker': 'Operario picker',
+            'auth.template.operario_picker.hint':
+              'Pick de inventario y movimientos básicos (consumo diario, ajuste, transferencia, standby, merma, retorno).',
             'auth.template.operario_recepcion': 'Operario de recepción',
+            'auth.template.operario_recepcion.hint':
+              'Recepción de material y cola «material eléctrico obra»; tipos recepción, M.E. obra y lista de chequeo.',
             'auth.template.operario_produccion': 'Operario de producción',
+            'auth.template.operario_produccion.hint':
+              'Producción / preparación: enviar producción, M.E. prod., transformación, desmantelar, lista de chequeo, standby.',
             'auth.template.operario_transporte': 'Operario de transporte',
+            'auth.template.operario_transporte.hint': 'Solo módulo de transporte e historial de resultados en lectura.',
             'auth.template.supervisor': 'Supervisor',
+            'auth.template.supervisor.hint':
+              'Operativa amplia (no admin): anulación, exportaciones, matriz de movimientos y pestañas en edición.',
             'auth.template.operario_pedidos': 'Operario de pedidos',
+            'auth.template.operario_pedidos.hint': 'Bajo stock, pedidos a proveedor y movimiento Compra de stock.',
             'auth.template.operario_recepcion_expedicion': 'Operario de recepciones y expediciones',
+            'auth.template.operario_recepcion_expedicion.hint':
+              'Recepción y expedición con transporte: recepciones, M.E. obra/prod. y lista de chequeo.',
             'auth.template.operario_consultante': 'Operario consultante',
+            'auth.template.operario_consultante.hint':
+              'Consulta amplia en vista (panel, inventario, movimientos, historial, transporte, pedidos); sin editar datos.',
+            'auth.template.perfil_keith_lake': 'Keith Lake — referencia integrada',
+            'auth.template.perfil_keith_lake.hint':
+              'Igual que la cuenta integrada Keith: casi supervisor sin usuarios, elevación, wipe ni vista masiva de destinatarios.',
+            'auth.template.perfil_alex_beaulieu': 'Alex Beaulieu — referencia integrada',
+            'auth.template.perfil_alex_beaulieu.hint': 'Misma plantilla que Keith (cuenta integrada Alex): supervisor restringido en administración.',
+            'auth.template.perfil_guest_demo': 'Guest — modo presentación',
+            'auth.template.perfil_guest_demo.hint':
+              'Solo lectura en zonas amplias; no ejecuta movimientos ni cambia datos (cuenta invitada integrada).',
+            'auth.template.perfil_patrick': 'Patrick — inventario y panel',
+            'auth.template.perfil_patrick.hint':
+              'Inventario operativo completo, panel y recordatorios; movimientos limitados (consumo, ajuste, transf., producción).',
+            'auth.template.perfil_stephane_demers': 'Stephane Demers — consulta guiada',
+            'auth.template.perfil_stephane_demers.hint':
+              'Presentación sin movimientos/transporte/pedidos/recepciones; en Import/Export solo respaldo JSON.',
+            'auth.template.perfil_wen_deng': 'Wen Deng — comprador',
+            'auth.template.perfil_wen_deng.hint':
+              'Inventario, pedidos y caducidades; sin historial operativo ni transporte como la cuenta integrada Wen.',
+            'auth.template.perfil_barbara_bonny': 'Barbara Bonny — transporte y recepciones',
+            'auth.template.perfil_barbara_bonny.hint':
+              'Solo pestañas Transporte y Recepciones; export XLSX de recepciones desde Configuración.',
+            'auth.template.perfil_annie_larose': 'Annie Larose — inventario CMC',
+            'auth.template.perfil_annie_larose.hint':
+              'Inventario tipo Patrick; movimientos e historial muy restringidos (solo lectura acotada).',
             'auth.roleViewer': 'Solo lectura',
             'auth.logout': 'Cerrar sesión',
             'auth.usersTab': 'Usuarios',
@@ -2041,6 +2095,15 @@ const I18n = {
             'ui.configTitle': 'Settings',
             'ui.languageTitle': 'Language',
             'ui.helpTitle': 'Help: guide and «Turn on help mode» (? by cursor)',
+            'ui.exportActiveTabTitle': 'Export current tab table (XLSX)',
+            'ui.exportActiveTabAria': 'Export visible table on the current tab',
+            'ui.exportActiveTabNoTable': 'Nothing to export in this view. On History, try the «details» view or export when filtered results exist.',
+            'ui.printActiveTabTitle': 'Print current tab table',
+            'ui.printActiveTabAria': 'Print visible table on the current tab',
+            'ui.printActiveTabNoTable': 'There is no printable table in this view.',
+            'ui.textCopied': 'Text copied to clipboard.',
+            'ui.copyFailed': 'Could not copy to clipboard.',
+            'ui.exportDone': 'Export downloaded.',
             'navContext.openHere': 'Open here',
             'navContext.openTab': 'Open in new tab',
             'navContext.openWindow': 'Open in new window',
@@ -2064,7 +2127,7 @@ const I18n = {
             'help.hAdmin': 'Administrator profile',
             'help.pAdmin': 'Full backup, users, lists, archiving, audit, and other Settings per permissions.',
             'help.hOperator': 'Operational profile',
-            'help.pOperator': 'Operational tabs per permissions. Full backup import/export and initial inventory load: administrator only. Master lists and sensitive merges: admin or temporary elevation where applicable.',
+            'help.pOperator': 'Operational tabs per permissions. Import full JSON backup: any signed-in user. Export backup, initial CSV/XLSX load, and other sensitive options: per profile (typically administrator). Master lists and sensitive merges: admin or temporary elevation where applicable.',
             'help.hViewer': 'Read-only access',
             'help.pViewer': 'View only—no movements or import/export unless allowed.',
             'help.hBackup': 'Backup across computers',
@@ -2692,6 +2755,8 @@ const I18n = {
             'buttons.processRecepcion': 'Process reception',
             'buttons.minimize': 'Minimize',
             'buttons.confirm': 'Confirm',
+            'buttons.yes': 'Yes',
+            'buttons.no': 'No',
             'buttons.save': 'Save',
             'buttons.close': 'Close',
             'buttons.addItem': 'Add Item',
@@ -2703,6 +2768,7 @@ const I18n = {
             'buttons.annulItem': 'Annul Item',
 
             'confirm.title': 'Confirm',
+            'confirm.titleYesNo': 'Question',
             'confirm.annulMovement': 'Are you sure you want to annul this entire movement? All stock changes will be reverted.',
             'confirm.annulItem': 'Are you sure you want to annul this item from the movement? The stock change will be reverted.',
             'confirm.consumoLedgerClear': 'Clear the recipient consumption table? Recipient values will be removed from the currently visible rows.',
@@ -2762,6 +2828,10 @@ const I18n = {
             'movCompra.po': 'PO / purchase order',
             'movCompra.packingSlip': 'Packing slip',
             'movCompra.stockPlacement': 'Placement',
+            'movCompra.linePoCol': 'PO *',
+            'movCompra.lineSupplierCol': 'Supplier *',
+            'msg.compraLinePoRequired': 'Enter PO / purchase order on each article line.',
+            'msg.compraLineSupplierRequired': 'Enter supplier on each article line.',
             'movCompra.placeMain': 'Main',
             'movCompra.placeBox': 'Box',
             'movCompra.placeLocation': 'Location',
@@ -2930,6 +3000,7 @@ const I18n = {
             'msg.receptionGlassPackingRequired': 'For flat, curved, or painted glass, choose standard crate or loose / to combine with other material.',
             'msg.receptionProjectItemRequired': 'Project and item are required.',
             'msg.compraPoRequired': 'Enter the PO or purchase order number.',
+            'msg.compraSupplierRequired': 'Enter the supplier for this purchase.',
             'msg.receptionItemRequired': 'Enter the received item description.',
             'msg.receptionQtyRequired': 'Quantity must be greater than zero.',
             'msg.receptionUseFieldsAbove': 'Use the reception fields (project, type, item, quantity, PO). Do not add inventory lines here.',
@@ -3628,13 +3699,50 @@ const I18n = {
             'auth.userTemplateInvalid': 'Invalid user template.',
             'auth.template.none': 'No template (manual)',
             'auth.template.operario_picker': 'Picker operator',
+            'auth.template.operario_picker.hint':
+              'Inventory pick and basic movements (daily consumption, adjustment, transfer, standby, shrinkage, return).',
             'auth.template.operario_recepcion': 'Reception operator',
+            'auth.template.operario_recepcion.hint':
+              'Material reception and electrical-job queue; reception, electrical material on site, checklist types.',
             'auth.template.operario_produccion': 'Production operator',
+            'auth.template.operario_produccion.hint':
+              'Production / prep: send production, electrical production material, transformation, dismantle, checklist, standby.',
             'auth.template.operario_transporte': 'Transport operator',
+            'auth.template.operario_transporte.hint': 'Transport module only; history results in read-only.',
             'auth.template.supervisor': 'Supervisor',
+            'auth.template.supervisor.hint':
+              'Broad operations (non-admin): cancellation, exports, full movement matrix and editable tabs.',
             'auth.template.operario_pedidos': 'Orders operator',
+            'auth.template.operario_pedidos.hint': 'Low stock, supplier orders and Stock purchase movement.',
             'auth.template.operario_recepcion_expedicion': 'Receptions & dispatch operator',
+            'auth.template.operario_recepcion_expedicion.hint':
+              'Reception and dispatch with transport: receptions, electrical material on site/prod., checklist.',
             'auth.template.operario_consultante': 'Consultant operator',
+            'auth.template.operario_consultante.hint':
+              'Wide read-only navigation (dashboard, inventory, movements, history, transport, orders); no data edits.',
+            'auth.template.perfil_keith_lake': 'Keith Lake — built-in reference',
+            'auth.template.perfil_keith_lake.hint':
+              'Same as built-in Keith: near-supervisor without users, elevation, wipe or bulk recipient preview.',
+            'auth.template.perfil_alex_beaulieu': 'Alex Beaulieu — built-in reference',
+            'auth.template.perfil_alex_beaulieu.hint': 'Same template as Keith (built-in Alex): supervisor with restricted admin actions.',
+            'auth.template.perfil_guest_demo': 'Guest — demo mode',
+            'auth.template.perfil_guest_demo.hint':
+              'Read-only across many areas; does not run movements or mutate data (built-in guest).',
+            'auth.template.perfil_patrick': 'Patrick — inventory & dashboard',
+            'auth.template.perfil_patrick.hint':
+              'Full operational inventory, dashboard and reminders; limited movements (consumption, adjustment, transfer, production).',
+            'auth.template.perfil_stephane_demers': 'Stephane Demers — guided viewing',
+            'auth.template.perfil_stephane_demers.hint':
+              'Presentation without movements/transport/orders/receptions; Import/Export JSON backup only.',
+            'auth.template.perfil_wen_deng': 'Wen Deng — buyer',
+            'auth.template.perfil_wen_deng.hint':
+              'Inventory, orders and expirations; no operational history or transport like built-in Wen.',
+            'auth.template.perfil_barbara_bonny': 'Barbara Bonny — transport & receptions',
+            'auth.template.perfil_barbara_bonny.hint':
+              'Transport and Receptions tabs only; receptions XLSX export from Settings.',
+            'auth.template.perfil_annie_larose': 'Annie Larose — CMC inventory',
+            'auth.template.perfil_annie_larose.hint':
+              'Patrick-like inventory; movements and history tightly limited (narrow read-only).',
             'auth.roleViewer': 'Read only',
             'auth.logout': 'Sign out',
             'auth.usersTab': 'Users',
@@ -3927,6 +4035,15 @@ const I18n = {
             'ui.configTitle': 'Configuration',
             'ui.languageTitle': 'Langue',
             'ui.helpTitle': 'Aide : guide et « Activer le mode aide » (? près du curseur)',
+            'ui.exportActiveTabTitle': 'Exporter le tableau de l’onglet actuel (XLSX)',
+            'ui.exportActiveTabAria': 'Exporter le tableau visible dans l’onglet actuel',
+            'ui.exportActiveTabNoTable': 'Aucun tableau exportable dans cette vue. Dans Historique, essayez la vue « détail » ou exportez lorsque des résultats filtrés existent.',
+            'ui.printActiveTabTitle': 'Imprimer le tableau de l’onglet actuel',
+            'ui.printActiveTabAria': 'Imprimer le tableau visible dans l’onglet actuel',
+            'ui.printActiveTabNoTable': 'Aucun tableau imprimable dans cette vue.',
+            'ui.textCopied': 'Texte copié dans le presse-papiers.',
+            'ui.copyFailed': 'Impossible de copier dans le presse-papiers.',
+            'ui.exportDone': 'Export téléchargé.',
             'navContext.openHere': 'Ouvrir ici',
             'navContext.openTab': 'Ouvrir dans un nouvel onglet',
             'navContext.openWindow': 'Ouvrir dans une nouvelle fenêtre',
@@ -3950,7 +4067,7 @@ const I18n = {
             'help.hAdmin': 'Profil administrateur',
             'help.pAdmin': 'Sauvegarde, utilisateurs, listes, archivage, audit et Configuration selon droits.',
             'help.hOperator': 'Profil opérationnel',
-            'help.pOperator': 'Onglets opérationnels selon droits. Import/export sauvegarde complète et inventaire initial : administrateur uniquement. Listes maîtres et fusions sensibles : admin ou élévation temporaire selon le cas.',
+            'help.pOperator': 'Onglets opérationnels selon droits. Importer une sauvegarde JSON complète : tout utilisateur connecté. Exporter la sauvegarde, inventaire initial CSV/XLSX et autres actions sensibles : selon le profil (souvent administrateur). Listes maîtres et fusions sensibles : admin ou élévation temporaire selon le cas.',
             'help.hViewer': 'Lecture seule',
             'help.pViewer': 'Consultation sans mouvements ni import/export, sauf autorisation.',
             'help.hBackup': 'Sauvegarde entre postes',
@@ -4581,6 +4698,8 @@ const I18n = {
             'buttons.processRecepcion': 'Traiter la réception',
             'buttons.minimize': 'Réduire',
             'buttons.confirm': 'Confirmer',
+            'buttons.yes': 'Oui',
+            'buttons.no': 'Non',
             'buttons.save': 'Enregistrer',
             'buttons.close': 'Fermer',
             'buttons.addItem': 'Ajouter Article',
@@ -4592,6 +4711,7 @@ const I18n = {
             'buttons.annulItem': "Annuler l'Article",
 
             'confirm.title': 'Confirmer',
+            'confirm.titleYesNo': 'Question',
             'confirm.annulMovement': 'Êtes-vous sûr de vouloir annuler ce mouvement entier? Tous les changements de stock seront annulés.',
             'confirm.annulItem': "Êtes-vous sûr de vouloir annuler cet article du mouvement? Le changement de stock sera annulé.",
             'confirm.consumoLedgerClear': 'Nettoyer le tableau de consommation par destinataire ? Les destinataires seront vidés pour les lignes visibles avec les filtres actuels.',
@@ -4651,6 +4771,10 @@ const I18n = {
             'movCompra.po': 'PO / bon de commande',
             'movCompra.packingSlip': 'Packing slip',
             'movCompra.stockPlacement': 'Emplacement',
+            'movCompra.linePoCol': 'PO *',
+            'movCompra.lineSupplierCol': 'Fournisseur *',
+            'msg.compraLinePoRequired': 'Indiquez le PO ou bon de commande pour chaque ligne d’article.',
+            'msg.compraLineSupplierRequired': 'Indiquez le fournisseur pour chaque ligne d’article.',
             'movCompra.placeMain': 'Principal',
             'movCompra.placeBox': 'Caisse',
             'movCompra.placeLocation': 'Emplacement entrepôt',
@@ -4821,6 +4945,7 @@ const I18n = {
             'msg.receptionGlassPackingRequired': 'Pour verre plat, courbe ou peint, indiquez caisse standard ou à l’unité / regroupement.',
             'msg.receptionProjectItemRequired': 'Projet et article obligatoires.',
             'msg.compraPoRequired': 'Indiquez le numéro de PO ou bon de commande.',
+            'msg.compraSupplierRequired': "Indiquez le fournisseur pour cet achat.",
             'msg.receptionItemRequired': 'Indiquez la description de l’article reçu.',
             'msg.receptionQtyRequired': 'La quantité doit être supérieure à zéro.',
             'msg.receptionUseFieldsAbove': 'Utilisez les champs de réception (projet, type, article, quantité, PO). N’ajoutez pas de lignes d’inventaire ici.',
@@ -5517,13 +5642,51 @@ const I18n = {
             'auth.userTemplateInvalid': 'Modèle utilisateur invalide.',
             'auth.template.none': 'Sans modèle (manuel)',
             'auth.template.operario_picker': 'Opérateur picker',
+            'auth.template.operario_picker.hint':
+              'Pick d’inventaire et mouvements de base (conso. quotidienne, ajustement, transfert, standby, casse, retour).',
             'auth.template.operario_recepcion': 'Opérateur réception',
+            'auth.template.operario_recepcion.hint':
+              'Réception matériel et file M.E. chantier ; types réception, M.E. chantier et liste de contrôle.',
             'auth.template.operario_produccion': 'Opérateur production',
+            'auth.template.operario_produccion.hint':
+              'Production / préparation : envoi prod., M.E. prod., transformation, démantèlement, liste de contrôle, standby.',
             'auth.template.operario_transporte': 'Opérateur transport',
+            'auth.template.operario_transporte.hint': 'Module Transport et résultats d’historique en lecture seule.',
             'auth.template.supervisor': 'Superviseur',
+            'auth.template.supervisor.hint':
+              'Opérations étendues (non admin) : annulation, exports, matrice mouvements et onglets éditables.',
             'auth.template.operario_pedidos': 'Opérateur commandes',
+            'auth.template.operario_pedidos.hint': 'Stock bas, commandes fournisseur et mouvement Achat de stock.',
             'auth.template.operario_recepcion_expedicion': 'Opérateur réceptions et expéditions',
+            'auth.template.operario_recepcion_expedicion.hint':
+              'Réception et expédition avec transport : réceptions, M.E. chantier/prod., liste de contrôle.',
             'auth.template.operario_consultante': 'Opérateur consultant',
+            'auth.template.operario_consultante.hint':
+              'Navigation large en lecture (tableau, inventaire, mouvements, historique, transport, commandes) ; pas d’édition.',
+            'auth.template.perfil_keith_lake': 'Keith Lake — référence intégrée',
+            'auth.template.perfil_keith_lake.hint':
+              'Identique au compte intégré Keith : quasi-superviseur sans utilisateurs, élévation, wipe ni aperçu masse des destinataires.',
+            'auth.template.perfil_alex_beaulieu': 'Alex Beaulieu — référence intégrée',
+            'auth.template.perfil_alex_beaulieu.hint':
+              'Même modèle que Keith (compte intégré Alex) : superviseur avec administration restreinte.',
+            'auth.template.perfil_guest_demo': 'Invité — mode présentation',
+            'auth.template.perfil_guest_demo.hint':
+              'Lecture large ; pas d’exécution de mouvements ni modification des données (invité intégré).',
+            'auth.template.perfil_patrick': 'Patrick — inventaire et tableau',
+            'auth.template.perfil_patrick.hint':
+              'Inventaire opérationnel complet, tableau et rappels ; mouvements limités (conso., ajust., transf., prod.).',
+            'auth.template.perfil_stephane_demers': 'Stephane Demers — consultation guidée',
+            'auth.template.perfil_stephane_demers.hint':
+              'Présentation sans mouvements/transport/commandes/réceptions ; Import/Export sauvegarde JSON seulement.',
+            'auth.template.perfil_wen_deng': 'Wen Deng — acheteur',
+            'auth.template.perfil_wen_deng.hint':
+              'Inventaire, commandes et péremptions ; pas d’historique opérationnel ni transport comme Wen intégré.',
+            'auth.template.perfil_barbara_bonny': 'Barbara Bonny — transport et réceptions',
+            'auth.template.perfil_barbara_bonny.hint':
+              'Onglets Transport et Réceptions ; export XLSX des réceptions depuis Configuration.',
+            'auth.template.perfil_annie_larose': 'Annie Larose — inventaire CMC',
+            'auth.template.perfil_annie_larose.hint':
+              'Inventaire type Patrick ; mouvements et historique très restreints (lecture ciblée).',
             'auth.roleViewer': 'Lecture seule',
             'auth.logout': 'Déconnexion',
             'auth.usersTab': 'Utilisateurs',
@@ -5683,7 +5846,7 @@ const I18n = {
 
     _syncHtmlLang() {
         const map = { es: 'es', en: 'en', fr: 'fr' };
-        document.documentElement.setAttribute('lang', map[this.currentLang] || 'es');
+        document.documentElement.setAttribute('lang', map[this.currentLang] || 'en');
     },
 
     _syncLanguageSelects() {
@@ -5703,13 +5866,14 @@ const I18n = {
 
     init() {
         try {
-            const saved = localStorage.getItem(STORAGE_KEYS.LANG) || 'es';
+            /* Idioma: solo localStorage por usuario/navegador; los respaldos no incluyen phoenix-lang. */
+            let saved = localStorage.getItem(STORAGE_KEYS.LANG) || 'en';
+            if (!this.translations[saved]) saved = 'en';
             this.currentLang = saved;
             this.updateUI();
             this._syncLanguageSelects();
             this._syncHtmlLang();
             this._bindLanguageSelectsOnce();
-            console.log('✅ I18n iniciado con idioma:', saved);
         } catch (err) {
             console.error('❌ Error inicializando I18n:', err);
         }
@@ -5717,8 +5881,8 @@ const I18n = {
 
     setLanguage(lang) {
         if (!this.translations[lang]) {
-            console.warn(`Idioma "${lang}" no disponible, usando español`);
-            lang = 'es';
+            console.warn(`Idioma "${lang}" no disponible, usando inglés`);
+            lang = 'en';
         }
         this.currentLang = lang;
         localStorage.setItem(STORAGE_KEYS.LANG, lang);
@@ -5801,6 +5965,16 @@ const I18n = {
             if (typeof ConfigManager !== 'undefined') {
                 if (ConfigManager.syncExpAlertInput) ConfigManager.syncExpAlertInput();
                 if (ConfigManager.refreshItemEditLockUI) ConfigManager.refreshItemEditLockUI();
+                if (ConfigManager.renderUserTemplateOptions) ConfigManager.renderUserTemplateOptions();
+                const cfgModal = document.getElementById('config-modal');
+                if (
+                    cfgModal &&
+                    cfgModal.classList.contains('active') &&
+                    document.querySelector('.config-tab-btn[data-config-tab="users"].active')
+                ) {
+                    if (ConfigManager.renderUsersTable) ConfigManager.renderUsersTable();
+                    if (ConfigManager.renderAuditLog) ConfigManager.renderAuditLog();
+                }
                 const expTab = document.getElementById('config-expirations');
                 if (expTab && expTab.classList.contains('active') && ConfigManager.renderExpirationPanel) {
                     ConfigManager.renderExpirationPanel();

@@ -1,6 +1,6 @@
 # G-neex
 
-Material que **no** va en el despliegue estático de la SPA (manuales “fuente”, migración, respaldos de trabajo, documentación técnica, scripts auxiliares) está en **`no-deployar/`** — ver `no-deployar/README.md`.
+Material que **no** va en el despliegue estático de la SPA (manuales “fuente”, migración, respaldos de trabajo, documentación técnica, scripts auxiliares) está en **`no-deployar/`** — ver `no-deployar/README.md` y la lista **`no-deployar/docs/DEPLOY_CHECKLIST.md`** antes de publicar.
 
 En la **raíz** del repo, la carpeta **`user-manual/`** contiene el manual HTML en ES / EN / FR y las capturas necesarias para que el botón **Ayuda → Manual de usuario** funcione en producción. Si actualiza los manuales en `no-deployar/User Manual/` (por ejemplo tras «ACTUALIZA AHORA»), copie de nuevo los `.html` y `app-screenshots` a `user-manual/` o ejecute el mismo proceso documentado en `no-deployar/README.md`.
 
@@ -58,3 +58,4 @@ Si tiene Node.js, una alternativa es `npx --yes serve -l 8765` en la misma carpe
 - En herramientas de inventario queda solo `Cajas sin unidades (total por caja)` para localizar cajas vacías reutilizables.
 - En Ayuda, los enlaces de `Presentaciones` dentro de `user-manual/` se muestran solo para perfil administrador.
 - En movimientos, la validación de `Origen stock` se aplica solo en tipos/líneas que descuentan stock desde ese origen; con sobregiro permitido exige causa obligatoria, y en los demás casos bloquea hasta corregir origen/distribución.
+- **Pedidos ↔ Compra de stock:** el vínculo automático exige **mismo código de artículo** (pedido vs línea de compra) y **mismo proveedor**; el **número de PO/OC** se informa **por fila** en el formulario de Compra de stock y **no** se usa para decidir si la compra corresponde al pedido — al recepcionar, ese PO (y proveedor) actualizan la línea de pedido cuando aplica. Si registra la compra solo desde Movimientos y existe una línea pendiente que cumpla eso, pueden mostrarse cuadros **Sí / No** para enlazar y actualizar cantidad recibida, estado y acciones (véase manual §2.5). Otras confirmaciones siguen con **Confirmar / Cancelar** salvo ese flujo sí/no.

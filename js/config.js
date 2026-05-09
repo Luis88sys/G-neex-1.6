@@ -30,7 +30,6 @@ const ConfigManager = {
       this.refreshItemEditLockUI();
       this.setupExpirationSearchListeners();
       this.updateConfigDraftBar();
-      console.log("✅ ConfigManager iniciado");
     } catch (err) {
       console.error("❌ Error iniciando ConfigManager:", err);
     }
@@ -380,7 +379,6 @@ const ConfigManager = {
   renderUsersTable() {
     const wrap = document.getElementById("users-table-wrap");
     if (!wrap || typeof Auth === "undefined") return;
-    this.renderUserTemplateOptions();
     if (!Auth.isAdmin()) {
       wrap.innerHTML = "";
       return;
@@ -508,7 +506,9 @@ const ConfigManager = {
       templates
         .map(t => {
           const label = this.esc(I18n.t(t.i18nKey));
-          return `<option value="${Utils.escapeAttr(t.key)}">${label}</option>`;
+          const hint = t.hintKey ? Utils.escapeAttr(I18n.t(t.hintKey)) : "";
+          const titleAttr = hint ? ` title="${hint}"` : "";
+          return `<option value="${Utils.escapeAttr(t.key)}"${titleAttr}>${label}</option>`;
         })
         .join("");
   },

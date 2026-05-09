@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -25,9 +25,9 @@
     <div class="login-lang-row">
       <label for="login-language-select" class="login-lang-label" data-i18n="ui.languageTitle">Idioma</label>
       <select id="login-language-select" class="login-lang-select" data-i18n-title="ui.languageTitle" title="Idioma">
-        <option value="es">🇪🇸 ES</option>
-        <option value="en">🇺🇸 EN</option>
-        <option value="fr">🇫🇷 FR</option>
+        <option value="es">ES</option>
+        <option value="en" selected>EN</option>
+        <option value="fr">FR</option>
       </select>
     </div>
     <div id="login-error"></div>
@@ -164,7 +164,7 @@
             <button type="button" class="nav-btn" data-tab="transport" data-help-key="helpCoach.navTransport" data-i18n-title="nav.transport" title="Transporte">
                 🚚 <span data-i18n="nav.transport">Transporte</span>
             </button>
-            <button type="button" class="nav-btn requires-movements-perm" data-tab="orderlines" data-help-key="helpCoach.navOrderlines" data-i18n-title="nav.orderlines" title="Pedidos a proveedor">
+            <button type="button" class="nav-btn" data-tab="orderlines" data-help-key="helpCoach.navOrderlines" data-i18n-title="nav.orderlines" title="Pedidos a proveedor">
                 📋 <span data-i18n="nav.orderlines">Pedidos</span>
             </button>
             <button type="button" class="nav-btn" data-tab="receptions" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n-title="nav.receptions" title="Recepciones">
@@ -175,11 +175,13 @@
     </div>
 
     <div class="header-right">
-        <select id="language-select" data-help-key="helpCoach.langSelect" data-i18n-title="ui.languageTitle" title="Idioma">
-            <option value="es">🇪🇸 ES</option>
-            <option value="en">🇺🇸 EN</option>
-            <option value="fr">🇫🇷 FR</option>
-        </select>
+        <div class="header-lang-select-wrap">
+            <select id="language-select" class="header-lang-select" data-help-key="helpCoach.langSelect" data-i18n-title="ui.languageTitle" title="Idioma">
+                <option value="es">ES</option>
+                <option value="en" selected>EN</option>
+                <option value="fr">FR</option>
+            </select>
+        </div>
 
         <!-- Botón Ayuda movido a Configuración → Acerca de -->
 
@@ -192,6 +194,11 @@
         </div>
 
         <!-- Tema (claro/oscuro) movido a Configuración → Acerca de -->
+
+        <div class="header-tab-actions-stack">
+          <button type="button" id="header-print-active-table-btn" class="btn btn-sm btn-secondary header-print-table-btn" hidden data-i18n-title="ui.printActiveTabTitle" data-i18n-aria-label="ui.printActiveTabAria" title="" aria-label="">🖨️</button>
+          <button type="button" id="header-export-active-table-btn" class="btn btn-sm btn-secondary header-export-table-btn" hidden data-i18n-title="ui.exportActiveTabTitle" data-i18n-aria-label="ui.exportActiveTabAria" title="" aria-label="">📁</button>
+        </div>
 
         <button type="button" id="config-btn" class="config-btn" data-auth-act="cfgModalOpen" data-auth-act-level="view" data-open-view="config" data-help-key="helpCoach.btnConfig" data-i18n-title="ui.configTitle" title="Configuración">
             ⚙️
@@ -381,7 +388,7 @@
           </section>
         </header>
 
-        <section class="dashboard-block" aria-labelledby="dash-overview-heading" data-auth-act="dashOverview" data-auth-act-level="view">
+        <section class="dashboard-block inv-full-insights-only" aria-labelledby="dash-overview-heading" data-auth-act="dashOverview" data-auth-act-level="view">
           <h2 id="dash-overview-heading" class="dashboard-block-title" data-i18n="dashboard.sectionOverview">Resumen general</h2>
           <div class="dashboard-grid dashboard-grid--overview">
             <div class="dash-card dash-card--static">
@@ -555,7 +562,7 @@
             </div>
         </div>
 
-        <div class="inventory-stats" data-auth-act="invBrowse" data-auth-act-level="view">
+        <div class="inventory-stats inv-full-insights-only" data-auth-act="invBrowse" data-auth-act-level="view">
             <div class="stat-card">
                 <div id="total-items" class="stat-value">0</div>
                 <div class="stat-label" data-i18n="stats.totalItems">Artículos totales</div>
@@ -628,7 +635,6 @@
             <div class="history-head-row history-head-row--actions">
                 <h2 data-i18n="nav.history">Historial</h2>
                 <div class="history-head-buttons" data-auth-act="histExports" data-auth-act-level="view">
-                <button type="button" id="history-print-filtered" class="btn inventory-asof-icon-btn" data-i18n-title="history.printFiltered" data-i18n-aria-label="history.printFiltered"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
                 <button type="button" id="history-export-filtered-csv" class="btn inventory-asof-icon-btn" data-i18n-title="history.exportFilteredCsv" data-i18n-aria-label="history.exportFilteredCsv"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
                 <button type="button" id="open-report-modal" class="btn btn-secondary btn-sm" data-open-view="reports-movements" data-i18n="reports.open">Informes / exportar XLSX</button>
                 </div>
@@ -803,23 +809,18 @@
           </div>
         </div>
         <button type="button" id="transport-create-btn" class="btn btn-primary btn-sm" data-auth-act="trnToolbar" data-auth-act-level="edit" data-i18n="transport.createManual">+ Nuevo transporte</button>
-        <button type="button" id="open-report-modal-transport" class="btn btn-secondary btn-sm" data-open-view="reports-transport" data-i18n="reports.open">Informes / exportar XLSX</button>
-        <button type="button" id="transport-export-summary-btn" class="btn inventory-asof-icon-btn" data-i18n-title="reports.transportQuickExport" data-i18n-aria-label="reports.transportQuickExport"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
-        <button type="button" id="transport-print-summary-btn" class="btn inventory-asof-icon-btn" data-i18n-title="reports.transportQuickPrint" data-i18n-aria-label="reports.transportQuickPrint"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
       </div>
     </div>
     <div id="transport-board" class="transport-board" data-auth-act="trnMain" data-auth-act-level="view"></div>
   </section>
 
   <!-- ========== PEDIDOS A PROVEEDOR (líneas) — solo administrador ========== -->
-  <section id="orderlines-tab" class="tab-content requires-movements-perm">
+  <section id="orderlines-tab" class="tab-content">
     <div class="orderlines-header transport-tab-header">
       <div>
         <h2 data-i18n="orderLines.title">Pedidos a proveedor</h2>
       </div>
       <div class="transport-tab-actions orderlines-header-actions">
-        <button type="button" id="orderlines-export-btn" class="btn inventory-asof-icon-btn" data-auth-act="ordExportXlsx" data-auth-act-level="view" data-i18n-title="orderLines.exportTableBtn" data-i18n-aria-label="orderLines.exportTableBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
-        <button type="button" id="orderlines-print-btn" class="btn inventory-asof-icon-btn" data-auth-act="ordPrint" data-auth-act-level="view" data-i18n-title="orderLines.printTableBtn" data-i18n-aria-label="orderLines.printTableBtn"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
         <!-- Botón eliminado: limpieza masiva de recibidos antiguos -->
       </div>
     </div>
@@ -1027,8 +1028,6 @@
       <div class="receptions-config-toolbar">
         <button type="button" id="receptions-config-import-btn" class="btn btn-secondary btn-sm" data-auth-act="cfgTabReceptions" data-auth-act-level="edit" data-i18n="config.importReceptions">Importar recepciones</button>
         <input type="file" id="receptions-config-import-input" accept=".csv,.xlsx,.xls,.json" style="display:none" data-auth-act="cfgTabReceptions" data-auth-act-level="edit">
-        <button type="button" id="receptions-config-print-btn" class="btn btn-secondary btn-sm" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n="config.printReceptionsFiltered">Imprimir recepciones filtradas</button>
-        <button type="button" id="receptions-config-export-btn" class="btn btn-secondary btn-sm" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n="config.exportReceptionsFiltered">Exportar recepciones filtradas</button>
       </div>
       <div id="receptions-config-table" class="receptions-table-wrap"></div>
     </div>
@@ -1087,6 +1086,7 @@
       <!-- Import / Export -->
       <div id="config-import" class="config-content active">
         <div class="config-section">
+          <div data-auth-act="cfgActImportInventory" data-auth-act-level="edit">
           <h3 data-i18n="config.importInitialTitle">Cargar inventario inicial (CSV o XLSX)</h3>
           <input type="file" id="import-inventory-btn" data-auth-act="cfgActImportInventory" data-auth-act-level="edit" accept=".csv,.txt,.xlsx,.xls" data-i18n-title="config.importInitialTitle" data-i18n-aria-label="config.importInitialTitle">
           <div class="filter-actions" style="justify-content:flex-start;">
@@ -1104,9 +1104,10 @@
               <svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><path d="M12 12v6"/><path d="M9.5 15.5 12 18l2.5-2.5"/></svg>
             </button>
           </div>
+          </div>
         </div>
 
-        <div class="config-section">
+        <div class="config-section" data-auth-act="cfgActArchive" data-auth-act-level="edit">
           <h3 data-i18n="config.archiveTitle">Archivar movimientos antiguos</h3>
           <div class="archive-row">
             <label data-i18n="config.archiveBefore">Anteriores a:</label>
@@ -1118,19 +1119,19 @@
         </div>
 
         <div class="config-section">
-          <div id="config-backup-full-wrap">
+          <div id="config-backup-full-wrap" data-auth-act="cfgActBackupExport" data-auth-act-level="edit">
             <h3 data-i18n="config.backupSectionTitle">Respaldo general</h3>
             <button type="button" id="export-zip-btn" class="btn btn-success" data-auth-act="cfgActBackupExport" data-auth-act-level="edit" data-i18n="config.exportBackup">Exportar respaldo</button>
             <button type="button" id="import-backup-btn" class="btn btn-success" data-auth-act="cfgActBackupImport" data-auth-act-level="edit" data-i18n="config.importBackup">Importar respaldo</button>
-            <input type="file" id="import-backup-input" accept=".json" style="display:none;" data-i18n-title="config.importBackup" data-i18n-aria-label="config.importBackup">
+            <input type="file" id="import-backup-input" accept=".json" style="display:none;" data-auth-act="cfgActBackupImport" data-auth-act-level="edit" data-i18n-title="config.importBackup" data-i18n-aria-label="config.importBackup">
           </div>
-          <div id="config-movements-merge-wrap">
+          <div id="config-movements-merge-wrap" data-auth-act="cfgActMovementsMerge" data-auth-act-level="edit">
             <h4 class="config-subsection-title" data-i18n="config.movementsOnlySectionTitle">Solo movimientos (fusionar)</h4>
             <button type="button" id="export-movements-only-btn" class="btn btn-secondary requires-movements-export" data-auth-act="cfgActMovementsExport" data-auth-act-level="edit" data-i18n="config.exportMovementsOnly">Exportar solo movimientos</button>
             <button type="button" id="import-movements-merge-btn" class="btn btn-secondary" data-auth-act="cfgActMovementsMerge" data-auth-act-level="edit" data-i18n="config.importMovementsMerge">Importar y fusionar movimientos</button>
             <input type="file" id="import-movements-merge-input" accept=".json" style="display:none;" data-i18n-title="config.importMovementsMerge" data-i18n-aria-label="config.importMovementsMerge">
           </div>
-          <div id="config-transports-merge-wrap">
+          <div id="config-transports-merge-wrap" data-auth-act="cfgActTransportsMerge" data-auth-act-level="edit">
             <h4 class="config-subsection-title" data-i18n="config.transportsOnlySectionTitle">Transportes expedidos (fusionar)</h4>
             <button type="button" id="export-transports-shipped-only-btn" class="btn btn-secondary requires-movements-export" data-auth-act="cfgActTransportsExport" data-auth-act-level="edit" data-i18n="config.exportTransportsShippedOnly">Exportar solo transportes expedidos</button>
             <button type="button" id="import-transports-merge-btn" class="btn btn-secondary" data-auth-act="cfgActTransportsMerge" data-auth-act-level="edit" data-i18n="config.importTransportsMerge">Importar y fusionar transportes</button>
@@ -1632,24 +1633,22 @@
                 </div>
 
                 <div id="movement-compra-fields" class="form-row mov-special-block" style="display:none;">
-                    <div class="form-group">
-                        <label data-i18n="movCompra.po">PO / Orden de compra *</label>
-                        <input id="mov-compra-po" type="text" class="form-input" autocomplete="off">
+                    <div class="form-group" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                        <label for="mov-compra-po">PO</label>
+                        <input id="mov-compra-po" type="text" class="form-input" autocomplete="off" tabindex="-1">
+                        <label for="mov-compra-supplier">Prov.</label>
+                        <input id="mov-compra-supplier" type="text" class="form-input" autocomplete="off" tabindex="-1">
                     </div>
                     <div class="form-group">
                         <label data-i18n="movCompra.packingSlip">Packing slip</label>
                         <input id="mov-compra-slip" type="text" class="form-input" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label data-i18n="reception.supplier">Proveedor</label>
-                        <input id="mov-compra-supplier" type="text" class="form-input" list="mov-compra-supplier-datalist" autocomplete="off" data-i18n-placeholder="orderLines.supplierPh" placeholder="Opcional; lista de proveedores">
-                        <datalist id="mov-compra-supplier-datalist"></datalist>
-                    </div>
-                    <div class="form-group">
                         <label for="mov-compra-receipt-historical-date" data-i18n="movements.receiptHistoricalDateLabel">Fecha real de recepción (opcional)</label>
                         <input id="mov-compra-receipt-historical-date" type="date" class="form-input" autocomplete="off" />
                     </div>
                 </div>
+                <datalist id="mov-compra-supplier-datalist"></datalist>
                 <div id="mov-compra-consumible-extra" class="form-row mov-compra-consumible-extra" style="display:none;">
                     <div class="form-group" style="flex: 1;">
                         <label class="checkbox-label" style="display:flex;align-items:center;gap:0.5rem;">
@@ -1664,6 +1663,14 @@
                         <select id="mov-compra-consumible-select" class="filter-select" style="display:none;"></select>
                         <input type="text" id="mov-compra-consumible-name" class="form-input" list="mov-compra-consumible-datalist" autocomplete="off" placeholder="" />
                         <datalist id="mov-compra-consumible-datalist"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="movCompra.linePoCol">PO *</label>
+                        <input type="text" id="mov-compra-consumible-po" class="form-input" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="movCompra.lineSupplierCol">Proveedor *</label>
+                        <input type="text" id="mov-compra-consumible-supplier" class="form-input" list="mov-compra-supplier-datalist" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label data-i18n="table.quantity">Cantidad</label>
@@ -1781,6 +1788,8 @@
                                 <tr>
                                     <th data-i18n="table.code">Código</th>
                                     <th data-i18n="table.description">Descripción</th>
+                                    <th id="mov-compra-line-po-th" style="display:none;" data-i18n="movCompra.linePoCol">PO *</th>
+                                    <th id="mov-compra-line-supplier-th" style="display:none;" data-i18n="movCompra.lineSupplierCol">Proveedor *</th>
                                     <th id="mov-recipient-th" style="display:none;" data-i18n="movements.recipientName">Destinatario</th>
                                     <th id="mov-selected-qty-th" data-i18n="table.quantity">Cantidad</th>
                                     <th id="mov-selected-box-th" style="display:none;" data-i18n="movements.stockSourceColumn">Origen stock</th>
@@ -2080,7 +2089,7 @@
       <div id="inventory-item-quick-body"></div>
       <div class="modal-actions">
         <button type="button" id="inv-quick-export-lots" class="btn btn-secondary" data-i18n="inventory.toolsItemExport">Exportar XLSX</button>
-        <button type="button" id="inv-quick-print-lots" class="btn btn-primary" data-i18n="history.consumoLedgerPrint">Imprimir tabla</button>
+        <button type="button" id="inv-quick-print-lots" class="btn inventory-asof-icon-btn btn-primary" data-i18n-title="history.consumoLedgerPrint" data-i18n-aria-label="history.consumoLedgerPrint"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg></button>
         <button type="button" id="inv-quick-close" class="btn btn-secondary" data-i18n="buttons.close">Cerrar</button>
       </div>
     </div>
@@ -2220,6 +2229,7 @@
 <!-- ========== SCRIPTS ========== -->
 <script src="vendor/xlsx-js-style.min.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/api-client.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/measureUnits.js"></script>

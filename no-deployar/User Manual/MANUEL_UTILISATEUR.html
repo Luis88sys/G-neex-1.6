@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuel Utilisateur — G-NEEX 1.6</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    background: #fff;
+    color: #222;
+    line-height: 1.7;
+  }
+  h1 { color: #f57c00; border-bottom: 3px solid #f57c00; padding-bottom: 10px; margin: 36px 0 20px; font-size: 1.8em; }
+  h2 { color: #333; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin: 32px 0 14px; font-size: 1.4em; }
+  h3 { color: #555; margin: 24px 0 10px; font-size: 1.15em; }
+  p { margin: 10px 0; }
+  strong { color: #333; }
+  hr { border: none; border-top: 2px solid #f57c00; margin: 40px 0; opacity: 0.3; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  thead th {
+    background: #f57c00;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid #f57c00;
+  }
+  tbody td {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+  }
+  tbody tr:nth-child(odd) { background: #f9f9f9; }
+  tbody tr:nth-child(even) { background: #fff; }
+  blockquote {
+    border-left: 4px solid #f57c00;
+    background: #fff8f0;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-style: italic;
+  }
+  code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    line-height: 1.4;
+    margin: 16px 0;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  ol, ul { line-height: 1.8; margin: 10px 0 10px 24px; }
+  li { margin: 4px 0; }
+  .orange-bar { height: 6px; background: #f57c00; width: 100vw; margin-left: calc(-50vw + 50%); }
+  .brand {
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    color: #999;
+    letter-spacing: 3px;
+    margin-top: 10px;
+  }
+  .footer {
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    margin-top: 60px;
+    padding-bottom: 30px;
+  }
+  figure.manual-shot { margin: 20px 0; }
+  figure.manual-shot img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  figure.manual-shot figcaption { font-size: 0.88em; color: #666; margin-top: 8px; }
+  @media print {
+    body { max-width: 100%; }
+    pre { white-space: pre-wrap; }
+    h2 { page-break-before: auto; }
+    .orange-bar { width: 100%; margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orange-bar"></div>
+<div class="brand">G-NEEX</div>
+
+<h1>Manuel Utilisateur — Phoenix Cell G-NEEX 1.6</h1>
+<p style="font-size:0.95em;color:#666;font-style:italic;margin-top:4px;">Phoenix Cell G-NEEX est développée par <strong>Luis Goire</strong>, par passion pour la programmation et dans une démarche d’apprentissage vers le métier de développeur.</p>
+<p style="font-size:0.9em;color:#777;font-style:italic;">Mis à jour : mai 2026</p>
+
+<h2>Contexte et objectif</h2>
+<h3>Besoin en atelier</h3>
+<p>Phoenix Cell G-NEEX naît d’un besoin réel en milieu industriel : renforcer le <strong>contrôle des stocks</strong> lorsque seul un <strong>ordinateur</strong> était disponible, sans marge pour d’autres infrastructures.</p>
+<h3>Du tableur au gestionnaire</h3>
+<p>Le point de départ était une <strong>feuille Excel</strong> qui, face aux incidents quotidiens et aux erreurs d’exploitation, s’est enrichie de <strong>macros et d’automatisation</strong>, problème par problème. Le dispositif est passé d’un tableau de pilotage à un <strong>gestionnaire d’inventaire</strong> intégré au classeur.</p>
+<h3>Apprentissage et automatisation</h3>
+<p>Ce travail est aussi devenu une <strong>formation pratique</strong> : automatiser des réponses à des problèmes concrets a consolidé des compétences en <strong>programmation et scripts</strong>. L’exploitation et l’apprentissage avançaient en parallèle.</p>
+<h3>Le nom « Phoenix » et l’ADN du projet</h3>
+<p>Après une <strong>détérioration grave</strong> du fichier, récupéré au prix d’un long effort, le nom <strong>Phoenix</strong> — renaître de ses cendres — a été retenu. Cette feuille, restaurée et améliorée, est l’<strong>ancêtre direct</strong> et, en grande partie, l’<strong>ADN</strong> de l’application web <strong>G-NEEX</strong>.</p>
+<h3>Aujourd’hui et suite</h3>
+<p>La ligne <strong>Phoenix</strong> en tableur reste utilisée là où elle apporte encore de la valeur jusqu’à ce que <strong>G-NEEX</strong> atteigne une maturité suffisante pour un usage <strong>web</strong> quotidien. Ce logiciel constitue une <strong>étape</strong> vers un outil appelé à évoluer.</p>
+<blockquote>Le même texte est disponible dans l’application : <strong>⚙️ Configuration → onglet Contexte</strong>.</blockquote>
+
+<hr>
+
+<h1>SECTION 1 : Paramètres (vue d’ensemble)</h1>
+<p>Sous <strong>⚙️ Paramètres</strong> se trouvent les outils de données, listes, éditeur d’articles, réceptions, préférences, etc. <strong>Ce manuel décrit le fonctionnement de G-NEEX et l’usage des écrans</strong> ; le déploiement et la politique d’exploitation sur votre site ne sont pas documentés ici.</p>
+
+<h2>1.1 Données, import et export</h2>
+
+<h3>Qui peut utiliser Import/Export</h3>
+<p>L’onglet <strong>Import/Export</strong> est réservé au <strong>compte administrateur</strong>. Les autres profils — ni une <strong>élévation temporaire</strong> des droits — ne voient pas cet onglet ; à l’ouverture des paramètres, ils arrivent sur <strong>Contexte</strong>. On y regroupe la sauvegarde JSON complète (exporter/importer), la fusion « mouvements seuls », la fusion « transports expédiés », l’inventaire initial CSV/XLSX, archiver/réimporter les mouvements, supprimer la base et l’aperçu rapide des destinataires de consommation quotidienne. Les autres utilisateurs passent par <strong>Employés</strong> et les onglets autorisés pour leur profil.</p>
+
+<h3>Sauvegarde complète</h3>
+<p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Import/Export</strong> (administrateur uniquement)</p>
+<ul>
+  <li><strong>Exporter la sauvegarde</strong> : génère un fichier <code>GNEEX_Backup_YYYY-MM-DD_HH-MM-SS.json</code> avec toutes les données (inventaire —emplacement par article, stock par emplacement/caisse et catalogue d’emplacements inclus— ; mouvements ; destinataires consommation ; fournisseurs ; transports ; lignes de commandes ; utilisateurs ; compteurs ; etc.)</li>
+  <li><strong>Importer la sauvegarde</strong> : choisissez le JSON, confirmez et suivez l’alerte affichée ; cela remplace les données de travail de cette instance. Les clés <strong>absentes</strong> du JSON <strong>ne</strong> suppriment pas les autres données locales (par exemple le catalogue d’unités).</li>
+</ul>
+<blockquote>La sauvegarde complète sert d’abord de copie de sécurité ou de clonage d’un poste. Pour n’échanger que l’activité opérationnelle, utilisez aussi le flux <strong>exporter / importer uniquement les mouvements</strong> ci-dessous.</blockquote>
+<p><strong>Mouvements seuls (fusion d’activité) :</strong> <strong>Exporter uniquement les mouvements</strong> (<code>GNEEX_Movements_….json</code>) et <strong>Importer et fusionner</strong> échangent l’activité entre copies. La fusion <strong>ajoute</strong> seulement les mouvements dont l’<strong>id</strong> est absent sur la cible et <strong>applique</strong> le stock (réceptions matière recréées si le fichier le permet). Si l’<strong>id</strong> existe déjà, le mouvement local est conservé. Cela n’actualise ni les listes, ni les transports, ni le reste : les catalogues d’articles doivent rester cohérents ; des dates mêlées entre copies peuvent perturber l’ordre logique des stocks. Confirmez toujours la boîte de dialogue de l’application.</p>
+<p><strong>Note (sauvegardes et surdimensionnement) :</strong> La <strong>sauvegarde complète</strong> et le fichier <strong>mouvements seuls</strong> sérialisent les mouvements tels qu’en stockage local (champ technique <code>hadOverdraft</code> inclus). Le format et la fusion <strong>ne changent pas</strong>. Au démarrage, l’application peut <strong>normaliser</strong> des valeurs incohérentes pour <strong>Achat de stock</strong> et <strong>Réception de matériel</strong>. Dans <strong>l’historique</strong>, les <strong>filtres</strong>, les <strong>rapports XLSX</strong> et les <strong>exports lisibles</strong>, une règle cohérente s’applique : un achat ou une réception <strong>n’est pas</strong> traité comme surdimensionnement uniquement à cause d’un ancien indicateur erroné.</p>
+
+<h3>Listes de destinataires (Consommation quotidienne)</h3>
+<p><strong>Aperçu rapide :</strong> ⚙️ Paramètres → <strong>Import/Export</strong> → « Destinataires (aperçu rapide) ». <strong>L’ajout et la suppression</strong> des noms restent dans l’onglet <strong>Employés</strong>.</p>
+
+<h3>Liste fournisseurs (commandes)</h3>
+<p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Fournisseurs</strong> pour gérer la liste maître.</p>
+<p>Les comptes avec accès à <strong>Commandes</strong> peuvent indiquer le fournisseur sur chaque ligne (texte libre ou suggestions issues de cette liste). Le <strong>numéro de BC/PO</strong> n’est pas saisi à la création de la ligne ; il est enregistré à la <strong>réception</strong> dans Mouvements → <strong>Achat de stock</strong> (avec bon de livraison).</p>
+
+<h3>Archiver les anciens mouvements</h3>
+<p>Pour libérer de l'espace en supprimant les anciens mouvements :</p>
+<ol>
+  <li>Sélectionner une <strong>date limite</strong> dans le champ « Antérieurs au »</li>
+  <li>Cliquer sur <strong>Archiver</strong></li>
+  <li>Confirmer le nombre de mouvements</li>
+  <li>Le fichier <code>GNEEX_Archived_Movements_FROM_to_TO_YYYY-MM-DD_HH-MM-SS.json</code> est téléchargé</li>
+  <li>Les mouvements archivés sont supprimés de l'application</li>
+</ol>
+<p>Le JSON inclut une liste lisible <code>movements</code> (résumé) et <code>_rawMovements</code> avec <strong>copie complète</strong> de chaque mouvement tel qu’enregistré. Le champ de surdimensionnement dans la partie lisible suit la <strong>même règle</strong> que l’historique à l’écran ; <code>_rawMovements</code> conserve les données techniques sans réinterprétation.</p>
+
+<h3>Réimporter les mouvements archivés</h3>
+<ol>
+  <li>Cliquer sur <strong>Réimporter le fichier</strong></li>
+  <li>Sélectionner le fichier JSON d'archive</li>
+  <li>Confirmer — les mouvements sont réintégrés dans l'historique, triés par date</li>
+  <li>Les mouvements déjà existants ne sont pas dupliqués</li>
+</ol>
+
+<h3>Charger l'inventaire initial (CSV ou XLSX)</h3>
+<p>Permet d'importer un fichier <strong>CSV</strong> ou <strong>XLSX</strong> avec l'inventaire initial. Les colonnes doivent correspondre au format attendu.</p>
+<p>Vous pouvez utiliser le <strong>bouton icône de modèle</strong> pour exporter une feuille <strong>.xlsx</strong> avec le bon ordre de colonnes, l’en-tête stylisé (orange) et une ligne d’exemple modifiable. Vous pouvez aussi enregistrer en CSV depuis Excel avec le même ordre de colonnes.</p>
+
+<h3>Supprimer la base de données</h3>
+<ol>
+  <li>Cliquer sur <strong>Supprimer la base de données</strong></li>
+  <li>Saisir le code de confirmation : <code>SUPPRIMER TOUT</code> (ou <code>BORRAR TODO</code> / <code>DELETE ALL</code>)</li>
+  <li>Toutes les données sont supprimées et la page se recharge</li>
+</ol>
+<blockquote>Un texte de confirmation fixe limite les effacements accidentels ; sur les postes d’exploitation, suivez la procédure interne de votre site.</blockquote>
+
+<h3>Sécurité et données dans le navigateur</h3>
+<p>G-NEEX enregistre l'inventaire, les mouvements, les utilisateurs et la session dans le <strong>stockage local du navigateur</strong> (par exemple <code>localStorage</code>). Les mots de passe sont stockés sous forme de <strong>hash avec sel</strong> ; ils n’apparaissent pas en clair dans le code source de l’application. Toute personne ayant accès à l'ordinateur ou au profil utilisateur, ou une <strong>extension de navigateur malveillante</strong>, pourrait lire ou modifier ces données. L'application <strong>ne remplace pas</strong> un serveur central avec politique d'identité d'entreprise. Utilisez le <strong>verrouillage de session du système</strong>, des comptes nominatifs et des <strong>sauvegardes exportées</strong> selon la procédure de votre organisation. Lors d'une <strong>importation d'un fichier JSON</strong> de sauvegarde, vérifiez qu'il provient d'une source de confiance.</p>
+
+<hr>
+
+<h2>1.2 Éditeur d'articles</h2>
+<p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Édition d'article</strong></p>
+<p>À l’ouverture, si l’application demande un <strong>code de déverrouillage</strong>, suivez l’assistant (création ou saisie) et utilisez <strong>Déverrouiller</strong> pour continuer. Puis recherchez l’article par code ou description, modifiez les champs (code, description, catégorie, prix par défaut, stocks, emplacement, minimum, maximum, etc.) et <strong>Enregistrez</strong>.</p>
+<p>Pour <strong>Emplacement</strong>, vous pouvez composer le texte avec <strong>plusieurs étiquettes séparées par une virgule</strong> ; la liste inclut les <strong>emplacements du catalogue effectif</strong> et <strong>BOX1…BOX51</strong> (groupés) pour les ajouter avec <strong>Ajouter</strong>, en plus du catalogue éditable sur la même page Paramètres.</p>
+
+<h3>Mode consommable d’inventaire et liste maître « Consommables »</h3>
+<p>Si vous cochez <strong>Traiter comme consommable d’inventaire</strong> et cliquez sur <strong>Enregistrer</strong>, l’application <strong>ajoute</strong> automatiquement le nom (la <strong>description</strong> de l’article, ou le <strong>code</strong> s’il n’y a pas de description) à la liste <strong>⚙️ Paramètres → Consommables</strong>, utilisée pour les réceptions d’achat sans inventaire et les commandes consommables. Si vous <strong>décochez</strong> cette option et enregistrez, elle <strong>retire</strong> de cette liste l’entrée qui correspondait à la description ou au code <strong>avant la modification</strong> (lorsqu’elle n’y figurait que par ce lien).</p>
+<p>Le comportement du stock en mode consommable suit les écrans et messages de l’application.</p>
+
+<hr>
+
+<h2>1.3 Configuration des expirations</h2>
+<p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Expirations</strong></p>
+<ol>
+  <li>Définir les <strong>jours d'alerte</strong> globaux (ex. 30 = alerter 30 jours avant l'expiration)</li>
+  <li>Rechercher un article spécifique</li>
+  <li>Lui attribuer une <strong>durée de vie en mois</strong> à partir de la date d'émission</li>
+  <li>Cliquer sur <strong>Enregistrer</strong></li>
+</ol>
+
+<hr>
+
+<h1>SECTION 2 : Utilisation de l’application</h1>
+
+<h2>2.1 Accéder à la session</h2>
+<p>Saisissez <strong>identifiant</strong> et <strong>mot de passe</strong>. La session est validée dans le navigateur ; le compte <strong>administrateur</strong> peut gérer les utilisateurs et les mots de passe sous <strong>⚙️ Paramètres → Utilisateurs</strong>.</p>
+<p>Lors de <strong>l’ajout d’un utilisateur</strong> avec le rôle « Utilisateur », vous pouvez choisir un <strong>modèle</strong> : <strong>Superviseur</strong> et les <strong>profils de référence intégrés</strong> (ex. Keith Lake, invité, Patrick). Les anciens modèles opérateur ne sont plus proposés pour les nouveaux comptes. Chaque option affiche une courte description au survol (<code>title</code>). Pour un nouvel <strong>administrateur</strong>, sélectionnez le rôle <strong>Administrateur</strong> ; ce rôle n’utilise pas de modèle de matrice. Le détail des clés figure dans <code>PlantillasPermisos.xlsx.csv</code> à la racine du dépôt (documentation et future API).</p>
+<p>Les <strong>images de fond</strong> de l’écran de connexion sont définies dans <code>assets/login-bg-manifest.json</code> (chemins sous <code>assets/</code>). En l’absence de liste ou si elle est vide, le logo est utilisé. Lorsque plusieurs images sont définies, elles peuvent <strong>défiler</strong> automatiquement.</p>
+<p>Après connexion, vous accédez au panneau (voir <strong>§2.2</strong>).</p>
+
+<hr>
+
+<h2>2.2 Tableau de bord (Panneau de résumé)</h2>
+<p>À l'entrée dans l'application, un panneau s'affiche avec les informations du jour. La <strong>barre supérieure</strong> contient les accès aux modules (p. ex. <strong>📦 Inventaire</strong> — §2.3) :</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-panel.png" alt="Tableau de bord" loading="lazy" decoding="async">
+  <figcaption>Tableau de bord et barre de navigation</figcaption>
+</figure>
+<table>
+  <thead>
+    <tr><th>Carte</th><th>Ce qu'elle affiche</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Mouvements du jour</strong></td><td>Nombre de mouvements créés aujourd'hui, avec répartition par type</td></tr>
+    <tr><td><strong>Alertes actives</strong></td><td>Stock bas + stock négatif + articles bientôt expirés</td></tr>
+    <tr><td><strong>Transports en attente</strong></td><td>Transports non expédiés ni annulés</td></tr>
+    <tr><td><strong>Dernière sauvegarde</strong></td><td>Date de la dernière sauvegarde (alerte si plus de 7 jours ou jamais)</td></tr>
+  </tbody>
+</table>
+<p>Cliquer sur <strong>Masquer</strong> / <strong>Afficher</strong> pour réduire/développer le panneau.</p>
+
+<hr>
+
+<h2>2.3 Inventaire</h2>
+<p>Vue en cliquant sur <strong>Inventaire</strong> (📦) dans la barre : recherche, filtres, cartes et tableau.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-inventario.png" alt="Onglet Inventaire" loading="lazy" decoding="async">
+  <figcaption>Onglet Inventaire</figcaption>
+</figure>
+
+<h3>Rechercher des articles</h3>
+<p>Saisir dans le champ de recherche pour filtrer par <strong>code, description, catégorie ou emplacement</strong>.</p>
+
+<h3>Menu outils (⋮)</h3>
+<p>À côté du champ de recherche, le bouton <strong>⋮</strong> regroupe les actions d’inventaire : exporter en XLSX, imprimer, afficher ou masquer les bandes de filtre en ligne (<strong>Caisse / emplacement</strong>, <strong>Dépôt</strong>, <strong>Consommable inv.</strong>), filtres « problèmes » et « alerte stock bas désactivée », vue <strong>Stock à date</strong>, résumé par caisse, gestion par caisse, etc.</p>
+<p>La <strong>première entrée</strong> est <strong>Masquer les filtres en ligne</strong> (chevron vers la droite) : elle referme en une fois les trois bandes lorsqu’au moins une est ouverte et remet chaque liste sur <strong>Tous</strong> si nécessaire. Elle est <strong>désactivée</strong> lorsqu’aucune bande n’est ouverte ; sinon elle permet de réduire la zone de filtres sans action répétée sur chaque type de filtre.</p>
+
+<h3>Vue d'inventaire "à date"</h3>
+<p>Utiliser le filtre <strong>à date</strong> pour consulter l'inventaire tel qu'il était à une date sélectionnée. Quand il est actif, il impacte tableau, cartes et sorties export/impression.</p>
+
+<h3>Cartes de statistiques</h3>
+<p>Les cartes supérieures affichent :</p>
+<ul>
+  <li><strong>Articles totaux</strong> : nombre total</li>
+  <li><strong>Stock bas</strong> : articles avec un stock égal ou inférieur au minimum</li>
+  <li><strong>Expiration</strong> : articles expirés ou sur le point d'expirer</li>
+  <li><strong>Surstock</strong> : articles au-dessus du stock maximum</li>
+  <li><strong>Stock négatif</strong> : articles avec un stock inférieur à 0</li>
+</ul>
+<blockquote>Cliquer sur n'importe quelle carte (sauf « totaux ») ouvre un <strong>modal de détail</strong> avec la liste des articles concernés, option d'exporter en XLSX et d'imprimer.</blockquote>
+<p>Dans le modal <strong>stock bas</strong>, les premières colonnes sont <strong>Ignorer l'alerte de stock bas</strong>, <strong>Actions</strong> (🛒 pour ajouter l'article à la <strong>liste d'achat</strong>), <strong>Code</strong>, puis les autres champs (description, stocks, dates, emplacement).</p>
+
+<h3>Tableau d'inventaire</h3>
+<p>Colonnes : Code, Description, Catégorie, Prix par défaut, Stock Principal, Stock Production, Stock Transformation, Emplacement, Expiration.</p>
+<p>Dans la colonne <strong>Description</strong>, l’icône <strong>📝</strong> (plus discrète si l’article n’a pas encore de notes) ouvre, lorsqu’elle est active, une fenêtre pour <strong>voir et modifier les notes</strong> ; <strong>Enregistrer</strong> enregistre les changements. Si l’édition n’est pas proposée mais l’article <strong>a</strong> des notes, la même fenêtre s’ouvre souvent en <strong>lecture seule</strong> ; sans notes, la cellule reste du texte simple.</p>
+<p>Les couleurs des lignes indiquent l'état de l'article (rouge = négatif, jaune = bas, orange = bientôt expiré, etc.).</p>
+<p>Si la fenêtre est étroite, faites <strong>défiler le tableau horizontalement</strong> pour voir toutes les colonnes sans comprimer les en-têtes.</p>
+<p><strong>Emplacement (champ texte de l’article) :</strong> pour les validations (mouvements, imports, cohérence des stocks), seules les étiquettes du <strong>catalogue d’entrepôt effectif</strong> et les références <strong>BOXn</strong> comptent comme emplacement <strong>canonique</strong>. Si le texte enregistré ne peut pas être entièrement normalisé vers ces jetons, un <strong>avertissement</strong> peut s’afficher à l’enregistrement depuis l’éditeur ; aucun marqueur automatique de réaffectation n’est plus inséré.</p>
+<p>Le menu <strong>Caisse / emplacement</strong> sert au filtrage visuel rapide selon le numéro déduit du texte d’<strong>Emplacement</strong>, selon les <strong>numéros de caisse</strong> avec stock dans la gestion par caisse, et selon les <strong>emplacements d’entrepôt</strong> du catalogue interne (ex. E1R, ETOP, BIN 8, CONTAINEUR CHANTIER, ARMOIRE AVEC CLE) lorsque le texte correspond <strong>ou</strong> que le même emplacement figure uniquement dans le <strong>stock par emplacement</strong> (pastilles avec quantités) ; des pastilles s’affichent à côté de la cellule. À côté d’exporter et imprimer, <strong>Résumé par caisse (selon emplacement)</strong> regroupe les articles lorsque l’emplacement ressemble à <strong>BOX1</strong>, <strong>BOX 1</strong> ou variantes (« box », « caja » + nombre ; espace après BOX facultatif). Plusieurs caisses peuvent figurer dans le même champ, <strong>séparées par des virgules</strong> (ex. « BOX1, caja 2 »). Dans la fenêtre, <strong>cliquez une ligne</strong> pour voir les articles du groupe. Si un article contient plusieurs caisses dans l’emplacement, il est compté dans <strong>chaque caisse détectée</strong>. En plus, via <strong>Gestion du stock par caisse</strong>, vous pouvez <strong>ajouter, modifier, supprimer et répartir</strong> du stock entre <strong>caisses</strong> et les colonnes <strong>Stock production</strong> / <strong>Stock transformation</strong> ; vous pouvez aussi transférer d’une <strong>caisse vers un emplacement direct (sans caisse)</strong>. Cette action déduit la caisse d’origine, ajoute l’emplacement au texte de l’article (sans doublon) et enregistre une quantité par emplacement (pastilles comme <code>E2R: 12</code>) dans la cellule Emplacement. Vous pouvez aussi <strong>exporter</strong> tout le stock par caisse (même mise en page que le modèle) pour sauvegarde ou modification puis le <strong>réimporter</strong>, télécharger un modèle vide si besoin, et importer des quantités par caisse. La première ligne officielle est <strong>Codigo, Caja, UbicacionCaja, CantidadCaja, CantidadCajas, Vacia</strong> (feuille <strong>Datos</strong>, celle produite par G-NEEX). Dans <strong>Vacia</strong>, utilisez <code>1/true/oui</code> pour marquer la caisse comme vide (force quantité 0). Pour les mouvements de sortie/consommation, la caisse est optionnelle : si elle est choisie, la quantité est déduite de la caisse et du stock principal ; sinon, elle est déduite uniquement du stock principal.</p>
+<p>Test rapide recommandé (Emplacement) :</p>
+<ul>
+  <li><code>BOX1</code></li>
+  <li><code>E1R</code> ou <code>e1r</code> (insensible à la casse)</li>
+  <li><code>BIN 8</code>, <code>BIN2</code> ou <code>BIN 2</code></li>
+  <li><code>CONTAINEUR CHANTIER</code></li>
+  <li><code>BOX1, BOX2</code></li>
+  <li><code>caja 3, BOX4</code></li>
+  <li><code>sans caisse</code></li>
+  <li><code>BOX52</code> (hors plage, ignoré)</li>
+  <li><code>BOX1, BOX1</code> (la même caisse n’est pas dupliquée)</li>
+</ul>
+
+<h3>Exporter et imprimer</h3>
+<ul>
+  <li><strong>Exporter en XLSX</strong> : Télécharge la vue actuelle de l'inventaire (tableau mis en forme)</li>
+  <li><strong>Imprimer la liste</strong> : Ouvre la fenêtre d'impression avec le tableau formaté</li>
+</ul>
+<p>Les fenêtres d’impression utilisent le <strong>papier A4 portrait</strong> (marges standard) ; les tableaux <strong>ne compriment pas toutes les colonnes à la même largeur</strong> (le <strong>code</strong> article reste sur une ligne et lisible) ; les autres textes longs sont <strong>renvoyés dans la cellule</strong> si besoin (inventaire, historique, détail de mouvement et autres listes imprimables).</p>
+<blockquote><strong>Exporter</strong> et <strong>imprimer</strong> ici requièrent que ces boutons soient visibles et actifs.</blockquote>
+
+<hr>
+
+<h2>2.4 Mouvements</h2>
+<p>Onglet <strong>Mouvements</strong> (➕) : grille de types ; formulaire en fenêtre superposée.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-movimientos.png" alt="Onglet Mouvements" loading="lazy" decoding="async">
+  <figcaption>Onglet Mouvements</figcaption>
+</figure>
+
+<h3>Créer un mouvement</h3>
+<ol>
+  <li>Aller dans l'onglet <strong>Mouvements</strong></li>
+  <li>Sélectionner le <strong>type de mouvement</strong> en cliquant sur son bouton : une <strong>fenêtre superposée dans l'application</strong> s'ouvre avec le formulaire de ce type (la vue Mouvements affiche toujours uniquement la grille et la liste récente).</li>
+  <li>Dans cette fenêtre, remplir l'<strong>ID Projet</strong> (obligatoire ou automatique selon le type) et les <strong>Notes</strong></li>
+  <li><strong>Rechercher des articles</strong> : au moins 2 caractères → sélectionner un article → saisir la <strong>quantité</strong> comme pour les autres types → la ligne est ajoutée (colonne <strong>Quantité</strong>)</li>
+  <li><strong>Origine du stock</strong> (types qui <strong>soustrent</strong> du stock) : si la colonne <strong>Origine stock</strong> apparaît, choisissez <strong>depuis quel dépôt</strong> la quantité est prélevée : <strong>Entrepôt général</strong> (stock principal, quantité affichée) ; chaque <strong>caisse</strong> (même quantité que dans <strong>Gestion du stock par caisse</strong>) ; <strong>emplacements</strong> du stock détaillé par emplacement (<strong>étiquette seule</strong> dans la liste) ; et le cas échéant <strong>stock de production</strong> ou <strong>stock de transformation</strong> (quantité affichée). Vous pouvez <strong>ajouter plusieurs lignes</strong> du même article pour répartir les quantités. Pour les types qui affichent aussi une colonne <strong>Destination</strong> (p. ex. Quincaillerie, M.É. Production, M.É. Chantier), l’<strong>origine</strong> est le dépôt physique débité ; la <strong>destination</strong> classe le mouvement et peut différer de l’origine.</li>
+  <li>Vérifier et ajuster les <strong>quantités</strong> dans la liste avant de traiter</li>
+  <li>Cliquer sur <strong>Traiter le mouvement</strong>. Pour <strong>M.É. chantier</strong>, une question demande le <strong>total de caisses</strong> pour cet envoi (pas par article) ; elles sont réparties entre les lignes selon les quantités pour le stock M.É. chantier</li>
+</ol>
+<p>Si <strong>toutes</strong> les quantités sont <strong>0</strong>, l’application <strong>refuse</strong> de traiter le mouvement (aucun changement de stock).</p>
+<blockquote>Utilisez <strong>Créer</strong> et <strong>Traiter le mouvement</strong> lorsqu’ils sont affichés ; s’ils restent inactifs, le formulaire ou l’action n’est pas habilité pour l’état en cours.</blockquote>
+
+<h3>Types de mouvement</h3>
+<table>
+  <thead>
+    <tr><th>Type</th><th>Effet sur le stock</th><th>Projet</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Ajustement</td><td>Ajoute ou soustrait</td><td>Facultatif</td></tr>
+    <tr><td>Consommation Quotidienne</td><td>Soustrait</td><td>Automatique</td></tr>
+    <tr><td>Quincaillerie</td><td>Soustrait</td><td>Obligatoire</td></tr>
+    <tr><td>Spécial</td><td>Ajoute ou soustrait</td><td>Facultatif</td></tr>
+    <tr><td>Liste de Contrôle</td><td>Soustrait</td><td>Obligatoire</td></tr>
+    <tr><td>Perte</td><td>Soustrait</td><td>Obligatoire</td></tr>
+    <tr><td>Retour</td><td>Ajoute</td><td>Facultatif</td></tr>
+    <tr><td>Démantèlement</td><td>Ajoute</td><td>Obligatoire</td></tr>
+    <tr><td>Transfert</td><td>Ajoute ou soustrait</td><td>Facultatif</td></tr>
+    <tr><td>Transformation</td><td>Soustrait</td><td>Facultatif</td></tr>
+    <tr><td>Envoi en Production</td><td>Soustrait</td><td>Facultatif</td></tr>
+    <tr><td>M.É. Production</td><td>Soustrait</td><td>Obligatoire</td></tr>
+    <tr><td>M.É. Chantier</td><td>Soustrait</td><td>Obligatoire</td></tr>
+    <tr><td>Stand-By</td><td>Sans effet (en attente)</td><td>Facultatif</td></tr>
+    <tr><td>Achat de Stock</td><td>Ajoute</td><td>Formulaire spécial</td></tr>
+    <tr><td>Réception de Matériel</td><td>Ajoute (ou provisoire selon les règles de catégorie)</td><td>Obligatoire</td></tr>
+  </tbody>
+</table>
+
+<h3>Stand-By</h3>
+<p>Les mouvements Stand-By sont enregistrés comme brouillons sans affecter l'inventaire :</p>
+<ol>
+  <li>Créer un mouvement de type <strong>Stand-By</strong></li>
+  <li>Sélectionner le <strong>type de libération</strong> (en quel type il sera converti lors du traitement)</li>
+  <li>Traiter le mouvement</li>
+</ol>
+<p><strong>Liste des Stand-By</strong> : Affiche les brouillons en attente avec les options :</p>
+<ul>
+  <li><strong>Éditer</strong> : Modifier les articles et les quantités</li>
+  <li><strong>Traiter</strong> : Appliquer le mouvement à l'inventaire</li>
+  <li><strong>Annuler</strong> : Supprimer le brouillon</li>
+</ul>
+
+<h3>Bulles flottantes (Stand-by et Consommation quotidienne)</h3>
+<p>Avec la session active, il existe jusqu'à deux accès flottants (coin inférieur droit par défaut), <strong>masqués au départ</strong>. Pour afficher la bulle <strong>Stand-by</strong> ou <strong>Consommation quotidienne</strong>, ouvrez <strong>Mouvements</strong> et sélectionnez le type correspondant ; la bulle reste visible tant que vous ne la masquez pas.</p>
+<table>
+  <thead><tr><th>Bulle</th><th>Rôle</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stand-by</strong> (⏸)</td><td>Accès rapide aux brouillons Stand-by en attente ; panneau avec liste, lien vers Mouvements ou masquage de la bulle.</td></tr>
+    <tr><td><strong>Consommation quotidienne</strong> (📅)</td><td>Panneau des lignes de type Consommation quotidienne pas encore traitées en un seul mouvement.</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>Masquer :</strong> depuis le panneau (icône ⏬) ; la préférence est enregistrée dans ce navigateur.</li>
+  <li><strong>Glisser :</strong> maintenez le <strong>bouton rond</strong> enfoncé et déplacez la bulle à l'écran ; la position est mémorisée sur cet appareil. Un simple clic sans déplacement ouvre ou ferme le panneau comme d'habitude.</li>
+</ul>
+<p><strong>Consommation quotidienne (clôture et rattrapage) :</strong> les lignes en attente sont associées au <strong>jour local</strong>. S'il reste des lignes d'un jour précédent, un message peut s'afficher et une <strong>clôture / récupération</strong> automatique peut s'exécuter si les règles de stock le permettent ; sinon vérifiez le panier manuellement. Ce flux <strong>n'utilise pas de numéro de projet</strong> dans le formulaire. <strong>Tant que le type Consommation quotidienne est sélectionné</strong> dans Mouvements, la clôture automatique nocturne (≈23 h) et le passage de jour <strong>ne vous interrompent pas</strong> ; <strong>en passant à un autre type de mouvement</strong>, la clôture en attente est tentée si c'est pertinent.</p>
+<p><strong>Date et heure du mouvement (Consommation quotidienne) :</strong> à chaque ajout d'une ligne au panier, l'instant est enregistré. Lors du <strong>traitement</strong>, la date enregistrée pour le mouvement est celle du <strong>premier article</strong> ajouté au panier dans ce lot (si une ancienne ligne n'avait pas d'horodatage, l'heure du traitement sert de secours).</p>
+<p><strong>Décimales :</strong> les quantités et stocks sont affichés et enregistrés avec <strong>au plus quatre chiffres</strong> après le séparateur décimal (arrondi).</p>
+<p><strong>Destinataire « Autre (nom non listé) » :</strong> saisissez librement le nom lorsqu'il n'est pas dans la liste déroulante. Cette section demande seulement d'indiquer qui reçoit le matériel ; il n'y a pas de classification supplémentaire.</p>
+<p><strong>Registre éditable dans l’Historique :</strong> dans <strong>Historique → Consommation quotidienne par destinataire</strong>, vous pouvez modifier directement le nom du destinataire dans le tableau, <strong>enregistrer les modifications</strong> et <strong>nettoyer le tableau visible</strong> (selon les filtres personne/code) quand vous voulez épurer ce registre.</p>
+
+<h3>Surdimensionnement (Overdraft)</h3>
+<p>Les mouvements qui <strong>retirent</strong> du stock au-delà du disponible (consommation, transferts, envoi en production, etc.) peuvent ouvrir un modal avec <strong>motif obligatoire</strong> et être marqués dans l’historique avec l’indicateur (<code>!</code> et détail).</p>
+<p><strong>Achat de stock</strong> et <strong>Réception de matériel</strong> sont des <strong>entrées</strong> : elles <strong>n’utilisent pas</strong> ce flux de justification « surdimensionnement ». Si d’anciennes données comportaient par erreur ce marqueur sur ces types, l’application <strong>ne l’affiche pas</strong> comme surdimensionnement dans les listes, filtres et détail, peut <strong>corriger l’enregistrement au chargement</strong>, et les rapports suivent la même règle.</p>
+<p>Lors de la <strong>libération d’un Stand-by</strong>, le calcul d’éventuel surdimensionnement utilise le <strong>type cible</strong> du Stand-by (pas le type momentanément sélectionné dans le formulaire Mouvements), afin d’éviter les faux positifs.</p>
+
+<h3>Achat de stock (détail)</h3>
+<ul>
+  <li>Même type de mouvement, créé <strong>uniquement depuis Mouvements</strong> ou <strong>après une réception depuis le panneau Commandes</strong> (voir §2.5).</li>
+  <li>Champs supplémentaires : <strong>numéro de BC</strong> (obligatoire), <strong>bon de livraison</strong>, <strong>fournisseur</strong>.</li>
+  <li>Chaque mouvement reçoit une <strong>référence avec sigle de type + 6 chiffres corrélés par type</strong> (ex. ajustement <code>AJU000042</code>, achat <code>COM000003</code>). Les anciennes références avec plus de chiffres, uniquement numériques ou avec tiret sont normalisées au chargement de l’historique.</li>
+  <li>Certaines catégories de réception exigent un <strong>BC/PO</strong> et sont gérées en <strong>réception provisoire</strong> (sans impact immédiat sur le stock principal).</li>
+</ul>
+
+<hr>
+
+<h2>2.5 Commandes fournisseur (lignes de commande)</h2>
+<p><strong>Chemin :</strong> onglet <strong>Commandes</strong> (icône 📋 dans la barre supérieure).</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-pedidos.png" alt="Onglet Commandes" loading="lazy" decoding="async">
+  <figcaption>Commandes fournisseur</figcaption>
+</figure>
+<p>Planifier des lignes liées à l'inventaire (code, description, fournisseur, quantité). Le <strong>numéro de BC/PO</strong> est enregistré à la <strong>réception</strong> dans Achat de stock (bon de livraison), pas à la création du brouillon.</p>
+<h3>Filtres du tableau</h3>
+<p>Au-dessus du tableau, vous pouvez changer l’<strong>Affichage</strong> entre <strong>tableau détaillé</strong> (par défaut) et <strong>mosaïque</strong> de cartes ; le choix est enregistré dans ce navigateur.</p>
+<p>Au-dessus du tableau, vous pouvez filtrer les lignes par :</p>
+<ul>
+  <li><strong>Recherche texte</strong> (référence, code, description, fournisseur, quantités),</li>
+  <li><strong>Statut</strong>,</li>
+  <li><strong>Date clé</strong> (du / au),</li>
+  <li><strong>Préréglage d’historique</strong> (avec/sans réception, commandée, annulée).</li>
+</ul>
+<p><strong>Effacer les filtres</strong> réinitialise tout.</p>
+<h3>États d'une ligne</h3>
+<table>
+  <thead><tr><th>État</th><th>Signification</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Inactive</strong></td><td>Brouillon ; édition quantité et fournisseur.</td></tr>
+    <tr><td><strong>Commandée</strong></td><td>Commande confirmée ; date enregistrée ; en attente de réception.</td></tr>
+    <tr><td><strong>Réception partielle / totale</strong></td><td>Selon la quantité reçue par rapport à la commande.</td></tr>
+    <tr><td><strong>Annulée</strong></td><td>Uniquement si aucune réception.</td></tr>
+  </tbody>
+</table>
+<h3>Réception et achat de stock</h3>
+<p>En cliquant sur <strong>Réception partielle</strong> ou <strong>Réception totale (reste)</strong>, l'application passe à <strong>Mouvements</strong>, sélectionne <strong>Achat de stock</strong> et préremplit le formulaire. Vérifier puis <strong>Traiter le mouvement</strong>. Si l'article ou la quantité ne correspond plus à la ligne, l'achat peut être enregistré sans lien (avertissement).</p>
+<p><strong>Achat saisi seulement dans Mouvements (sans passer d’abord par Commandes) :</strong> après <strong>Traiter le mouvement</strong>, s’il existe une ligne <strong>Commandée</strong> ou <strong>réception partielle</strong> pour le <strong>même article d’inventaire</strong> — et, si un fournisseur a été saisi sur l’achat, le <strong>même fournisseur</strong> — un dialogue peut demander si cet achat correspond à cette commande ouverte. Les boutons sont <strong>Oui</strong> / <strong>Non</strong> (<strong>Non</strong> refuse seulement le lien ; le mouvement reste enregistré). En cas de confirmation, la colonne <strong>Reçu</strong>, le <strong>statut</strong> et les <strong>actions</strong> se mettent à jour comme une réception lancée depuis le panneau (y compris partiel / surplus). Sinon, on peut proposer d’<strong>enregistrer</strong> l’achat comme nouvelle ligne de commande (également <strong>Oui</strong> / <strong>Non</strong>).</p>
+<h3>Historique et export</h3>
+<p>Chaque ligne affiche une référence du type <strong>#AJU000012</strong> (sigle + numéro par type ; les anciennes lignes peuvent rester purement numériques) et une chronologie.</p>
+<ul>
+  <li><strong>Exporter XLSX / Imprimer le tableau :</strong> les deux utilisent la <strong>vue filtrée actuelle</strong> (lignes visibles uniquement).</li>
+  <li><strong>Nettoyage massif :</strong> bouton pour supprimer les lignes en <strong>réception totale</strong> de plus d’un an.</li>
+  <li><strong>Suppression par ligne :</strong> pour une ligne en <strong>réception totale</strong>, une action apparaît au-delà de 3 mois.</li>
+  <li><strong>Date réelle de réception (optionnel) :</strong> dans Achat de stock et Réception de matériel, vous pouvez saisir une date passée comme référence (notes/chronologie), en conservant la date/heure réelle d’enregistrement du mouvement.</li>
+</ul>
+<h3>Historique des mouvements (lien)</h3>
+<p>Si l'achat provient du panneau Commandes, le détail du mouvement affiche un encadré ; la liste peut afficher 📋.</p>
+<blockquote>L’édition des lignes, les réceptions et l’export XLSX du panneau dépendent des actions et boutons visibles en utilisant <strong>Commandes</strong> et <strong>Mouvements</strong> sur votre copie.</blockquote>
+
+<hr>
+
+<h2>2.6 Historique</h2>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-historial.png" alt="Onglet Historique" loading="lazy" decoding="async">
+  <figcaption>Onglet Historique</figcaption>
+</figure>
+
+<h3>Consulter les mouvements</h3>
+<p>L'onglet <strong>Historique</strong> affiche les mouvements filtrés avec couleur et icône selon le type.</p>
+<p>Au-dessus de la grille, le sélecteur <strong>Affichage</strong> propose <strong>Mosaïque</strong> (icônes en grille, par défaut), <strong>Liste</strong> (lignes compactes, style explorateur), <strong>Détails</strong> (tableau à colonnes) ou <strong>Carrousel chronologique</strong> (cartes en séquence horizontale du plus récent au plus ancien ; la bande supérieure et chaque carte affichent <strong>jour, mois en 3 lettres, année sur 4 chiffres et heure locale</strong> ; les flèches latérales avancent <strong>d’un mouvement</strong>). Les cartes minimisées affichent aussi l’<strong>ID projet</strong> quand il s’applique. La préférence est enregistrée dans ce navigateur.</p>
+<p><strong>Format des dates :</strong> dans toute l’application, les dates affichées utilisent le <strong>jour</strong>, le <strong>mois en trois lettres</strong> et l’<strong>année sur quatre chiffres</strong> ; avec l’heure, c’est l’<strong>heure locale en 24 h</strong> (inventaire, tableaux, rappels, transport, métadonnées lisibles dans les exports, etc.).</p>
+<p>Les mouvements <strong>entièrement annulés</strong> et les <strong>annulations partielles</strong> (certaines lignes annulées sans annuler tout le mouvement) apparaissent en <strong>Mosaïque</strong>, <strong>Liste</strong> et <strong>Carrousel</strong> sous forme de <strong>tampon diagonal</strong> (cadre en pointillés incliné) ; le libellé <strong>« Annulation partielle »</strong> correspond au second cas. Dans la vue <strong>Détails</strong> et dans la fenêtre modale, l’<strong>état</strong> reprend la même formulation.</p>
+
+<h3>Filtres</h3>
+<p>Vous pouvez filtrer par :</p>
+<ul>
+  <li>Type de mouvement</li>
+  <li>Référence (partielle)</li>
+  <li>Code ou description d'article (partiel)</li>
+  <li>Destinataire (consommation quotidienne, partiel)</li>
+  <li>Plage de dates</li>
+  <li>Emplacement</li>
+  <li>ID Projet (partiel)</li>
+  <li>Réalisé par (partiel)</li>
+  <li>Surdimensionnement (oui/non ; cohérent avec le détail du mouvement — achat et réception n’incluent pas d’anciens marqueurs erronés)</li>
+  <li>Stock négatif (oui/non — basé sur le stock <strong>actuel</strong>)</li>
+  <li>Annulation (tous / sans annulation totale / annulation partielle / entièrement annulés)</li>
+</ul>
+<p><strong>Effacer les filtres</strong> réinitialise tous les critères.</p>
+
+<h3>Détail du mouvement</h3>
+<p>Cliquer sur une carte, une ligne de liste ou une ligne du tableau de détails pour ouvrir le même modal de détail complet :</p>
+<ul>
+  <li>Type, référence, projet, date et heure, état</li>
+  <li>Qui l'a réalisé</li>
+  <li>Notes</li>
+  <li>Liste des articles avec <strong>stock précédent</strong>, <strong>variation</strong> (+/−) et <strong>stock résultant</strong> par ligne (reconstruit à partir de l’inventaire et de l’historique)</li>
+  <li>Informations de surdimensionnement le cas échéant (voir § « Surdimensionnement »)</li>
+  <li><strong>Pièces jointes (📎)</strong> : lier des PDF, photos ou documents déjà sur l’ordinateur ; <strong>rien n’est copié</strong> dans le dossier de l’app. L’app enregistre le lien et peut <strong>ouvrir</strong> le fichier via « Ouvrir le fichier » (Chrome ou Edge). Après restauration d’une sauvegarde sur un autre PC, il faut <strong>relier</strong> les fichiers. D’anciennes pièces jointes pouvaient être copiées sous <code>Adjuntos/…</code> ; utilisez « Copier le chemin (ancienne version) » et ouvrez depuis l’explorateur.</li>
+  <li><strong>Imprimer</strong> ouvre une fenêtre avec des <strong>tableaux</strong> (en-tête du mouvement et lignes alignés sur <strong>Exporter XLSX</strong>), et non une copie visuelle du modal.</li>
+</ul>
+
+<h3>Annuler un mouvement</h3>
+<p>Dans le modal de détail :</p>
+<ul>
+  <li><strong>Annuler le mouvement complet</strong> : Rétablit tout le stock affecté</li>
+  <li><strong>Annuler une ligne individuelle</strong> : Rétablit uniquement une ligne spécifique</li>
+</ul>
+<blockquote>L’annulation ou le retour en arrière dans le détail exige que le modal affiche ces actions actives (selon le type et l’état du mouvement).</blockquote>
+
+<hr>
+
+<h2>2.7 Transport</h2>
+<p>Bouton <strong>Transport</strong> (🚚) dans la barre : l’onglet affiche le tableau et les actions (créer, expédier, supprimer, etc.) selon ce qui apparaît actif.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-transporte.png" alt="Onglet Transport" loading="lazy" decoding="async">
+  <figcaption>Onglet Transport</figcaption>
+</figure>
+
+<h3>Panneau de transport</h3>
+<p>Affiche des cartes pour chaque transport avec : projet, date d'expédition, état des lignes (Prêt/Partiel), réceptions liées.</p>
+<p>Le sélecteur <strong>Affichage</strong> permet <strong>Mosaïque</strong> (grille de cartes) ou <strong>Liste</strong> (une colonne de cartes en pleine largeur) ; la préférence est enregistrée dans ce navigateur.</p>
+<p>Cliquer sur une carte pour développer son détail. Dans le détail développé, <strong>Pièces jointes (📎)</strong> lie des documents d’expédition depuis n’importe quel dossier (sans copie dans l’app) ; affichage avec Chrome/Edge comme pour les mouvements.</p>
+<p>En haut de l’onglet, un résumé <strong>Matériel préparé au départ</strong> indique, pour chaque transport <strong>actif</strong> (non expédié, non annulé), les listes de contrôle, les mouvements M.É. chantier et production liés au projet et les <strong>réceptions</strong> du projet pas encore marquées comme expédiées. Une section <strong>file d’attente</strong> peut apparaître lorsqu’il n’y a pas encore de transport actif pour ce projet.</p>
+
+<h3>Expédition et traçabilité sur site</h3>
+<p>En cliquant sur <strong>Expédier le camion</strong>, l’application enregistre la sortie et marque comme <strong>expédiés</strong> les mouvements <strong>liste de contrôle</strong>, <strong>M.É. chantier</strong> et <strong>M.É. production</strong> de cet envoi, ainsi que les <strong>réceptions</strong> du même projet encore en attente d’expédition (plusieurs camions : chaque expédition ne marque que ce qui restait en attente). Le <strong>détail du mouvement</strong> dans l’historique affiche la date une fois parti avec un transport. <strong>Annuler l’expédition</strong>, <strong>réactiver</strong> la planification ou <strong>supprimer</strong> le transport annule ces marques liées à ce transport.</p>
+
+<h3>Créer un transport manuel</h3>
+<ol>
+  <li>Cliquer sur <strong>+ Nouveau transport</strong></li>
+  <li>Saisir l'<strong>ID du projet</strong></li>
+  <li>Définir la <strong>date d'expédition</strong></li>
+  <li>Le transport est créé (peut lier du matériel électrique de chantier en attente)</li>
+</ol>
+<blockquote>Si une action n’est pas disponible, le contrôle correspondant est inactif ou absent.</blockquote>
+
+<h3>Transport automatique</h3>
+<p>Les mouvements de type <strong>Liste de Contrôle</strong> et <strong>M.É. Chantier</strong> créent ou lient des transports automatiquement. Si un transport actif existe déjà pour le projet, les lignes sont ajoutées au transport existant.</p>
+
+<h3>Actions de transport</h3>
+<ul>
+  <li><strong>Expédier</strong> : Uniquement lorsque l'état est « Prêt » (toutes les lignes résolues)</li>
+  <li><strong>Annuler l'expédition</strong> : Rétablit l'état d'expédition</li>
+  <li><strong>Supprimer</strong> : Supprime le transport en totalité</li>
+  <li><strong>Fusionner les lignes</strong> : Outil pour combiner ou séparer des lignes au sein du transport</li>
+  <li><strong>Rapport de chargement par camion</strong> : Dans le détail du camion, utilisez <strong>Exporter le rapport de chargement</strong> (XLSX) et <strong>Imprimer le rapport de chargement</strong> avec matériaux, quantités et dimensions chargées. Si une ligne comporte <strong>plusieurs colis</strong>, le XLSX et l’impression listent chaque colis sur <strong>des lignes consécutives</strong> avec des colonnes fixes <strong>Colis</strong>, <strong>L</strong>, <strong>l</strong>, <strong>H</strong> (la table ne s’élargit pas avec « Colis 1 L », « Colis 2 L », …).</li>
+</ul>
+<blockquote>Les opérations sensibles (p. ex. <strong>Expédier</strong>, <strong>Supprimer</strong>) ne s’activent que lorsque l’état des lignes le permet.</blockquote>
+
+<hr>
+
+<h2>2.8 Rapports et exportations</h2>
+
+<h3>Générer un rapport</h3>
+<ol>
+  <li>Cliquer sur le bouton de <strong>rapport</strong> (disponible dans Historique et Transport)</li>
+  <li>Sélectionner le type de rapport :
+    <ul>
+      <li><strong>Résumé des transports</strong></li>
+      <li><strong>Lignes de transport</strong></li>
+      <li><strong>Mouvements filtrés</strong> (utilise les filtres actifs de l'historique)</li>
+      <li><strong>Lignes des mouvements filtrés</strong></li>
+      <li><strong>Tous les mouvements</strong></li>
+      <li><strong>Consommation par article</strong> (rechercher par code ou description ; suggestions d’inventaire pendant la saisie ; choisir une ligne insère le <strong>code</strong>)</li>
+    </ul>
+  </li>
+  <li>Cliquer sur <strong>Télécharger le XLSX</strong></li>
+</ol>
+<p>Les fichiers sont nommés de manière descriptive avec la plage de dates (extension <code>.xlsx</code> ; feuille « Datos » avec style du thème et feuille « Info » avec métadonnées) :</p>
+<ul>
+  <li><code>GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx</code></li>
+  <li><code>GNEEX_Item_Consumption_cable_2025-01-10_to_2026-03-20.xlsx</code></li>
+</ul>
+<blockquote>Utilisez le bouton de rapport ou le téléchargement <strong>XLSX</strong> lorsqu’il est visible ; choisissez le type dans la boîte de dialogue.</blockquote>
+
+<hr>
+
+<h2>2.9 Réceptions</h2>
+<p><strong>Chemin :</strong> ⚙️ Paramètres → onglet <strong>Réceptions</strong></p>
+<p>Tableau avec toutes les réceptions enregistrées. Elles peuvent être recherchées par texte.</p>
+<ul>
+  <li><strong>Exporter</strong> / <strong>Imprimer</strong> (liste filtrée) : même principe lorsqu’une réception a <strong>plusieurs colis</strong> — lignes empilées avec <strong>Colis</strong> et mesures, sans multiplier les colonnes horizontalement.</li>
+  <li><strong>Éditer</strong> : Modifier les données d'une réception existante (rétablit et réapplique le stock)</li>
+  <li><strong>Supprimer</strong> : Supprimer la réception et rétablir son effet sur le stock</li>
+</ul>
+<blockquote><strong>Éditer</strong> et <strong>Supprimer</strong> nécessitent que ces actions soient actives sur la ligne (selon votre copie et le mouvement lié).</blockquote>
+
+<hr>
+
+<h2>2.10 Thème, mode démo et langue</h2>
+<ul>
+  <li><strong>Thème</strong> : Cliquer sur 🌙/☀️ dans le coin supérieur droit pour basculer entre le mode <strong>sombre</strong> et le mode <strong>clair</strong></li>
+  <li><strong>Mode test / démo</strong> : interrupteur <strong>Test</strong> à côté de l'aide. Active un thème <strong>bleu</strong> et une <strong>copie de travail temporaire</strong> : vous pouvez utiliser l'application normalement (mouvements, inventaire, configuration, etc.). En <strong>désactivant</strong> l'interrupteur, l'application <strong>restaure</strong> l'inventaire, les mouvements, l'historique, les utilisateurs, la session et le reste des données du navigateur <strong>telles qu'au moment de l'activation</strong> ; les changements effectués uniquement pendant la démo sont <strong>perdus</strong>. Le thème <strong>clair/sombre</strong> et la <strong>langue</strong> ne sont <strong>pas</strong> restaurés (vos choix pendant la démo restent). Une <strong>bandeau</strong> s'affiche sous l'en-tête tant que le mode est actif. Une <strong>confirmation</strong> est demandée pour quitter</li>
+  <li><strong>Langue</strong> : Sélectionner 🇪🇸 Español, 🇺🇸 English ou 🇫🇷 Français dans le sélecteur de langue</li>
+</ul>
+<p>Les préférences de thème et de langue sont enregistrées automatiquement. L'instantané du mode démo est indépendant de la sauvegarde JSON. <strong>Remarque :</strong> les fichiers exportés vers un dossier sur l'ordinateur pendant la démo (par ex. XLSX dans le dossier du projet) ne sont <strong>pas</strong> supprimés à la sortie ; seul le <strong>localStorage</strong> du navigateur est restauré.</p>
+
+<hr>
+
+<h2>2.11 Barre de session</h2>
+<p>La barre supérieure affiche notamment l’indication de la session, un résumé de rôle ou de mode (selon votre version) et <strong>Se déconnecter</strong> pour revenir à l’écran d’accès.</p>
+
+<hr>
+
+<h2>2.12 Boutons inactifs et messages</h2>
+<p>Selon le contexte (tâche, état des données, onglet), certaines actions sont estompées ou un bref message indique qu’elle ne s’applique pas. Ce n’est pas un dysfonctionnement : dans un autre flux, le même contrôle peut redevenir utilisable.</p>
+
+<hr>
+
+<h2>2.13 Rappels</h2>
+<p><strong>Chemin :</strong> bouton de rappels dans la barre, onglet <strong>Rappels</strong> lorsqu’il est accessible.</p>
+<figure class="manual-shot">
+  <img src="../docs/app-screenshots/capture-fr-recordatorios.png" alt="Onglet Rappels" loading="lazy" decoding="async">
+  <figcaption>Onglet Rappels</figcaption>
+</figure>
+<p>Depuis cet écran, on crée et gère les rappels opérationnels avec date cible et priorité, lorsque le module est visible dans votre environnement.</p>
+<ul>
+  <li>Priorités : <strong>Quand possible</strong>, <strong>Attention</strong>, <strong>Urgent</strong></li>
+  <li>La priorité peut monter automatiquement selon les jours ouvrables</li>
+  <li>Le tableau de bord inclut un aperçu des rappels avec accès rapide</li>
+  <li>Les rappels terminés conservent la date de clôture</li>
+  <li><strong>Visibilité :</strong> chaque utilisateur ne voit que les rappels <strong>qu’il a créés</strong> (la sauvegarde JSON sur la machine peut contenir ceux de tous ; l’interface filtre par session).</li>
+</ul>
+
+<hr>
+
+<hr>
+
+<h2>À propos de l’auteur</h2>
+<p>L’application est réalisée par <strong>Luis Goire</strong>, par passion pour la programmation et dans une perspective de formation vers le métier de développeur.</p>
+<p><strong>E-mail :</strong> <a href="mailto:blakillbyte@gmail.com">blakillbyte@gmail.com</a></p>
+
+<hr>
+
+<h1>Synthèse</h1>
+<p>Le manuel parcourt l’<strong>inventaire</strong>, les <strong>mouvements</strong>, les <strong>commandes fournisseurs</strong>, l’<strong>historique</strong>, le <strong>transport</strong>, les <strong>réceptions</strong> dans la configuration, les <strong>rapports</strong>, l’<strong>import/export</strong> de données et le <strong>mode démo</strong>. Chaque module s’utilise avec les onglets et boutons visibles : lorsqu’une action ne convient pas, l’interface la désactive ou la masque sans bloquer le reste du travail.</p>
+
+<div class="footer">Phoenix Cell G-NEEX v1.6 · Luis Goire</div>
+
+</body>
+</html>

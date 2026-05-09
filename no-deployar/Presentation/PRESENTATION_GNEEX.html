@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation G-NEEX 1.6</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #333; }
+
+        .slide {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px 80px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .slide:nth-child(odd) { background: #fff; }
+        .slide:nth-child(even) { background: #fafafa; }
+
+        .slide.title-slide {
+            background: #1a1a2e;
+            color: #fff;
+            text-align: center;
+            align-items: center;
+        }
+        .slide.title-slide h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3em;
+            color: #f57c00;
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+        }
+        .slide.title-slide h3 {
+            color: #ccc;
+            font-weight: 300;
+            font-size: 1.4em;
+            margin-top: 0;
+        }
+        .slide-creator-credit {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.48);
+            max-width: 36em;
+            margin: 2.25rem auto 0;
+            line-height: 1.45;
+            font-weight: 400;
+        }
+
+        .slide h2 {
+            color: #f57c00;
+            font-size: 2em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #f57c00;
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+        .slide h3 {
+            color: #555;
+            font-size: 1.3em;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th { background: #f57c00; color: #fff; padding: 12px 16px; text-align: left; }
+        td { padding: 10px 16px; border-bottom: 1px solid #eee; }
+        tr:nth-child(even) { background: #f9f9f9; }
+
+        ul { font-size: 1.1em; line-height: 2; padding-left: 24px; }
+        li strong { color: #f57c00; }
+
+        blockquote {
+            border-left: 4px solid #f57c00;
+            background: #fff8f0;
+            margin: 20px 0;
+            padding: 16px 24px;
+            font-style: italic;
+        }
+
+        pre {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            line-height: 1.5;
+            overflow-x: auto;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        pre code { background: none; padding: 0; }
+
+        p { font-size: 1.1em; line-height: 1.8; }
+        .flow { font-size: 1.3em; font-weight: 600; letter-spacing: 1px; text-align: center; margin: 20px 0; }
+        .flow strong { color: #f57c00; }
+        img.pres-shot {
+            max-width: 100%;
+            max-height: 62vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        .pres-two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+            margin-top: 12px;
+        }
+        .pres-two figure { margin: 0; text-align: center; }
+        .pres-two figcaption { font-size: 0.9em; color: #666; margin-top: 8px; }
+        @media (max-width: 1000px) { .pres-two { grid-template-columns: 1fr; } }
+
+        .watermark {
+            position: absolute;
+            bottom: 20px;
+            right: 30px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: #ddd;
+            letter-spacing: 2px;
+        }
+        .slide.title-slide .watermark { color: rgba(255,255,255,0.15); }
+
+        .comparison-gneex { background: #f0fff0 !important; }
+
+        @media print {
+            .slide {
+                page-break-after: always;
+                min-height: 100vh;
+            }
+            .slide:last-child { page-break-after: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide title-slide">
+    <h1>Phoenix Cell G-NEEX 1.6</h1>
+    <h3>Comprehensive Inventory and Logistics Management System</h3>
+    <p class="slide-creator-credit">Built by Luis Goire — programming enthusiast, aspiring professional developer.</p>
+    <p class="slide-creator-credit">Updated: May 2026</p>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide: Background -->
+<div class="slide">
+    <h2>Project background</h2>
+    <ul>
+        <li><strong>Industrial need:</strong> tighter inventory control with only a PC—no other stack.</li>
+        <li><strong>Excel roots:</strong> a workbook that grew with macros as shop issues appeared; it became an embedded inventory manager.</li>
+        <li><strong>Learning:</strong> automate real problems while building scripting and programming skills.</li>
+        <li><strong>Phoenix:</strong> after serious file loss and recovery, the name means rising from the ashes—that sheet is G-NEEX’s DNA.</li>
+        <li><strong>Today:</strong> the Phoenix spreadsheet still runs where it helps until G-NEEX is fully mature for daily web use.</li>
+    </ul>
+    <p class="muted" style="margin-top:1.25rem;font-size:0.92em;color:#777;">Full narrative in the app: <strong>⚙️ Settings → Background</strong>.</p>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 2: The Problem -->
+<div class="slide">
+    <h2>The Problem</h2>
+    <p>Electrical installation and industrial project companies face daily challenges:</p>
+    <ul>
+        <li><strong>Material chaos</strong> — No one knows what's in stock or where it is</li>
+        <li><strong>Untracked movements</strong> — Materials leave without documenting who, when, or why</li>
+        <li><strong>Disorganized transport</strong> — Paper checklists, trucks without tracking</li>
+        <li><strong>No traceability</strong> — Impossible to trace the source of a shortage or excess</li>
+        <li><strong>Internet dependency</strong> — Cloud systems that fail when you need them most</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 3: The Solution -->
+<div class="slide">
+    <h2>The Solution: G-NEEX</h2>
+    <p><strong>G-NEEX</strong> is a web application that works <strong>100% offline</strong>, directly in the browser, with no need for external servers or internet connection.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Browser-stored data:</strong> inventory, movements, and session live in the browser’s local storage. Lock the workstation, use personal accounts, export backups regularly, and only import JSON backups from trusted sources.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Backup &amp; Import/Export:</strong> the Import/Export tab and critical backup actions are limited to the <strong>administrator account</strong>; temporary elevation does not replace that role. Login backgrounds may rotate per <code>assets/login-bg-manifest.json</code>. JSON import no longer removes unrelated local data when keys are absent from the file.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Stable URL:</strong> use one fixed address (e.g. <code>http://127.0.0.1:PORT/</code>) and do not mix <code>file://</code> with HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Units of measure:</strong> the catalog keeps reserved <strong>U</strong>; each article may have a stock unit or none (no automatic assignment).</p>
+    <p>It manages the entire material lifecycle:</p>
+    <p class="flow"><strong>Intake</strong> → <strong>Warehouse</strong> → <strong>Dispatch</strong> → <strong>Transport</strong> → <strong>Job Site</strong></p>
+    <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
+        <img class="pres-shot" style="max-height:40vh" src="../docs/app-screenshots/capture-en-01-login.png" alt="Login" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.95em;color:#666;margin-top:0.5rem">Login screen</figcaption>
+    </figure>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 4: Real-Time Inventory -->
+<div class="slide">
+    <h2>Real-Time Inventory</h2>
+    <figure style="text-align:center;margin:0 0 12px 0">
+        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-inventario.png" alt="Inventory tab" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Inventory</strong> tab (top bar)</figcaption>
+    </figure>
+    <table>
+        <thead>
+            <tr><th>Feature</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>Full overview</strong></td><td>Table with code, description, category, main/production/transformation stock, location, and expiration date</td></tr>
+            <tr><td><strong>3 independent stocks</strong></td><td>Main, Production, and Transformation — each with its own tracking</td></tr>
+            <tr><td><strong>Instant search</strong></td><td>Live filter by code, description, category, or location</td></tr>
+            <tr><td><strong>Tools menu (⋮)</strong></td><td>First item <strong>Hide inline filter bars</strong> (chevron): closes box / depot / consumable strips; <strong>disabled</strong> when no strip is open. The <strong>⋮</strong> menu groups export, print, filters, as-of date, summaries, etc.</td></tr>
+            <tr><td><strong>Box / location filter</strong></td><td>Dropdown: BOX columns (from Location text <strong>and</strong> box-stock rows), warehouse catalog (E1R, ETOP, BIN 8, ARMOIRE…) <strong>and</strong> per-location stock chips; chips in the table</td></tr>
+            <tr><td><strong>Box summary</strong></td><td>Groups by inferred box number; modal row click for lines (E1R etc. still detected in filter and tags)</td></tr>
+            <tr><td><strong>Operational box stock</strong></td><td>Real per-item box management: add/edit/delete boxes, redistribute across boxes / prod. &amp; trans. columns and transfer from box to direct location (no box) with per-location balances (<code>E2R: 12</code>); unified <strong>Datos</strong> sheet (<strong>Codigo, Caja, UbicacionCaja, CantidadCaja, CantidadCajas, Vacia</strong>) for template, full export, and re-import</td></tr>
+            <tr><td><strong>Automatic alerts</strong></td><td>Low stock, negative stock, overstock, and upcoming expirations</td></tr>
+            <tr><td><strong>Low-stock detail modal</strong></td><td>Columns: ignore alert, <strong>Actions</strong> (🛒 add to purchase list), <strong>Code</strong>, then the rest of the item fields</td></tr>
+            <tr><td><strong>As-of date mode</strong></td><td>View inventory exactly as it was on a selected date</td></tr>
+            <tr><td><strong>Color coding</strong></td><td>Rows colored by item status for immediate visual identification</td></tr>
+            <tr><td><strong>Export &amp; print</strong></td><td>Downloadable XLSX (themed table styling) and formatted print view</td></tr>
+        </tbody>
+    </table>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 5: 16 Movement Types -->
+<div class="slide">
+    <h2>16 Movement Types</h2>
+    <figure style="text-align:center;margin:0 0 10px 0">
+        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-en-movimientos.png" alt="Movements tab" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Movements</strong> tab — type grid</figcaption>
+    </figure>
+    <p>G-NEEX supports <strong>16 movement types</strong> covering all operations in an industrial warehouse:</p>
+    <table>
+        <thead>
+            <tr><th>Category</th><th>Types</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>Daily operations</strong></td><td>Daily Consumption, Adjustment, Hardware, Special</td></tr>
+            <tr><td><strong>Projects / Job site</strong></td><td>Checklist, E.M. Job Site, E.M. Production, Waste</td></tr>
+            <tr><td><strong>Reverse logistics</strong></td><td>Return, Dismantle</td></tr>
+            <tr><td><strong>Production</strong></td><td>Send to Production, Transformation, Transfer</td></tr>
+            <tr><td><strong>Supply</strong></td><td>Stock Purchase, Material Reception</td></tr>
+            <tr><td><strong>Planning</strong></td><td>Stand-By (drafts with no effect until released)</td></tr>
+        </tbody>
+    </table>
+    <p>On the <strong>Movements</strong> tab, choosing a type opens the form in an <strong>in-app overlay window</strong> (the type grid stays visible behind it).</p>
+    <p>For types that <strong>subtract stock</strong>, <strong>Stock source</strong> lets you choose <strong>which depot</strong> the quantity comes from: <strong>main</strong> (General warehouse), <strong>boxes</strong>, <strong>locations</strong> (labels only in the list), <strong>production stock</strong>, and <strong>transformation stock</strong> (quantity shown when applicable); the same SKU can appear on <strong>multiple lines</strong> with different sources. When both <strong>Destination</strong> and source appear, <strong>source</strong> drives the physical deduction and <strong>destination</strong> may differ.</p>
+    <p><strong>Site E.M.:</strong> line <strong>quantities</strong> are inventory; <strong>Process movement</strong> asks for <strong>total boxes</strong> for the shipment (allocated across lines by quantity).</p>
+    <p>Each movement automatically records:</p>
+    <ul>
+        <li><strong>Who</strong> performed it</li>
+        <li><strong>When</strong> it was executed</li>
+        <li><strong>Previous stock</strong> for each affected item</li>
+        <li><strong>Justification</strong> in case of overdraft</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide: Floating shortcuts -->
+<div class="slide">
+    <h2>Floating shortcuts — Movements</h2>
+    <p>Floating shortcuts (default: bottom-right) stay <strong>hidden</strong> until you select the type under <strong>Movements</strong>:</p>
+    <ul>
+        <li><strong>Stand-by</strong> (⏸): quick list of drafts; panel, go to Movements, or hide (⏬).</li>
+        <li><strong>Daily consumption</strong> (📅): panel of pending lines until <strong>Process all</strong> in one movement.</li>
+        <li><strong>Drag</strong> the round button to place them on screen; position is saved on this device. Tap without dragging opens the panel.</li>
+        <li><strong>Auto close:</strong> lines tied to the local day; catch-up after a date change or if the app was closed (automatic flow does not force an overdraft modal). With <strong>Daily consumption</strong> selected under Movements, the form is not interrupted (~23:00 / midnight roll); switching movement types applies anything pending.</li>
+        <li><strong>Movement date:</strong> each line stores when it was added; on <strong>process</strong>, the movement time is the <strong>first</strong> cart line (fallback: process time if missing).</li>
+        <li><strong>Decimals:</strong> at most <strong>four places</strong> on screen and in saved values.</li>
+        <li><strong>“Other” recipient:</strong> type the name freely when it is not in the dropdown lists.</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide: Supplier orders -->
+<div class="slide">
+    <h2>Supplier orders</h2>
+    <figure style="text-align:center;margin:0 0 10px 0">
+        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-pedidos.png" alt="Orders tab" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Orders</strong> tab</figcaption>
+    </figure>
+    <p><strong>Orders</strong> tab: lines tied to inventory (supplier, quantity); <strong>PO/OC</strong> is captured on <strong>receipt</strong> in Stock purchase.</p>
+    <ul>
+        <li><strong>Filters</strong>: status (inactive, ordered, partial, full, cancelled), supplier, and item (code or description).</li>
+        <li><strong>States</strong>: draft → ordered → partial/full receipt or cancelled; dates for tracking.</li>
+        <li><strong>Receipt</strong>: opens the same <strong>Stock purchase</strong> form as under Movements; confirm with <strong>Process movement</strong>.</li>
+        <li>If you log a purchase <strong>only</strong> under Movements and a matching order line is open, <strong>Yes / No</strong> prompts link the movement and refresh the Orders panel.</li>
+        <li><strong>Export / Print table</strong>: use the current filtered view; there is bulk cleanup (+1 year) and per-line removal (&gt;3 months).</li>
+        <li><strong>References</strong>: <strong>type letters + 6-digit sequence per type</strong> (e.g. <code>AJU000001</code>, <code>COM000002</code>); legacy refs normalize on load.</li>
+        <li><strong>Provisional reception</strong>: some categories require PO and are handled as provisional before main-stock impact.</li>
+        <li><strong>Actual receipt date (optional):</strong> you can set a past date for traceability (notes/timeline), while movement registration time stays current.</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide: List layouts -->
+<div class="slide">
+    <h2>List layouts</h2>
+    <figure style="text-align:center;margin:0 0 10px 0">
+        <img class="pres-shot" style="max-height:30vh" src="../docs/app-screenshots/capture-en-historial.png" alt="History tab" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>History</strong> tab (tiles / table / carousel)</figcaption>
+    </figure>
+    <p><strong>History</strong>, <strong>Transport</strong>, and <strong>Orders</strong> include a <strong>View</strong> control for <strong>tiles</strong>, a compact <strong>list</strong>, and (where relevant) a <strong>detailed table</strong>; in <strong>History</strong>, a <strong>Chronological carousel</strong> is also available for horizontal card browsing. Minimized cards also show the <strong>Project ID</strong> when relevant.</p>
+    <p>In <strong>History</strong>, movements that are fully voided or <strong>partial annulments</strong> show a <strong>diagonal stamp</strong> (tilted dashed frame); filters also include annulment type.</p>
+    <p><strong>On-screen dates (app-wide):</strong> day, 3-letter month, 4-digit year; with time, local <strong>24-hour</strong> clock.</p>
+    <p>In <strong>History → Daily consumption by recipient</strong>, the table now supports <strong>editing recipients</strong>, <strong>saving changes</strong>, and <strong>clearing visible rows</strong> using current filters.</p>
+    <p><strong>Attachments (📎)</strong> in movement detail and expanded transport: link files from any folder (no copy into the app); open with Chrome/Edge. JSON backups do not include file bytes—re-link on another PC.</p>
+    <p><strong>Print</strong> from movement detail opens <strong>tables</strong> (aligned with XLSX export), not an on-screen layout snapshot.</p>
+    <p><strong>A4 portrait</strong> printing; tables avoid equal-width column squeeze; article <strong>code</strong> stays one-line and readable.</p>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 6: Smart Transport -->
+<div class="slide">
+    <h2>Smart Transport</h2>
+    <figure style="text-align:center;margin:0 0 10px 0">
+        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-transporte.png" alt="Transport tab" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Transport</strong> tab</figcaption>
+    </figure>
+    <p>The transport module automates shipment logistics to job sites:</p>
+    <ul>
+        <li><strong>Automatic creation</strong> — Checklists and E.M. Job Site generate transports automatically</li>
+        <li><strong>Multi-truck</strong> — A project can have multiple transports if the load requires it</li>
+        <li><strong>Visual board</strong> — Cards with status, lines, and expedition date</li>
+        <li><strong>Controlled shipping</strong> — Can only ship when all lines are resolved</li>
+        <li><strong>Manual creation</strong> — For exceptional cases without an associated checklist</li>
+        <li><strong>Full history</strong> — Record of every action performed on the transport</li>
+        <li><strong>Traceability</strong> — Transport tab summary (receptions waiting to ship, quantities on active truck lines, recent shipments, stock on hand) plus an editable <strong>manual list</strong> by material family and phase (on-site / truck / departed)</li>
+        <li><strong>Per-truck report</strong> — Each truck can <strong>Export</strong> or <strong>Print</strong> a cargo table with materials, quantities, and current dimensions; with <strong>multiple packages</strong> per line, XLSX and print use <strong>stacked rows</strong> (fixed Package, L, W, H columns), not many horizontal columns.</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 7: Dashboard -->
+<div class="slide">
+    <h2>Dashboard — Instant Overview</h2>
+    <figure style="text-align:center;margin:0 0 8px 0">
+        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-panel.png" alt="Main dashboard" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Main screen after login (<strong>Summary</strong> tab)</figcaption>
+    </figure>
+    <p>Upon login, a panel displays the current operational status:</p>
+    <pre><code>┌──────────────────┬──────────────────┬──────────────────┬──────────────────┐
+│ MOVEMENTS TODAY  │  ACTIVE ALERTS   │    PENDING       │  LAST BACKUP     │
+│                  │                  │   TRANSPORTS     │                  │
+│       12         │        5         │        3         │     Today        │
+│  ▸ Consumption:4 │  ▸ Low stock: 2  │                  │                  │
+│  ▸ Checklist: 3  │  ▸ Negative: 1   │                  │                  │
+│  ▸ Adjustment: 5 │  ▸ Expiring: 2   │                  │                  │
+└──────────────────┴──────────────────┴──────────────────┴──────────────────┘</code></pre>
+    <p>Visual indicators alert if there is critical stock or if the backup is more than 7 days old.</p>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide: Reminders -->
+<div class="slide">
+    <h2>Reminders</h2>
+    <figure style="text-align:center;margin:0 0 10px 0">
+        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-en-recordatorios.png" alt="Reminders tab" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Reminders</strong> tab</figcaption>
+    </figure>
+    <ul>
+        <li><strong>Dedicated tab</strong> for operational reminders with due date and priority (per profile permissions)</li>
+        <li><strong>Auto-escalation</strong> of priorities by business-day aging</li>
+        <li><strong>Dashboard preview</strong> with quick navigation to reminders</li>
+        <li><strong>Visibility:</strong> each user only sees reminders <strong>they created</strong> (the machine’s JSON backup may hold everyone’s).</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 8: The app in use (on-screen) -->
+<div class="slide">
+    <h2>The app in use (on-screen)</h2>
+    <figure style="text-align:center;margin:0 0 8px 0">
+        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-en-panel.png" alt="G-NEEX dashboard" loading="lazy" decoding="async">
+        <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Dashboard: navigation to the main modules</figcaption>
+    </figure>
+    <ul>
+        <li>G-NEEX groups daily work in modules you open from the top bar: inventory, movements, history, transport, orders, reminders, and settings.</li>
+        <li>An administrator sets users under <strong>⚙️ Settings → Users</strong> using generic templates or <strong>reference profiles</strong> (same behaviour as built-in accounts); keys are documented in <code>PlantillasPermisos.xlsx.csv</code>.</li>
+        <li>The user manual explains each screen and workflow. <strong>How</strong> access and copies are run on your site is an operational matter; the focus here is day-to-day <strong>use</strong> of the interface and inventory features.</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 9: Reports and Exports -->
+<div class="slide">
+    <h2>Reports and Exports</h2>
+    <p><strong>6 report types</strong> as <strong>.xlsx</strong> workbooks (orange header row, centered bold data, column widths) with descriptive filenames:</p>
+    <ul>
+        <li>Transport summary</li>
+        <li>Detailed transport lines</li>
+        <li>Filtered movements (respects active filters)</li>
+        <li>Filtered movement lines</li>
+        <li>All movements</li>
+        <li>Consumption by specific item</li>
+    </ul>
+    <p>Files include the date range in their name:</p>
+    <p><code>GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx</code></p>
+    <p><strong>Receptions (Settings):</strong> exporting or printing the filtered list uses the same <strong>packages-as-rows</strong> layout as the truck cargo report.</p>
+    <p><strong>Consumables:</strong> marking an item <strong>inventory consumable</strong> in the editor and saving adds its name to <strong>Settings → Consumables</strong>; unchecking removes the matching entry.</p>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 10: Data Protection -->
+<div class="slide">
+    <h2>Data Protection</h2>
+    <table>
+        <thead>
+            <tr><th>Feature</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>Full backup</strong></td><td>Exports the full database to JSON (inventory, movements, staff and occasional recipient lists, etc.)</td></tr>
+            <tr><td><strong>Restore</strong></td><td>Imports a previous backup and restores the full system</td></tr>
+            <tr><td><strong>Archive movements</strong></td><td>Exports old movements and removes them to free space</td></tr>
+            <tr><td><strong>Reimport archives</strong></td><td>Reintegrates archived movements without duplicating data</td></tr>
+            <tr><td><strong>Movements-only export / merge</strong></td><td>Export movement history alone; merge adds new ids only, applies stock (no full-db overwrite)</td></tr>
+            <tr><td><strong>Initial inventory</strong></td><td>Bulk upload via <strong>CSV</strong> or <strong>XLSX</strong> plus downloadable <strong>.xlsx</strong> template with correct columns and styling</td></tr>
+            <tr><td><strong>Backup alert</strong></td><td>Dashboard warns if more than 7 days without a backup</td></tr>
+        </tbody>
+    </table>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 11: Multi-Language and Customization -->
+<div class="slide">
+    <h2>Multi-Language and Customization</h2>
+    <h3>3 full languages</h3>
+    <ul>
+        <li>Español</li>
+        <li>English</li>
+        <li>Français</li>
+    </ul>
+    <h3>2 visual themes</h3>
+    <ul>
+        <li>Dark mode</li>
+        <li>Light mode</li>
+    </ul>
+    <h3>Demo mode (optional)</h3>
+    <ul>
+        <li><strong>Test</strong> switch: <strong>blue</strong> theme and full app use; when turned off, <strong>previous data</strong> is restored and demo changes are <strong>discarded</strong></li>
+        <li><strong>Light/dark</strong> theme and <strong>language</strong> are not reverted</li>
+        <li>Confirmation to exit; banner under the header</li>
+    </ul>
+    <h3>Responsive design</h3>
+    <ul>
+        <li>Adapts to desktop, tablet, and mobile screens</li>
+        <li>Optimized text without unnecessary line breaks</li>
+        <li>Professional typography (Roboto + Orbitron)</li>
+    </ul>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 12: Technical Specifications -->
+<div class="slide">
+    <h2>Technical Specifications</h2>
+    <table>
+        <thead>
+            <tr><th>Aspect</th><th>Detail</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>Technology</strong></td><td>HTML5, CSS3, JavaScript (vanilla)</td></tr>
+            <tr><td><strong>Storage</strong></td><td>Browser localStorage</td></tr>
+            <tr><td><strong>Connection</strong></td><td>No internet or server required</td></tr>
+            <tr><td><strong>Installation</strong></td><td>Open <code>index.html</code> in any modern browser</td></tr>
+            <tr><td><strong>Compatibility</strong></td><td>Chrome, Edge, Firefox, Safari</td></tr>
+            <tr><td><strong>References</strong></td><td>Prefix + per-type digits (<code>AJU…</code>, <code>COM…</code>…); legacy may be digits-only</td></tr>
+            <tr><td><strong>Multiple PCs</strong></td><td>Each browser keeps its own data; not shared just by opening the same URL</td></tr>
+            <tr><td><strong>External dependencies</strong></td><td>Optional web fonts; <strong>XLSX</strong> export uses bundled <code>xlsx-js-style</code> in <code>vendor/</code></td></tr>
+            <tr><td><strong>Size</strong></td><td>Lightweight, loads in seconds</td></tr>
+        </tbody>
+    </table>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 13: Why G-NEEX? -->
+<div class="slide">
+    <h2>Why G-NEEX?</h2>
+    <table>
+        <thead>
+            <tr><th>Advantage</th><th>Traditional competition</th><th>G-NEEX</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Cost</td><td>High monthly licenses</td><td class="comparison-gneex"><strong>Free</strong></td></tr>
+            <tr><td>Internet</td><td>Requires permanent connection</td><td class="comparison-gneex"><strong>100% offline</strong></td></tr>
+            <tr><td>Installation</td><td>Servers, databases, IT</td><td class="comparison-gneex"><strong>Open a file</strong></td></tr>
+            <tr><td>Learning curve</td><td>Weeks of training</td><td class="comparison-gneex"><strong>Intuitive immediate use</strong></td></tr>
+            <tr><td>Customization</td><td>Rigid or expensive</td><td class="comparison-gneex"><strong>Adapts to your workflow</strong></td></tr>
+            <tr><td>Data</td><td>On third-party servers</td><td class="comparison-gneex"><strong>On your machine, under your control</strong></td></tr>
+        </tbody>
+    </table>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 14: Module Overview -->
+<div class="slide">
+    <h2>Module Overview</h2>
+    <pre><code>                        ┌─────────────┐
+                        │  DASHBOARD  │
+                        └──────┬──────┘
+           ┌───────────────────┼───────────────────┬───────────────────┐
+           │                   │                   │                   │
+    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
+    │  INVENTORY  │    │  MOVEMENTS  │    │   ORDERS    │    │  TRANSPORT  │
+    │             │    │             │    │ (supplier)  │    │             │
+    │ • Items     │    │ • 16 types  │    │ • PO lines  │    │ • Automatic │
+    │ • 3 stocks  │    │ • Stand-By  │    │ • Receipt → │    │ • Manual    │
+    │ • Alerts    │    │ • Overdraft │    │   purchase  │    │ • Shipping  │
+    │ • Search    │    │ • Reference │    │ • XLSX      │    │ • Board     │
+    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
+           │                   │                   │                   │
+           └───────────────────┴───────────────────┴───────────────────┘
+                        ┌──────▼──────┐
+                        │  HISTORY +  │
+                        │   REPORTS   │
+                        └──────┬──────┘
+                        ┌──────▼──────┐
+                        │CONFIGURATION│
+                        │             │
+                        │ • Lists     │
+                        │ • Editor    │
+                        │ • Import/   │
+                        │   export    │
+                        │ • Recep.    │
+                        └─────────────┘</code></pre>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+<!-- Slide 15: Contact -->
+<div class="slide">
+    <h2>Contact</h2>
+    <p><strong>Phoenix Cell G-NEEX v1.6</strong></p>
+    <p>Industrial inventory management — simple, secure, offline.</p>
+    <p style="margin-top:1.5rem;font-size:0.95em;color:#777;">Author: <strong>Luis Goire</strong> — hobby development; passionate about programming and growing as a developer.</p>
+    <p style="font-size:0.95em;color:#333;"><strong>Email:</strong> <a href="mailto:blakillbyte@gmail.com">blakillbyte@gmail.com</a></p>
+    <div class="watermark">G-NEEX</div>
+</div>
+
+</body>
+</html>

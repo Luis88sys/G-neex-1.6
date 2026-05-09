@@ -8,6 +8,9 @@ const HistoryManager = {
     /** @type {ReturnType<typeof setTimeout>|null} */
     _historyFilterDebounceT: null,
 
+    /** Sesión Annie: historial filtrado solo a recepción material (evita reconstruir el combo si ya aplicado). */
+    _recvHistLocked: false,
+
     _esc(s) {
         return Utils.escapeHtml(s);
     },
@@ -422,16 +425,57 @@ const HistoryManager = {
                 el.addEventListener('input', scheduleLedgerFilterRefresh);
                 el.addEventListener('change', scheduleLedgerFilterRefresh);
             });
-            console.log('✅ HistoryManager iniciado');
+            this.applyMaterialReceptionHistoryLock();
         } catch (err) {
             console.error('❌ Error inicializando HistoryManager:', err);
+        }
+    },
+
+    /** Annie (integrada): bloquea el filtro de tipo a RECEPCION_MATERIAL y refresca listado. */
+    applyMaterialReceptionHistoryLock() {
+        try {
+            const sel = document.getElementById("filter-type");
+            if (!sel) return;
+            const lock =
+                typeof Auth !== "undefined" &&
+                Auth.historyMaterialReceptionOnly &&
+                Auth.historyMaterialReceptionOnly();
+            if (lock) {
+                if (!this._recvHistLocked) {
+                    this._recvHistLocked = true;
+                    this.populateFilterTypes();
+                    this.render();
+                }
+                return;
+            }
+            if (this._recvHistLocked) {
+                this._recvHistLocked = false;
+                this.populateFilterTypes();
+                this.render();
+            }
+        } catch (e) {
+            if (typeof window !== "undefined" && window.__GNEEX_DEBUG) {
+                console.warn("applyMaterialReceptionHistoryLock", e);
+            }
         }
     },
 
     populateFilterTypes() {
         const select = document.getElementById('filter-type');
         if (!select) return;
-        
+        const lock =
+            typeof Auth !== "undefined" &&
+            Auth.historyMaterialReceptionOnly &&
+            Auth.historyMaterialReceptionOnly();
+
+        if (lock) {
+            select.disabled = true;
+            select.innerHTML = `<option value="RECEPCION_MATERIAL">${this._esc(I18n.t('movType.RECEPCION_MATERIAL'))}</option>`;
+            select.value = "RECEPCION_MATERIAL";
+            return;
+        }
+
+        select.disabled = false;
         select.innerHTML = `<option value="">${this._esc(I18n.t('history.all'))}</option>`;
         Object.keys(MOVEMENT_TYPES).forEach(type => {
             select.innerHTML += `<option value="${type}">${this._esc(I18n.t(`movType.${type}`))}</option>`;
@@ -443,6 +487,49 @@ const HistoryManager = {
         if (!MovementManager.movements || !MovementManager.movements.length) return [];
         let movements = [...MovementManager.movements].reverse();
         return this.applyFilters(movements);
+    },
+
+    /** XLSX del historial según filtros actuales (útil en vistas sin tabla HTML). */
+    exportFilteredMovementsSpreadsheet() {
+        try {
+            const rows = this.getFilteredMovements();
+            if (!rows.length) {
+                Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
+                return;
+            }
+            const headers = ["reference", "type", "date", "projectId", "createdBy", "notes"];
+            const objs = rows.map(m => ({
+                reference: String(m.reference || ""),
+                type: String(m.type || ""),
+                date:
+                    m.date && typeof Utils.formatDateTime === "function"
+                        ? Utils.formatDateTime(m.date)
+                        : String(m.date || ""),
+                projectId: String(m.projectId || ""),
+                createdBy: String(m.createdBy || ""),
+                notes: String(m.notes || "")
+                    .replace(/\s+/g, " ")
+                    .trim()
+                    .slice(0, 1200)
+            }));
+            const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            const fn = `GNEEX_Historial_filtrado_${stamp}.xlsx`;
+            const buf = Utils.buildStyledXlsxBuffer(headers, objs, {
+                kind: "history-filtered",
+                title: "Historial filtrado"
+            });
+            if (!buf || !buf.byteLength) {
+                Utils.showToast(I18n.t("msg.errorExportingReport"), "error");
+                return;
+            }
+            Utils.downloadArrayBuffer(buf, fn);
+            Utils.showToast(I18n.t("ui.exportDone"), "success");
+        } catch (e) {
+            if (typeof window !== "undefined" && window.__GNEEX_DEBUG) {
+                console.warn("exportFilteredMovementsSpreadsheet", e);
+            }
+            Utils.showToast(I18n.t("msg.errorExportingReport"), "error");
+        }
     },
 
     applyFilters(movements) {
@@ -465,10 +552,17 @@ const HistoryManager = {
         const negativeStock = document.getElementById('filter-negative-stock')?.value || '';
         const annulFilter = document.getElementById('filter-annul-status')?.value || '';
 
+        const recvOnly =
+            typeof Auth !== "undefined" &&
+            Auth.historyMaterialReceptionOnly &&
+            Auth.historyMaterialReceptionOnly();
+        const typeSelected = recvOnly ? "RECEPCION_MATERIAL" : type;
+
         return movements.filter(mov => {
             const items = mov.items || [];
+            if (recvOnly && mov.type !== "RECEPCION_MATERIAL") return false;
             if (!this._movementAnnulFilterMatch(mov, annulFilter)) return false;
-            if (type && mov.type !== type) return false;
+            if (typeSelected && mov.type !== typeSelected) return false;
             if (ref && !this._normalizeFilterText(mov.reference || '').includes(ref)) return false;
             if (code && !this._movementMatchesCodeFilter(mov, code)) return false;
             if (desc) {
@@ -566,6 +660,7 @@ const HistoryManager = {
         if (!MovementManager.movements || MovementManager.movements.length === 0) {
             container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 2rem;">${this._esc(I18n.t('history.noMovements'))}</p>`;
             this.maybeRefreshConsumoLedger();
+            if (typeof App !== "undefined" && App.refreshActiveTabTableExportButton) App.refreshActiveTabTableExportButton();
             return;
         }
 
@@ -582,6 +677,7 @@ const HistoryManager = {
         if (movements.length === 0) {
             container.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 2rem;">${this._esc(I18n.t('msg.noResults'))}</p>`;
             this.maybeRefreshConsumoLedger();
+            if (typeof App !== "undefined" && App.refreshActiveTabTableExportButton) App.refreshActiveTabTableExportButton();
             return;
         }
 
@@ -607,6 +703,7 @@ const HistoryManager = {
             container.innerHTML = movements.map(mov => this._movementTileHtml(mov)).join('');
         }
         this.maybeRefreshConsumoLedger();
+        if (typeof App !== "undefined" && App.refreshActiveTabTableExportButton) App.refreshActiveTabTableExportButton();
     },
 
     maybeRefreshConsumoLedger() {
@@ -1448,9 +1545,16 @@ const HistoryManager = {
             ${movement.notes ? `<p style="margin-top: 1rem;"><strong>${this._esc(I18n.t('movements.notes'))}:</strong> ${Utils.escapeHtml(movement.notes)}</p>` : ''}
             ${movement.purchaseMeta ? `
             <div class="detail-info" style="margin-top:0.75rem;">
+                ${
+                    movement.type === 'COMPRA_STOCK' &&
+                    !(movement.purchaseMeta.poNumber || '').trim() &&
+                    !(movement.purchaseMeta.supplier || '').trim()
+                        ? ''
+                        : `
                 <div class="detail-item"><span class="detail-label">${this._esc(I18n.t('movCompra.po'))}</span><span class="detail-value">${Utils.escapeHtml(movement.purchaseMeta.poNumber || '—')}</span></div>
+                <div class="detail-item"><span class="detail-label">${this._esc(I18n.t('reception.supplier'))}</span><span class="detail-value">${Utils.escapeHtml(movement.purchaseMeta.supplier || '—')}</span></div>`
+                }
                 <div class="detail-item"><span class="detail-label">${this._esc(I18n.t('movCompra.packingSlip'))}</span><span class="detail-value">${Utils.escapeHtml(movement.purchaseMeta.packingSlip || '—')}</span></div>
-                <div class="detail-item"><span class="detail-label">${this._esc(I18n.t('reception.supplier'))}</span><span class="detail-value">${Utils.escapeHtml(movement.purchaseMeta.supplier || '—')}</span></div>
             </div>` : ''}
             ${movement.type === 'COMPRA_STOCK' && movement.orderLineId ? `
             <div class="history-orderline-banner" role="status">
@@ -1502,6 +1606,11 @@ const HistoryManager = {
                             }${
                                 movement.type === 'COMPRA_STOCK' && item.consumableReceipt
                                     ? ` · ${this._esc(I18n.t('movements.compraConsumableLineBadge'))}`
+                                    : ''
+                            }${
+                                movement.type === 'COMPRA_STOCK' &&
+                                ((item.compraLinePo || '').trim() || (item.compraLineSupplier || '').trim())
+                                    ? ` · ${this._esc(I18n.t('movCompra.po'))}: ${Utils.escapeHtml(String(item.compraLinePo || '—'))} · ${this._esc(I18n.t('reception.supplier'))}: ${Utils.escapeHtml(String(item.compraLineSupplier || '—'))}`
                                     : ''
                             }${
                                 movement.type === 'CONSUMO_DIARIO' && item.lineAddedAt
@@ -1627,6 +1736,14 @@ const HistoryManager = {
         document.getElementById('filter-negative-stock').value = '';
         const annulEl = document.getElementById('filter-annul-status');
         if (annulEl) annulEl.value = '';
+        this.populateFilterTypes();
+        if (
+            typeof Auth !== "undefined" &&
+            Auth.historyMaterialReceptionOnly &&
+            Auth.historyMaterialReceptionOnly()
+        ) {
+            this.applyMaterialReceptionHistoryLock();
+        }
         this.render();
     },
 

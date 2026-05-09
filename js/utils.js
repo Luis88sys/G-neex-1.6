@@ -1248,6 +1248,52 @@ const Utils = {
     },
 
     /**
+     * Exporta una tabla HTML (`<table>`) a XLSX con el estilo G-NEEX (primera fila = cabeceras).
+     * @param {HTMLTableElement|null} table
+     * @param {string} filenameBase nombre sin extensión o con `.xlsx`
+     * @returns {boolean}
+     */
+    exportDomTableToStyledDownload(table, filenameBase = "export") {
+        try {
+            if (!table || !table.querySelector("tr")) return false;
+            const matrix = [];
+            table.querySelectorAll("tr").forEach(tr => {
+                const row = [...tr.querySelectorAll("th,td")].map(td =>
+                    String((td.innerText || "").replace(/\s+/g, " ").trim())
+                );
+                if (row.some(c => c !== "")) matrix.push(row);
+            });
+            if (!matrix.length) return false;
+            const ncol = Math.max(...matrix.map(r => r.length));
+            matrix.forEach(r => {
+                while (r.length < ncol) r.push("");
+            });
+            const counts = Object.create(null);
+            const headers = matrix[0].map((cell, i) => {
+                const base = String(cell || "").trim() || `Col${i + 1}`;
+                counts[base] = (counts[base] || 0) + 1;
+                const n = counts[base];
+                return n > 1 ? `${base} (${n})` : base;
+            });
+            const objs = matrix.slice(1).map(r => Object.fromEntries(headers.map((h, ci) => [h, r[ci] ?? ""])));
+            let fn = String(filenameBase || "export").trim();
+            fn = fn.replace(/[^\w\-.\u00C0-\u024f\s\(\)\[\]]+/gi, "_").trim();
+            if (!fn.length) fn = "export";
+            if (!/\.xlsx$/i.test(fn)) fn += ".xlsx";
+            const buf = this.buildStyledXlsxBuffer(headers, objs, {
+                kind: "dom-table",
+                title: fn.replace(/\.xlsx$/i, "")
+            });
+            if (!buf || !buf.byteLength) return false;
+            this.downloadArrayBuffer(buf, fn);
+            return true;
+        } catch (e) {
+            console.warn("exportDomTableToStyledDownload", e);
+            return false;
+        }
+    },
+
+    /**
      * Guarda un XLSX con formato en la carpeta Inform del proyecto (o descarga).
      * @returns {Promise<"ok"|"cancelled"|"downloaded"|"failed">}
      */
@@ -2628,8 +2674,27 @@ th.print-cell-code,td.print-cell-code{
         if (typeof Auth !== "undefined" && !Auth.guardImportExportFeatures()) return;
         try {
             const backup = {};
+            /** No incluir en respaldo: tema, idioma, vistas UI, layout — son locales a cada usuario/navegador. */
+            const localVisualKeys = new Set([
+                STORAGE_KEYS.TABLE_COLUMN_LAYOUTS,
+                STORAGE_KEYS.MODAL_LAYOUTS,
+                STORAGE_KEYS.THEME,
+                STORAGE_KEYS.LANG,
+                STORAGE_KEYS.NAV_OPEN_TARGET,
+                STORAGE_KEYS.VIEW_HISTORY_UI,
+                STORAGE_KEYS.VIEW_TRANSPORT_UI,
+                STORAGE_KEYS.VIEW_ORDERLINES_UI,
+                STORAGE_KEYS.FLOAT_STANDBY_POS,
+                STORAGE_KEYS.FLOAT_CONSUMO_POS,
+                STORAGE_KEYS.FLOAT_DRAFT_MOVEMENT_POS,
+                STORAGE_KEYS.FLOAT_DRAFT_CONFIG_POS,
+                STORAGE_KEYS.FLOAT_STANDBY_DISMISSED,
+                STORAGE_KEYS.FLOAT_CONSUMO_DISMISSED
+            ]);
             // Cada clave en STORAGE_KEYS (incl. empleados, ocasionales, proveedores) entra en data; SESSION se anula para no copiar la sesión.
             Object.values(STORAGE_KEYS).forEach(key => {
+                // Preferencias visuales/locales del equipo no viajan en respaldos.
+                if (localVisualKeys.has(key)) return;
                 // No incluir sesión: al importar el respaldo en otro equipo no debe abrir ya logueado como quien exportó.
                 if (key === STORAGE_KEYS.SESSION) {
                     backup[key] = null;
@@ -2804,7 +2869,42 @@ th.print-cell-code,td.print-cell-code{
                     }
                 }
 
+                if (typeof Auth !== "undefined" && Object.prototype.hasOwnProperty.call(data, STORAGE_KEYS.USERS) && data[STORAGE_KEYS.USERS] != null) {
+                    const prevUsers = Auth.users;
+                    try {
+                        const arr = JSON.parse(data[STORAGE_KEYS.USERS]);
+                        if (Array.isArray(arr)) {
+                            Auth.users = arr;
+                            Auth.users.forEach(u => Auth.migrateUserPerms(u));
+                            Auth.syncBuiltinStoredUsersWithTemplate();
+                            data[STORAGE_KEYS.USERS] = JSON.stringify(Auth.users);
+                        }
+                    } catch (err) {
+                        console.warn("Normalización de usuarios integrados en respaldo omitida:", err);
+                    } finally {
+                        Auth.users = prevUsers;
+                    }
+                }
+
+                const localVisualKeys = new Set([
+                    STORAGE_KEYS.TABLE_COLUMN_LAYOUTS,
+                    STORAGE_KEYS.MODAL_LAYOUTS,
+                    STORAGE_KEYS.THEME,
+                    STORAGE_KEYS.LANG,
+                    STORAGE_KEYS.NAV_OPEN_TARGET,
+                    STORAGE_KEYS.VIEW_HISTORY_UI,
+                    STORAGE_KEYS.VIEW_TRANSPORT_UI,
+                    STORAGE_KEYS.VIEW_ORDERLINES_UI,
+                    STORAGE_KEYS.FLOAT_STANDBY_POS,
+                    STORAGE_KEYS.FLOAT_CONSUMO_POS,
+                    STORAGE_KEYS.FLOAT_DRAFT_MOVEMENT_POS,
+                    STORAGE_KEYS.FLOAT_DRAFT_CONFIG_POS,
+                    STORAGE_KEYS.FLOAT_STANDBY_DISMISSED,
+                    STORAGE_KEYS.FLOAT_CONSUMO_DISMISSED
+                ]);
                 Object.values(STORAGE_KEYS).forEach(key => {
+                    // Mantener presentación y layout propios de cada usuario/equipo.
+                    if (localVisualKeys.has(key)) return;
                     if (!Object.prototype.hasOwnProperty.call(data, key)) return;
                     const value = data[key];
                     if (value === null || typeof value === "undefined") {

@@ -189,15 +189,14 @@
     <p><strong>G-NEEX</strong> es una aplicación web que funciona <strong>100% offline</strong>, directamente en el navegador, sin necesidad de servidores externos ni conexión a internet.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Datos en el navegador:</strong> inventario, movimientos y sesión se guardan en el almacenamiento local del navegador. Bloquee el equipo, use cuentas personales, exporte respaldos e importe JSON solo si confía en el origen.</p>
     <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Respaldo e Import/Export:</strong> la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la <strong>cuenta administrador</strong>; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según <code>assets/login-bg-manifest.json</code>. Al importar JSON, las claves ausentes ya no borran datos locales inconexos.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Misma URL:</strong> use siempre la misma dirección de acceso (p. ej. servidor local <code>http://127.0.0.1:PUERTO/</code>); no mezcle <code>file://</code> con HTTP.</p>
-    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Unidades de medida:</strong> ⚙️ Configuración → <strong>Unidades</strong>; respaldo JSON incluye el catálogo; <strong>U</strong> permanece en catálogo; cada artículo elige unidad o ninguna; inventario muestra símbolo cuando aplica (y <strong>≈</strong> opcional). En movimientos las cantidades siguen siendo numéricas.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Misma URL:</strong> use una dirección fija (p. ej. <code>http://127.0.0.1:PUERTO/</code>) y no mezcle <code>file://</code> con HTTP.</p>
+    <p style="margin-top:0.65rem;font-size:0.98em;color:#444;line-height:1.55;"><strong>Unidades de medida:</strong> el catálogo conserva la unidad reservada <strong>U</strong>; cada artículo puede tener unidad de stock o ninguna (sin asignación automática).</p>
     <p>Gestiona todo el ciclo de vida del material:</p>
     <p class="flow"><strong>Entrada</strong> → <strong>Almacén</strong> → <strong>Salida</strong> → <strong>Transporte</strong> → <strong>Obra</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
-        <img class="pres-shot" style="max-height:40vh" src="../docs/app-screenshots/capture-es-01-login.png" alt="Inicio de sesión" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:40vh" src="../app-screenshots/capture-es-01-login.png" alt="Inicio de sesión" loading="lazy" decoding="async">
         <figcaption style="font-size:0.95em;color:#666;margin-top:0.5rem">Pantalla de inicio de sesión</figcaption>
     </figure>
-    <p style="margin-top:0.6rem;font-size:0.88em;color:#666;">Capturas reales v1.6 (Playwright). Regenerar: <code>docs/app-screenshots/README.md</code></p>
     <div class="watermark">G-NEEX</div>
 </div>
 
@@ -205,7 +204,7 @@
 <div class="slide">
     <h2>Inventario en Tiempo Real</h2>
     <figure style="text-align:center;margin:0 0 12px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-es-inventario.png" alt="Pestaña Inventario" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-es-inventario.png" alt="Pestaña Inventario" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Inventario</strong> (barra superior)</figcaption>
     </figure>
     <table>
@@ -214,7 +213,6 @@
         </thead>
         <tbody>
             <tr><td><strong>Vista completa</strong></td><td>Tabla con código, descripción, categoría, stock Principal/Producción/Transformación, ubicación y fecha de expiración</td></tr>
-            <tr><td><strong>Unidades de medida</strong></td><td>Símbolo junto al stock principal si el artículo tiene unidad (equivalente <strong>≈</strong> opcional); ⚙️ <strong>Unidades</strong> + edición por artículo</td></tr>
             <tr><td><strong>3 stocks independientes</strong></td><td>Principal, Producción y Transformación — cada uno con seguimiento propio</td></tr>
             <tr><td><strong>Búsqueda instantánea</strong></td><td>Filtro en vivo por código, descripción, categoría o ubicación</td></tr>
             <tr><td><strong>Menú herramientas (⋮)</strong></td><td>Primera opción <strong>Ocultar filtros en línea</strong> (flecha): cierra las barras caja / depósito / consumible; <strong>deshabilitada</strong> si ninguna barra está abierta. El menú <strong>⋮</strong> agrupa exportar, imprimir, filtros, stock a fecha, resúmenes, etc.</td></tr>
@@ -235,7 +233,7 @@
 <div class="slide">
     <h2>16 Tipos de Movimiento</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-es-movimientos.png" alt="Pestaña Movimientos" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-es-movimientos.png" alt="Pestaña Movimientos" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Movimientos</strong> — rejilla de tipos</figcaption>
     </figure>
     <p>G-NEEX soporta <strong>16 tipos de movimiento</strong> que cubren todas las operaciones de un almacén industrial:</p>
@@ -285,7 +283,7 @@
 <div class="slide">
     <h2>Pedidos a proveedor</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-es-pedidos.png" alt="Pestaña Pedidos" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-es-pedidos.png" alt="Pestaña Pedidos" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Pedidos</strong></figcaption>
     </figure>
     <p>Pestaña <strong>Pedidos</strong>: líneas vinculadas al inventario (proveedor, cantidad); el <strong>OC/PO</strong> se registra al <strong>recibir</strong> en Compra de stock.</p>
@@ -293,6 +291,7 @@
         <li><strong>Filtros</strong>: búsqueda de texto (referencia/código/descripción/proveedor/cantidades), estado, fecha clave (desde/hasta) e historial (con/sin recepción, con pedido, con anulación).</li>
         <li><strong>Estados</strong>: borrador → pedida → recepción parcial/total o cancelada; fechas para seguimiento.</li>
         <li><strong>Recepción</strong>: abre el mismo formulario <strong>Compra de stock</strong> que en Movimientos; se confirma con <strong>Procesar movimiento</strong>.</li>
+        <li>Si la compra se registra <strong>solo</strong> desde Movimientos y hay pedido pendiente del mismo artículo, diálogos <strong>Sí / No</strong> permiten vincular y actualizar el panel Pedidos (recibido, estado, acciones).</li>
         <li><strong>Exportar / Imprimir tabla</strong>: trabajan sobre la vista filtrada; hay limpieza masiva (+1 año) y eliminación por línea (&gt;3 meses).</li>
         <li><strong>Referencias</strong> de movimiento: <strong>siglas del tipo + 6 dígitos correlativos por tipo</strong> (p. ej. <code>AJU000001</code>, <code>COM000002</code>); los datos antiguos con más dígitos se normalizan al cargar.</li>
         <li><strong>Recepción provisional</strong>: algunas categorías requieren PO y se gestionan como provisionales antes de impactar stock principal.</li>
@@ -305,7 +304,7 @@
 <div class="slide">
     <h2>Vistas de listado</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:30vh" src="../docs/app-screenshots/capture-es-historial.png" alt="Pestaña Historial" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:30vh" src="../app-screenshots/capture-es-historial.png" alt="Pestaña Historial" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Historial</strong> (mosaico / tabla / carrusel)</figcaption>
     </figure>
     <p><strong>Historial</strong>, <strong>Transporte</strong> y <strong>Pedidos</strong> incluyen un selector <strong>Vista</strong> con disposición en <strong>mosaico</strong> (tarjetas o iconos), <strong>lista compacta</strong> y, donde aplica, <strong>tabla detallada</strong>; además, en <strong>Historial</strong> hay <strong>Carrusel cronológico</strong> para recorrer tarjetas en secuencia horizontal. Las tarjetas minimizadas muestran también el <strong>ID Proyecto</strong> cuando corresponde.</p>
@@ -322,7 +321,7 @@
 <div class="slide">
     <h2>Transporte Inteligente</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-es-transporte.png" alt="Pestaña Transporte" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-es-transporte.png" alt="Pestaña Transporte" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Transporte</strong></figcaption>
     </figure>
     <p>El módulo de transporte automatiza la logística de envío a obra:</p>
@@ -334,7 +333,7 @@
         <li><strong>Creación manual</strong> — Para casos excepcionales sin checklist asociado</li>
         <li><strong>Historial completo</strong> — Registro de cada acción realizada sobre el transporte</li>
         <li><strong>Trazabilidad</strong> — Resumen en la pestaña Transporte (recepciones pendientes de expedir, líneas con cantidad en camiones activos, últimos expedidos, stock en empresa) más una <strong>lista manual</strong> editable por tipo de material y fase (en planta / camión / ya salió)</li>
-        <li><strong>Reporte por camión</strong> — Cada camión permite <strong>Exportar</strong> o <strong>Imprimir</strong> una tabla con materiales, cantidades y dimensiones de la carga actual</li>
+        <li><strong>Reporte por camión</strong> — Cada camión permite <strong>Exportar</strong> o <strong>Imprimir</strong> una tabla con materiales, cantidades y dimensiones de la carga actual; con <strong>varios paquetes</strong> por línea, el XLSX y la impresión usan <strong>filas apiladas</strong> (columnas fijas Paquete, L, W, H), no muchas columnas horizontales.</li>
     </ul>
     <div class="watermark">G-NEEX</div>
 </div>
@@ -343,7 +342,7 @@
 <div class="slide">
     <h2>Dashboard — Visión General al Instante</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-es-panel.png" alt="Panel principal" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-es-panel.png" alt="Panel principal" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Panel tras el inicio de sesión (pestaña <strong>Resumen</strong>)</figcaption>
     </figure>
     <p>Al iniciar sesión, un panel muestra el estado actual de la operación:</p>
@@ -361,15 +360,16 @@
 
 <!-- Slide: Recordatorios -->
 <div class="slide">
-    <h2>Recordatorios (Admin)</h2>
+    <h2>Recordatorios</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../docs/app-screenshots/capture-es-recordatorios.png" alt="Pestaña Recordatorios" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-es-recordatorios.png" alt="Pestaña Recordatorios" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Recordatorios</strong></figcaption>
     </figure>
     <ul>
-        <li><strong>Pestaña dedicada</strong> para recordatorios operativos con fecha objetivo y prioridad</li>
+        <li><strong>Pestaña dedicada</strong> para recordatorios operativos con fecha objetivo y prioridad (según permisos del perfil)</li>
         <li><strong>Escalado automático</strong> de prioridades por antigüedad en días hábiles</li>
         <li><strong>Vista previa en dashboard</strong> con acceso rápido a recordatorios</li>
+        <li><strong>Visibilidad:</strong> cada usuario solo ve los recordatorios que <strong>él creó</strong> (el respaldo JSON del equipo puede contener los de todos).</li>
     </ul>
     <div class="watermark">G-NEEX</div>
 </div>
@@ -378,11 +378,12 @@
 <div class="slide">
     <h2>Aplicación en pantalla (visión de uso)</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-es-panel.png" alt="Panel G-NEEX" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-es-panel.png" alt="Panel G-NEEX" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Panel o dashboard: navegación a los módulos principales</figcaption>
     </figure>
     <ul>
         <li>G-NEEX organiza el trabajo en módulos con acceso directo desde la barra: inventario, movimientos, historial, transporte, pedidos, recordatorios y ajustes.</li>
+        <li>El administrador define usuarios en <strong>⚙️ Configuración → Usuarios</strong> con plantillas genéricas o <strong>perfiles de referencia</strong> (mismo comportamiento que las cuentas integradas); la tabla <code>PlantillasPermisos.xlsx.csv</code> documenta cada clave.</li>
         <li>El manual de usuario explica qué hace cada pantalla y flujo. Cómo se despliega o gobierna el acceso en su planta es un tema operativo; aquí se prioriza el <strong>uso cotidiano</strong> de la interfaz y las funciones de inventario.</li>
     </ul>
     <div class="watermark">G-NEEX</div>
@@ -402,6 +403,8 @@
     </ul>
     <p>Los archivos incluyen rango de fechas en el nombre:</p>
     <p><code>GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx</code></p>
+    <p><strong>Recepciones (Configuración):</strong> exportación e impresión de la lista filtrada con el mismo criterio de <strong>paquetes en filas</strong> que el reporte de carga.</p>
+    <p><strong>Consumibles:</strong> marcar un artículo como consumible de inventario en el editor y guardar añade su nombre a <strong>Configuración → Consumibles</strong>; al desmarcar, se quita de la lista si coincidía.</p>
     <div class="watermark">G-NEEX</div>
 </div>
 

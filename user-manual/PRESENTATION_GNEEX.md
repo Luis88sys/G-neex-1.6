@@ -47,13 +47,13 @@ It manages the entire material lifecycle:
 
 *Real v1.6 captures (Playwright). Regenerate: `docs/app-screenshots/README.md`.*
 
-![Login (entry to the app)](../docs/app-screenshots/capture-en-01-login.png)
+![Login (entry to the app)](../app-screenshots/capture-en-01-login.png)
 
 ---
 
 ## Real-Time Inventory
 
-![Inventory tab](../docs/app-screenshots/capture-en-inventario.png)
+![Inventory tab](../app-screenshots/capture-en-inventario.png)
 
 | Feature | Description |
 |---------|-------------|
@@ -75,7 +75,7 @@ It manages the entire material lifecycle:
 
 ## 16 Movement Types
 
-![Movements tab (type grid)](../docs/app-screenshots/capture-en-movimientos.png)
+![Movements tab (type grid)](../app-screenshots/capture-en-movimientos.png)
 
 G-NEEX supports **16 movement types** covering all operations in an industrial warehouse:
 
@@ -116,12 +116,13 @@ Each movement automatically records:
 
 ## Supplier orders (order lines)
 
-![Orders tab](../docs/app-screenshots/capture-en-pedidos.png)
+![Orders tab](../app-screenshots/capture-en-pedidos.png)
 
 - **Orders** tab: lines tied to inventory (supplier, quantity); **PO/OC** is captured on **receipt** in Stock purchase.
 - Panel filters: text search (ref/code/description/supplier/quantities), status, key date range (from/to), and timeline preset (with/without receipt, ordered, cancelled).
 - States: draft → ordered → partial/full receipt or cancelled; dates kept for tracking.
 - **Receipt** opens the same **Stock purchase** form as under Movements; confirm with **Process movement**.
+- Purchases logged **only** under Movements can trigger **Yes / No** prompts to link to a pending order and update the Orders panel (received / status / actions).
 - **Export / Print table** use the current filtered view; there is bulk cleanup (+1 year) and per-line removal (>3 months).
 - Movement **references** use **type letters + 6-digit sequence per type** (e.g. `AJU000001`, `COM000002`); legacy refs normalize on load.
 - Some categories use **provisional reception** with mandatory PO before main-stock impact.
@@ -131,7 +132,7 @@ Each movement automatically records:
 
 ## List layouts (Explorer-style)
 
-![History tab (tiles / table / carousel)](../docs/app-screenshots/capture-en-historial.png)
+![History tab (tiles / table / carousel)](../app-screenshots/capture-en-historial.png)
 
 - **History**, **Transport**, and **Orders** include a **View** control for **tiles**, a compact **list**, and (where relevant) a **detailed table**; in **History**, a **Chronological carousel** is also available for horizontal card browsing. Minimized cards also show the **Project ID** when relevant.
 - In **History**, movements that are fully voided or **partial annulments** show a **diagonal stamp** (tilted dashed frame); filters also include annulment type.
@@ -145,7 +146,7 @@ Each movement automatically records:
 
 ## Smart Transport
 
-![Transport tab](../docs/app-screenshots/capture-en-transporte.png)
+![Transport tab](../app-screenshots/capture-en-transporte.png)
 
 The transport module automates shipment logistics to job sites:
 
@@ -162,7 +163,7 @@ The transport module automates shipment logistics to job sites:
 
 ## Dashboard — Instant Overview
 
-![Main screen after login (summary)](../docs/app-screenshots/capture-en-panel.png)
+![Main screen after login (summary)](../app-screenshots/capture-en-panel.png)
 
 Upon login, a panel displays the current operational status:
 
@@ -183,7 +184,7 @@ Visual indicators alert if there is critical stock or if the backup is more than
 
 ## Reminders (Admin)
 
-![Reminders tab](../docs/app-screenshots/capture-en-recordatorios.png)
+![Reminders tab](../app-screenshots/capture-en-recordatorios.png)
 
 - Dedicated tab for operational reminders with due date and priority.
 - Priorities can auto-escalate by business-day aging.
@@ -193,7 +194,7 @@ Visual indicators alert if there is critical stock or if the backup is more than
 
 ## The app in use (on-screen)
 
-![Dashboard and navigation (G-NEEX)](../docs/app-screenshots/capture-en-panel.png)
+![Dashboard and navigation (G-NEEX)](../app-screenshots/capture-en-panel.png)
 
 - G-NEEX groups daily work in modules you open from the top bar: inventory, movements, history, transport, orders, reminders, and settings.
 - The user manual explains each screen and workflow. **How** access and copies are run on your site is an operational matter; the focus here is day-to-day **use** of the interface and inventory features.

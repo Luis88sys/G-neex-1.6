@@ -1,0 +1,19 @@
+# Ejemplo: API detrás de HTTPS lo suele poner un proxy (nginx, Caddy, Traefik).
+services:
+  api:
+    build: .
+    ports:
+      - "3040:3040"
+    environment:
+      PORT: "3040"
+      JWT_SECRET: "${JWT_SECRET}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-}"
+      SYNC_WRITE_ROLE: "${SYNC_WRITE_ROLE:-admin}"
+      JSON_LIMIT: "${JSON_LIMIT:-80mb}"
+    volumes:
+      # Persistencia SQLite (obligatorio en producción)
+      - gneex-api-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  gneex-api-data:

@@ -217,7 +217,10 @@ const Dashboard = {
     const rows = items
       .map(it => {
         const tot = Inv.itemTotalStock(it);
-        const eff = Inv.getEffectiveExpirationDate(it);
+        const eff =
+          typeof Inv.getEffectiveExpirationDateForDisplay === "function"
+            ? Inv.getEffectiveExpirationDateForDisplay(it)
+            : Inv.getEffectiveExpirationDate(it);
         const ins = Inv.getExpirationInsight(it);
         const days =
           ins.has && ins.days !== null

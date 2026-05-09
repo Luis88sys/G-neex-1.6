@@ -1,0 +1,10 @@
+Rol,Nombre visible,Usuario,Contraseña por defecto,Notas
+Administrador,Luis Goire,GoireteLuis,—,Contraseña no está en el código; use la de su instalación o cámbiela en Configuración.
+Usuario,Keith Lake,KeithL,—,Cuenta integrada; credencial guardada como hash en localStorage al sembrar.
+Usuario,Guest,guestCMC,—,Cuenta integrada invitado; credencial guardada como hash al sembrar.
+Usuario,Alex Beaulieu,AlexB,—,Cuenta integrada; credencial guardada como hash al sembrar.
+Usuario,Patrick,PhatCMC5!,k-popguyCMC5!,Equipo CMC; rol usuario; ajuste fino en Configuración → Permisos detallados.
+Usuario,Stephane Demers,StephCMC4!!,Stephanus3CMC!,
+Usuario,Wen Deng,WdengCMCB1?,XieXieCMC517!!!,
+Usuario,Barbara Bonny,BarbonB2CMC?,BonLogtr187!!,
+Usuario,Annie Larose,LRAnnieCMC05??,LafleurAnn667??,
