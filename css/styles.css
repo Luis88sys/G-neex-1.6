@@ -200,6 +200,57 @@ body {
     flex-shrink: 0;
     border-radius: var(--radius-md);
     box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35);
+    transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+}
+
+/* El logo es el atajo rápido para "Actualizar inventario". Marcamos affordance
+   visual (cursor, hover sutil) y reservamos `is-spinning` para la animación
+   antihoraria que confirma el clic. Es la única superficie clicable en la
+   barra de marca, así que mantenemos el efecto contenido para no distraer. */
+.logo.logo-refresh-trigger {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.logo.logo-refresh-trigger:hover {
+    transform: rotate(-12deg);
+    box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.55);
+    filter: brightness(1.06);
+}
+
+.logo.logo-refresh-trigger:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 3px;
+}
+
+.logo.logo-refresh-trigger:active {
+    transform: scale(0.94);
+}
+
+/* `is-spinning` se añade al hacer clic y se quita al terminar la animación o
+   tras un timeout de seguridad (ver setupLogoRefreshTrigger en inventory.js).
+   La rotación es antihoraria (-360deg) para alinearse con el icono ↺ del
+   menú de herramientas. `ease-in-out` da arranque y frenada suaves; con
+   `forwards` no haría falta porque el JS quita la clase. */
+.logo.logo-refresh-trigger.is-spinning,
+.logo.logo-refresh-trigger.is-spinning:hover {
+    animation: gneex-logo-spin-ccw 900ms ease-in-out;
+    cursor: progress;
+}
+
+@keyframes gneex-logo-spin-ccw {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .logo.logo-refresh-trigger,
+    .logo.logo-refresh-trigger:hover,
+    .logo.logo-refresh-trigger.is-spinning {
+        transition: none;
+        animation: none;
+    }
 }
 
 .app-brand {
@@ -1733,6 +1784,23 @@ tr.inv-box-summary-row.is-selected {
     opacity: 0.85;
 }
 
+.inv-lots-kind--unassigned {
+    font-style: italic;
+    opacity: 0.95;
+}
+
+.inv-affected-cell {
+    white-space: nowrap;
+}
+
+.inv-affected-cell .inv-affected-detail {
+    display: inline-flex;
+    gap: 0.25rem;
+    margin-left: 0.4rem;
+    align-items: center;
+    vertical-align: middle;
+}
+
 .inv-lots-legend {
     margin-top: 0.5rem;
     font-size: 0.8rem;
@@ -2158,18 +2226,37 @@ tr.inv-box-summary-row.is-selected {
 }
 #inventory-tab .inventory-table--main .inv-stock-uom {
     font-size: 0.62rem;
-    opacity: 0.88;
-    margin-left: 0.15rem;
+    opacity: 0.95;
+    margin-left: 0.2rem;
+    padding: 0.04rem 0.34rem;
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.16);
+    color: var(--accent-primary);
+    font-weight: 600;
+    letter-spacing: 0.02em;
     white-space: nowrap;
     vertical-align: middle;
 }
 #inventory-tab .inventory-table--main .inv-stock-uom-alt {
-    display: block;
-    font-size: 0.58rem;
-    color: var(--text-muted);
-    margin-top: 0.12rem;
-    line-height: 1.25;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.18rem;
+    margin-top: 0.22rem;
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    background: rgba(40, 167, 69, 0.18);
+    color: #5ce28a;
+    font-size: 0.6rem;
+    font-weight: 600;
+    line-height: 1.3;
     white-space: nowrap;
+    border: 1px solid rgba(40, 167, 69, 0.45);
+    box-shadow: 0 0 0 1px rgba(40, 167, 69, 0.08) inset;
+}
+[data-theme="light"] #inventory-tab .inventory-table--main .inv-stock-uom-alt {
+    background: rgba(40, 167, 69, 0.14);
+    color: #15803d;
+    border-color: rgba(40, 167, 69, 0.55);
 }
 
 .measureunits-table-wrap {
@@ -5592,6 +5679,171 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     margin-top: 0.15rem;
 }
 
+.item-edit-lots-block {
+    margin-top: 0.65rem;
+    padding: 0.75rem 0.85rem 0.85rem;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    background: rgba(var(--accent-rgb), 0.04);
+}
+
+.item-edit-lots-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.item-edit-lots-header label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.item-edit-lots-empty {
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+}
+
+.item-edit-lots-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.5rem;
+}
+
+.item-edit-lot-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) minmax(110px, 0.7fr) minmax(150px, 1.2fr) auto;
+    gap: 0.55rem;
+    align-items: end;
+    padding: 0.55rem 0.6rem 0.65rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.item-edit-lot-row .item-edit-lot-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.item-edit-lot-row .item-edit-lot-field-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.item-edit-lot-row input[type="date"],
+.item-edit-lot-row input[type="number"] {
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.92rem;
+}
+
+.item-edit-lot-row input[type="date"]:focus,
+.item-edit-lot-row input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.item-edit-lot-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    min-height: 2.2rem;
+    justify-content: flex-end;
+}
+
+.item-edit-lot-preview .item-edit-lot-preview-date {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.item-edit-lot-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.08rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.3;
+    width: fit-content;
+}
+
+.item-edit-lot-status-ok {
+    background: rgba(40, 167, 69, 0.18);
+    color: #5ce28a;
+    border: 1px solid rgba(40, 167, 69, 0.45);
+}
+
+.item-edit-lot-status-soon {
+    background: rgba(255, 193, 7, 0.18);
+    color: #ffce56;
+    border: 1px solid rgba(255, 193, 7, 0.45);
+}
+
+.item-edit-lot-status-expired {
+    background: rgba(220, 53, 69, 0.18);
+    color: #ff8a98;
+    border: 1px solid rgba(220, 53, 69, 0.45);
+}
+
+.item-edit-lot-status-unknown {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent-primary);
+    border: 1px solid rgba(var(--accent-rgb), 0.4);
+}
+
+[data-theme="light"] .item-edit-lot-status-ok {
+    color: #15803d;
+}
+
+[data-theme="light"] .item-edit-lot-status-soon {
+    color: #92400e;
+}
+
+[data-theme="light"] .item-edit-lot-status-expired {
+    color: #b91c1c;
+}
+
+.item-edit-lot-remove-btn {
+    align-self: end;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.85rem;
+    line-height: 1;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--danger, #ff8a98);
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.item-edit-lot-remove-btn:hover {
+    background: rgba(220, 53, 69, 0.12);
+    border-color: rgba(220, 53, 69, 0.55);
+}
+
+@media (max-width: 768px) {
+    .item-edit-lot-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    .item-edit-lot-row .item-edit-lot-preview,
+    .item-edit-lot-row .item-edit-lot-remove-btn {
+        grid-column: 1 / -1;
+    }
+}
+
 .edit-actions {
     display: flex;
     gap: var(--spacing-md);
@@ -7588,6 +7840,462 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
 
 .rec-actions-cell {
     white-space: nowrap;
+}
+
+/* ===== Welcome Splash (9 s post-login, "boot up" cinemático) ============
+   Coreografía orquestada por la duración global `--welcome-duration` (9 s):
+     0.0–0.5s   Fondo + grid sutil entran.
+     0.3–1.4s   Scanline horizontal cruza toda la pantalla (luz de "barrido").
+     0.6–1.5s   Logo materializa con escala + dos anillos orbitales que se cierran.
+     1.0–1.9s   "BIENVENIDO A" se revela por barrido (clip-path) con borde brillante.
+     1.6–3.4s   "G-neex" hace flicker fuerte tipo neón (apagones bruscos) y queda encendido.
+     3.4–4.1s   "PHOENIX EVOLUTION" expande tracking + fade-in.
+     4.0–4.9s   Nombre del usuario se revela con sweep.
+     4.9–8.5s   Estado sostenido: el usuario contempla la pantalla mientras la app termina.
+     0.0–8.7s   Barra de progreso lineal (cubre toda la duración útil).
+     8.7–9.0s   Fade-out completo del overlay.
+   `prefers-reduced-motion` desactiva animaciones manteniendo todo legible.
+   Las claves se prefijan con `gneex-ws-` para no chocar con el resto. */
+.welcome-splash {
+    --welcome-duration: 9000ms;
+    /* Naranja del proyecto: lo seguimos usando para el filo brillante de los
+       wipes ("Bienvenido a", nombre de usuario) — coherente con el branding. */
+    --welcome-scanline-color: rgba(var(--accent-rgb), 0.85);
+    /* Verde Matrix (fósforo CRT) reservado SOLO para el scanner horizontal
+       que cruza la pantalla. RGB exacto del clásico #00ff41. */
+    --welcome-matrix-green: #00ff41;
+    --welcome-matrix-green-rgb: 0, 255, 65;
+    --text-primary: #ffffff;
+    --text-secondary: #c8c8c8;
+    --text-muted: #8a8a8a;
+    position: fixed;
+    inset: 0;
+    z-index: 10000; /* por encima del login-gate (9999) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #060606;
+    color: var(--text-primary);
+    opacity: 0;
+    pointer-events: auto;
+    overflow: hidden;
+    animation: gneex-ws-cycle var(--welcome-duration) ease-in-out forwards;
+}
+
+.welcome-splash[hidden] {
+    display: none !important;
+}
+
+/* Capa de fondo: vignette naranja + radial central. Entra suavemente. */
+.welcome-splash__bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background:
+        radial-gradient(ellipse 95% 75% at 50% 30%, rgba(var(--accent-rgb), 0.32) 0%, transparent 55%),
+        radial-gradient(ellipse 75% 60% at 50% 92%, rgba(var(--accent-rgb-mid), 0.18) 0%, transparent 60%),
+        linear-gradient(155deg, rgba(8, 8, 8, 0.96) 0%, rgba(26, 26, 26, 0.62) 48%, rgba(8, 8, 8, 0.96) 100%);
+    animation: gneex-ws-bg-in 600ms ease-out 0ms both;
+}
+
+/* Rejilla muy sutil de "interfaz tech" (líneas finas en perspectiva).
+   Mantenemos opacity baja para que sea ambiente, no protagonismo. */
+.welcome-splash__grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background-image:
+        linear-gradient(rgba(var(--accent-rgb), 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--accent-rgb), 0.08) 1px, transparent 1px);
+    background-size: 64px 64px, 64px 64px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 35%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 35%, transparent 80%);
+    animation: gneex-ws-grid-in 900ms ease-out 200ms both;
+}
+
+/* Scanline horizontal: barra ancha de luz verde Matrix (fósforo CRT) que
+   recorre la pantalla de arriba abajo una vez, despacio (2.6 s). Es el
+   "escaneo" deliberadamente lento — debe leerse como "el sistema te está
+   reconociendo". El degradado central es verde puro y se desvanece a los
+   extremos para que parezca un haz, no una banda sólida. */
+.welcome-splash__scanline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 260px;
+    pointer-events: none;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(var(--welcome-matrix-green-rgb), 0.0) 36%,
+        rgba(var(--welcome-matrix-green-rgb), 0.55) 48%,
+        var(--welcome-matrix-green) 50%,
+        rgba(var(--welcome-matrix-green-rgb), 0.55) 52%,
+        rgba(var(--welcome-matrix-green-rgb), 0.0) 64%,
+        transparent 100%
+    );
+    box-shadow:
+        0 0 80px 14px rgba(var(--welcome-matrix-green-rgb), 0.40),
+        0 0 200px 30px rgba(var(--welcome-matrix-green-rgb), 0.18);
+    opacity: 0;
+    transform: translateY(-100%);
+    /* Linear: velocidad constante (un scanner real no acelera ni frena).
+       Empieza un poco más tarde (500 ms) para no pisar el fade-in del fondo. */
+    animation: gneex-ws-scanline 2600ms linear 500ms both;
+}
+
+.welcome-splash__panel {
+    position: relative;
+    z-index: 1;
+    min-width: 320px;
+    max-width: 92vw;
+    padding: 2.4rem 2.6rem 1.7rem;
+    text-align: center;
+    background: linear-gradient(160deg, rgba(26, 26, 26, 0.62) 0%, rgba(13, 13, 13, 0.5) 100%);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(var(--accent-rgb), 0.38);
+    border-radius: var(--radius-xl);
+    box-shadow:
+        0 18px 60px rgba(0, 0, 0, 0.62),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 0 56px rgba(var(--accent-rgb), 0.22);
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+    animation: gneex-ws-panel-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1.05) 200ms forwards;
+}
+
+/* Contenedor del logo: posiciona los anillos orbitales sin que afecten
+   al layout. El logo aparece con escala y los anillos se cierran. */
+.welcome-splash__logo-wrap {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.welcome-splash__logo {
+    position: relative;
+    z-index: 2;
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 22px rgba(var(--accent-rgb), 0.55));
+    opacity: 0;
+    transform: scale(0.4);
+    animation:
+        gneex-ws-logo-boot 900ms cubic-bezier(0.2, 0.85, 0.25, 1.1) 600ms forwards,
+        gneex-ws-logo-pulse 2.2s ease-in-out 1500ms infinite alternate;
+}
+
+/* Anillos: dos rings que arrancan grandes y "se cierran" alrededor del logo. */
+.welcome-splash__logo-ring {
+    position: absolute;
+    z-index: 1;
+    inset: -22px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(var(--accent-rgb), 0.7);
+    opacity: 0;
+    box-shadow:
+        0 0 18px rgba(var(--accent-rgb), 0.45),
+        inset 0 0 12px rgba(var(--accent-rgb), 0.25);
+    animation: gneex-ws-ring 900ms cubic-bezier(0.2, 0.7, 0.25, 1) 500ms forwards;
+}
+
+.welcome-splash__logo-ring--inner {
+    inset: -8px;
+    border-color: rgba(var(--accent-rgb), 0.45);
+    border-style: dashed;
+    animation:
+        gneex-ws-ring 900ms cubic-bezier(0.2, 0.7, 0.25, 1) 700ms forwards,
+        gneex-ws-ring-spin 8s linear 1600ms infinite;
+}
+
+.welcome-splash__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-bottom: 1.2rem;
+}
+
+.welcome-splash__title {
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.5rem, 2.6vw + 0.4rem, 2.2rem);
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+/* "Bienvenido a": revelado por barrido con clip-path + borde brillante
+   sincronizado en el filo derecho del clip mediante un pseudo. */
+.welcome-splash__hello {
+    position: relative;
+    display: inline-block;
+    font-size: 0.7em;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    clip-path: inset(0 100% 0 0);
+    -webkit-clip-path: inset(0 100% 0 0);
+    animation: gneex-ws-hello-wipe 900ms cubic-bezier(0.45, 0, 0.25, 1) 1000ms forwards;
+}
+
+.welcome-splash__hello::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    right: -2px;
+    width: 2px;
+    background: var(--welcome-scanline-color);
+    box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.9);
+    opacity: 0;
+    animation: gneex-ws-hello-scan 900ms ease 1000ms forwards;
+}
+
+/* "G-neex": neón con flicker fuerte. El gradiente del texto se mantiene
+   siempre gracias a `background-clip: text`; lo que animamos es opacity y
+   glow. La duración (1.8 s) y los apagones a 0 dan el efecto de tubo
+   neón antes de estabilizarse. `steps()` no — usamos transiciones rápidas
+   pero animadas para mantener el halo "respirando" entre apagones. */
+.welcome-splash__app {
+    position: relative;
+    display: inline-block;
+    color: var(--text-primary);
+    background: linear-gradient(120deg, var(--accent-primary), var(--accent-tertiary, var(--accent-primary)));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 24px rgba(var(--accent-rgb), 0);
+    opacity: 0;
+    animation: gneex-ws-neon 1800ms cubic-bezier(0.45, 0.05, 0.55, 0.95) 1600ms forwards;
+}
+
+.welcome-splash__subtitle {
+    margin: 0.2rem 0 0;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(var(--accent-rgb), 0.92);
+    opacity: 0;
+    transform: translateY(4px);
+    animation: gneex-ws-subtitle-in 700ms ease 3500ms forwards;
+}
+
+/* Nombre del usuario: revelado por barrido con clip-path. */
+.welcome-splash__user {
+    position: relative;
+    margin: 0.7rem 0 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    clip-path: inset(0 100% 0 0);
+    -webkit-clip-path: inset(0 100% 0 0);
+    animation: gneex-ws-user-wipe 900ms cubic-bezier(0.45, 0, 0.25, 1) 4000ms forwards;
+}
+
+.welcome-splash__user::after {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0;
+    right: -2px;
+    width: 2px;
+    background: var(--welcome-scanline-color);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.9);
+    opacity: 0;
+    animation: gneex-ws-user-scan 900ms ease 4000ms forwards;
+}
+
+.welcome-splash__user:empty {
+    display: none;
+}
+
+/* Barra de progreso: ahora cubre los 5 s para que sirva como timer real. */
+.welcome-splash__progress {
+    position: relative;
+    height: 3px;
+    width: min(300px, 72vw);
+    margin: 0 auto;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.welcome-splash__progress-bar {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-tertiary, var(--accent-primary)));
+    box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.6);
+    animation: gneex-ws-progress calc(var(--welcome-duration) - 300ms) linear 0ms forwards;
+}
+
+/* ----- Keyframes ----------------------------------------------------- */
+
+/* Fade-in al entrar, mantener visible, fade-out al final.
+   Porcentajes calculados sobre 9000 ms: 5% ≈ 450 ms fade-in, 96% ≈ 360 ms fade-out. */
+@keyframes gneex-ws-cycle {
+    0%   { opacity: 0; }
+    5%   { opacity: 1; }
+    96%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes gneex-ws-bg-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes gneex-ws-grid-in {
+    from { opacity: 0; transform: scale(1.03); }
+    to   { opacity: 0.45; transform: scale(1); }
+}
+
+@keyframes gneex-ws-scanline {
+    0%   { opacity: 0; transform: translateY(-100%); }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(110vh); }
+}
+
+@keyframes gneex-ws-panel-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Logo arranca pequeño y opaco, llega a tamaño con un overshoot mínimo. */
+@keyframes gneex-ws-logo-boot {
+    0%   { opacity: 0; transform: scale(0.4) rotate(-6deg); filter: drop-shadow(0 0 0 rgba(var(--accent-rgb), 0)); }
+    60%  { opacity: 1; transform: scale(1.06) rotate(0deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg);   filter: drop-shadow(0 8px 22px rgba(var(--accent-rgb), 0.55)); }
+}
+
+/* Pulso continuo después del boot para que el logo "respire". */
+@keyframes gneex-ws-logo-pulse {
+    from { transform: scale(1);    filter: drop-shadow(0 8px 22px rgba(var(--accent-rgb), 0.55)); }
+    to   { transform: scale(1.03); filter: drop-shadow(0 10px 30px rgba(var(--accent-rgb), 0.78)); }
+}
+
+/* Anillos: arrancan grandes y opacos, se cierran y aparecen brillantes. */
+@keyframes gneex-ws-ring {
+    0%   { opacity: 0; transform: scale(1.6); }
+    60%  { opacity: 1; transform: scale(1.0); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes gneex-ws-ring-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Wipe del título "Bienvenido a" */
+@keyframes gneex-ws-hello-wipe {
+    from { clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0);     -webkit-clip-path: inset(0 0 0 0); }
+}
+
+/* Línea brillante que sigue al wipe del "Bienvenido a" */
+@keyframes gneex-ws-hello-scan {
+    0%   { opacity: 0; right: 100%; }
+    20%  { opacity: 1; }
+    100% { opacity: 0; right: -2px; }
+}
+
+/* Neón fuerte: tubo de gas tratando de encender. Apagones bruscos a 0,
+   picos de glow muy luminosos (text-shadow hasta 48 px y opacidad 1) y
+   estabilización progresiva. El ojo lee "está ahí, pero falla, ahí está,
+   se va, vuelve, se queda". */
+@keyframes gneex-ws-neon {
+    0%   { opacity: 0;    text-shadow: 0 0 0    rgba(var(--accent-rgb), 0); }
+    4%   { opacity: 0.85; text-shadow: 0 0 18px rgba(var(--accent-rgb), 0.55); }
+    7%   { opacity: 0;    text-shadow: 0 0 0    rgba(var(--accent-rgb), 0); }
+    10%  { opacity: 1;    text-shadow: 0 0 32px rgba(var(--accent-rgb), 0.95); }
+    14%  { opacity: 0.1;  text-shadow: 0 0 4px  rgba(var(--accent-rgb), 0.2); }
+    18%  { opacity: 1;    text-shadow: 0 0 38px rgba(var(--accent-rgb), 1); }
+    22%  { opacity: 0;    text-shadow: 0 0 0    rgba(var(--accent-rgb), 0); }
+    27%  { opacity: 0.9;  text-shadow: 0 0 24px rgba(var(--accent-rgb), 0.7); }
+    32%  { opacity: 0.2; }
+    37%  { opacity: 1;    text-shadow: 0 0 44px rgba(var(--accent-rgb), 1); }
+    42%  { opacity: 0.4; }
+    48%  { opacity: 1;    text-shadow: 0 0 48px rgba(var(--accent-rgb), 1); }
+    54%  { opacity: 0;    text-shadow: 0 0 0    rgba(var(--accent-rgb), 0); }
+    60%  { opacity: 1;    text-shadow: 0 0 42px rgba(var(--accent-rgb), 1); }
+    68%  { opacity: 0.65; }
+    76%  { opacity: 1;    text-shadow: 0 0 36px rgba(var(--accent-rgb), 0.95); }
+    100% { opacity: 1;    text-shadow: 0 0 28px rgba(var(--accent-rgb), 0.7); }
+}
+
+@keyframes gneex-ws-subtitle-in {
+    from { opacity: 0; letter-spacing: 0.05em; transform: translateY(4px); }
+    to   { opacity: 1; letter-spacing: 0.32em; transform: translateY(0); }
+}
+
+@keyframes gneex-ws-user-wipe {
+    from { clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0);     -webkit-clip-path: inset(0 0 0 0); }
+}
+
+@keyframes gneex-ws-user-scan {
+    0%   { opacity: 0; right: 100%; }
+    20%  { opacity: 1; }
+    100% { opacity: 0; right: -2px; }
+}
+
+@keyframes gneex-ws-progress {
+    from { width: 0; }
+    to   { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .welcome-splash,
+    .welcome-splash__bg,
+    .welcome-splash__grid,
+    .welcome-splash__scanline,
+    .welcome-splash__panel,
+    .welcome-splash__logo,
+    .welcome-splash__logo-ring,
+    .welcome-splash__hello,
+    .welcome-splash__hello::after,
+    .welcome-splash__app,
+    .welcome-splash__subtitle,
+    .welcome-splash__user,
+    .welcome-splash__user::after,
+    .welcome-splash__progress-bar {
+        animation-duration: 1ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+    }
+    .welcome-splash {
+        opacity: 1;
+    }
+    .welcome-splash__bg,
+    .welcome-splash__grid,
+    .welcome-splash__panel,
+    .welcome-splash__logo,
+    .welcome-splash__logo-ring,
+    .welcome-splash__app,
+    .welcome-splash__subtitle {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+    .welcome-splash__hello,
+    .welcome-splash__user {
+        clip-path: inset(0 0 0 0) !important;
+        -webkit-clip-path: inset(0 0 0 0) !important;
+    }
 }
 
 /* ===== Login Gate (cristal + paleta naranja / gris / negro) ===== */

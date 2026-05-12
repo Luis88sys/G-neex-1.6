@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manual de Usuario — G-NEEX 1.6</title>
+<title>Manual de Usuario — G-NEEX 1.7</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -106,9 +106,36 @@
 <div class="orange-bar"></div>
 <div class="brand">G-NEEX</div>
 
-<h1>Manual de Usuario — Phoenix Cell G-NEEX 1.6</h1>
+<h1>Manual de Usuario — Phoenix Cell G-NEEX 1.7</h1>
 <p style="font-size:0.95em;color:#666;font-style:italic;margin-top:4px;">Phoenix Cell G-NEEX es desarrollada por <strong>Luis Goire</strong>, de forma aficionada y con interés en la programación, en camino a formarse como programador.</p>
-<p style="font-size:0.9em;color:#777;font-style:italic;">Actualizado: mayo de 2026</p>
+<p style="font-size:0.9em;color:#777;font-style:italic;">Actualizado: mayo de 2026 (v1.7)</p>
+
+<h2>Novedades 1.7 (mayo 2026) — leer antes que el resto</h2>
+<blockquote>Si vienes de la 1.6, los puntos abajo son lo único nuevo. El resto del manual aplica igual.</blockquote>
+<ul>
+<li><strong>Pantalla de bienvenida cinemática (9 s):</strong> al iniciar sesión arranca una secuencia tipo «boot up» de 9 segundos que sirve también como <strong>margen de carga</strong> de la app. El <strong>scanner verde Matrix</strong> (<code>#00ff41</code>) cruza despacio la pantalla, los <strong>anillos orbitales</strong> se cierran alrededor del logo, <strong>«BIENVENIDO A»</strong> se revela por barrido, <strong>«G-neex»</strong> parpadea con <strong>flicker fuerte tipo neón</strong> y queda encendido, y por último aparecen <strong>«PHOENIX EVOLUTION»</strong> y <strong>tu nombre</strong>. La barra de progreso inferior cubre los 8.7 s útiles. No se repite al recargar la pestaña; vuelve a salir al volver a iniciar sesión.</li>
+<li><strong>Logo del header como atajo «Actualizar inventario»:</strong> un clic en el logo (header arriba a la izquierda) da una vuelta antihoraria y dispara la acción unificada <strong>Actualizar inventario</strong>, que en este orden:
+  <ol>
+    <li><strong>Normaliza ubicaciones y cajas</strong> (texto libre de respaldos antiguos → catálogo canónico; sincroniza <code>boxStocks</code> y <code>locationStocks</code>).</li>
+    <li><strong>Reconcilia stock principal:</strong> ajusta <code>stockPrincipal = máx(actual, suma(cajas) + suma(ubicaciones))</code>. <strong>Nunca reduce</strong> el principal; solo lo sube si tus cajas/ubicaciones suman más.</li>
+    <li><strong>Refresca caducidades de lotes:</strong> los lotes con caducidad <em>calculada</em> pasan a recalcularse al vuelo con la vida útil vigente del artículo. <strong>Los lotes con caducidad escrita a mano se preservan.</strong></li>
+  </ol>
+  Antes de aplicar se muestra un modal con el detalle por sección (hasta 5 filas por bloque). Si no hay nada que hacer, sale un toast informativo y no se aplica nada. La misma acción está accesible desde el menú de herramientas (↺) y por teclado con Enter / Espacio sobre el logo.</li>
+<li><strong>Cajas integradas al stock principal:</strong> consumir, mover o editar una caja actualiza el stock principal automáticamente. Si tienes respaldos viejos donde no cuadran, la acción <strong>Actualizar inventario</strong> los repara sin pisar lo que ya hay.</li>
+<li><strong>Editor de lotes en el artículo:</strong> en ⚙️ → editar artículo hay una sección nueva <strong>Lotes (caducidad por compra)</strong> donde añades, una por línea, <strong>fecha de expedición + caducidad explícita opcional + cantidad</strong>. La caducidad efectiva se calcula al vuelo a partir de la <strong>vida útil en meses</strong> del artículo si no escribes una caducidad explícita. Cada compra de stock añade un lote por fila automáticamente.</li>
+<li><strong>Caducidad: vencidos o próximos a vencer — columna «Cantidad afectada»:</strong> suma de unidades en lotes vencidos + próximos a vencer, con tooltip de desglose.</li>
+<li><strong>Tooltip de lotes en la tabla:</strong> si hay al menos un lote explícito, aparece una fila sintética «Sin lote (resto del stock principal)» para que la suma cuadre con el stock principal. Si no hay lotes, el tooltip queda vacío.</li>
+<li><strong>Plantilla solo-stock (export/import):</strong> dos opciones nuevas en el menú de herramientas:
+  <ul>
+    <li>🧾 <strong>Exportar plantilla solo-stock</strong> → XLSX con <code>Codigo</code>, <code>Descripcion</code>, <code>StockPrincipal</code> (editable).</li>
+    <li>♻ <strong>Importar actualización solo-stock</strong> → re-lee ese mismo XLSX y solo actualiza cantidades del stock principal. No toca ubicaciones, lotes, ni catálogo.</li>
+  </ul>
+</li>
+<li><strong>Equivalencia (≈)</strong> en inventario con badge de mayor contraste en tema claro y oscuro.</li>
+<li><strong>Alineación con futuro <code>gneex-hosted-api</code>:</strong> la app sigue 100 % offline; el cliente <code>GneexApiClient</code> queda preparado para conectarse al backend cuando esté en producción.</li>
+</ul>
+
+<hr>
 
 <h2>Antecedentes y propósito</h2>
 <h3>Necesidad en planta</h3>

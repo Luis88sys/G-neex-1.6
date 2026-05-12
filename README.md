@@ -1,5 +1,9 @@
 # G-neex
 
+**SPA estática 100 % en el navegador** (HTML / CSS / JS vanilla) para gestión de inventario, movimientos, pedidos a proveedor, transporte y caducidades. Datos en `localStorage`, idiomas ES / EN / FR, temas claro / oscuro.
+
+**Versión actual:** 1.7 (mayo 2026). Cambios destacados respecto a 1.6 al final de este README.
+
 Material que **no** va en el despliegue estático de la SPA (manuales “fuente”, migración, respaldos de trabajo, documentación técnica, scripts auxiliares) está en **`no-deployar/`** — ver `no-deployar/README.md` y la lista **`no-deployar/docs/DEPLOY_CHECKLIST.md`** antes de publicar.
 
 En la **raíz** del repo, la carpeta **`user-manual/`** contiene el manual HTML en ES / EN / FR y las capturas necesarias para que el botón **Ayuda → Manual de usuario** funcione en producción. Si actualiza los manuales en `no-deployar/User Manual/` (por ejemplo tras «ACTUALIZA AHORA»), copie de nuevo los `.html` y `app-screenshots` a `user-manual/` o ejecute el mismo proceso documentado en `no-deployar/README.md`.
@@ -59,3 +63,98 @@ Si tiene Node.js, una alternativa es `npx --yes serve -l 8765` en la misma carpe
 - En Ayuda, los enlaces de `Presentaciones` dentro de `user-manual/` se muestran solo para perfil administrador.
 - En movimientos, la validación de `Origen stock` se aplica solo en tipos/líneas que descuentan stock desde ese origen; con sobregiro permitido exige causa obligatoria, y en los demás casos bloquea hasta corregir origen/distribución.
 - **Pedidos ↔ Compra de stock:** el vínculo automático exige **mismo código de artículo** (pedido vs línea de compra) y **mismo proveedor**; el **número de PO/OC** se informa **por fila** en el formulario de Compra de stock y **no** se usa para decidir si la compra corresponde al pedido — al recepcionar, ese PO (y proveedor) actualizan la línea de pedido cuando aplica. Si registra la compra solo desde Movimientos y existe una línea pendiente que cumpla eso, pueden mostrarse cuadros **Sí / No** para enlazar y actualizar cantidad recibida, estado y acciones (véase manual §2.5). Otras confirmaciones siguen con **Confirmar / Cancelar** salvo ese flujo sí/no.
+
+---
+
+## Novedades 1.7 (mayo 2026)
+
+### Pantalla de bienvenida cinemática (9 s)
+Tras autenticarse, antes de mostrar el panel, arranca una secuencia tipo «boot up» de 9 segundos que sirve también como **margen de carga real de la app** (la inicialización pesada corre por detrás).
+
+Coreografía:
+1. **Fondo + grid HUD** entran en ~0.5 s (vignette naranja + rejilla técnica sutil).
+2. **Scanner verde Matrix** (`#00ff41`) cruza la pantalla **lento** (2.6 s, velocidad constante) — se lee como «el sistema te está reconociendo».
+3. **Logo arranca** con escala + **dos anillos orbitales** (uno discontinuo gira en bucle).
+4. **«BIENVENIDO A»** se revela por **barrido (`clip-path`) con borde brillante naranja**.
+5. **«G-neex»** hace **flicker fuerte tipo neón** (cuatro apagones bruscos a opacity 0, picos de glow a 48 px) antes de quedar encendido sostenido.
+6. **«PHOENIX EVOLUTION»** entra expandiendo el `letter-spacing` (efecto «tracking out»).
+7. **Nombre del usuario** se revela con sweep.
+8. **Barra de progreso** lineal cubre los 8.7 s útiles.
+9. **Fade-out** y entrada al panel.
+
+Implementado en `Auth.showWelcomeSplash()` (`js/auth.js`) y bloque `#welcome-splash` (`index.html`). Estilo en `css/styles.css` (`@keyframes gneex-ws-*`). La duración es **una sola fuente de verdad** vía `--welcome-duration`: el JS la lee con `getComputedStyle()` para programar el cleanup. Cambias el CSS y todo se ajusta. Respeta `prefers-reduced-motion`. Se omite al recargar la pestaña (`sessionStorage`) y vuelve a salir tras `logout()`.
+
+### Logo como atajo «Actualizar inventario»
+El logo del header es ahora **clicable**. Al pulsarlo:
+1. Da una vuelta antihoraria (≈900 ms, `@keyframes gneex-logo-spin-ccw`).
+2. Dispara `Inventory.runRefreshInventoryDataAction()` — la acción unificada que ejecuta en este orden:
+   - **Normalización de ubicaciones / cajas** (texto libre importado de respaldos antiguos → catálogo canónico, sincroniza `boxStocks` y `locationStocks`).
+   - **Reconciliación de stock principal** (`mainStock = max(actual, suma(cajas + ubicaciones))`).
+   - **Refresco de caducidades de lotes** (las calculadas se pasan a cálculo dinámico desde `shelfLifeMonths`; las escritas a mano se preservan).
+3. Muestra un modal de confirmación con el detalle por sección antes de aplicar.
+
+Misma acción accesible por el menú herramientas «↺ Actualizar inventario» y el botón oculto `#inventory-refresh-data-btn`. Accesible por teclado (Enter / Espacio) y respeta `prefers-reduced-motion`.
+
+### Cajas integradas en el stock principal
+- `upsertItemBoxStock` y `deleteItemBoxStock` ahora aceptan `syncMainStock: true` y mueven el delta a `mainStock`. Operaciones de compra y consumo desde caja actualizan ambos.
+- Importaciones masivas (CSV / XLSX) tras tocar cajas dejan el stock principal coherente.
+
+### Lotes y caducidades
+- El editor de artículo incluye una sección **Lotes** con expedición, caducidad explícita opcional y cantidad por lote. La caducidad efectiva se calcula al vuelo con `shelfLifeMonths`.
+- Compra de stock alimenta el editor con un lote por fila de fecha/cantidad y, si el artículo no tenía `expDate` o `expirationDate`, los autocompleta con la primera entrada.
+- El tooltip de lotes en la tabla muestra una fila sintética «Sin lote (resto del stock principal)» **solo si hay al menos un lote explícito**, para que `total mostrado = mainStock`.
+
+### Insight de caducidad con cantidad afectada
+En **Caducidad: vencidos o próximos a vencer** se añadió una columna **Cantidad afectada**: suma de unidades en lotes vencidos + próximos a vencer, con desglose en tooltip.
+
+### Plantilla solo-stock (export / import)
+Dos nuevas acciones en herramientas:
+- **🧾 Exportar plantilla solo-stock** — XLSX con `Codigo`, `Descripcion`, `StockPrincipal` (visible/editable), nada más.
+- **♻ Importar actualización solo-stock** — re-lee ese mismo XLSX y solo actualiza cantidades del stock principal (sin tocar ubicaciones, lotes, ni ningún otro campo del catálogo).
+
+### Visibilidad de equivalencias
+Los símbolos de equivalencia (`≈`) en la tabla de inventario tienen ahora un *badge* con mejor contraste en ambos temas.
+
+### Alineación con futuro `gneex-hosted-api`
+La SPA sigue siendo 100 % offline. El cliente `GneexApiClient` (`js/api-client.js`) reserva la base URL en `localStorage` (`gneex-api-base-url`) y queda listo para que el siguiente paso conecte `POST /api/v1/auth/login`, `GET/PATCH /api/v1/sync` y `POST /api/v1/backup/import` cuando el backend esté listo. Ver **`no-deployar/docs/BACKEND_ALINEACION.md`** y **`gneex-hosted-api/README.md`**.
+
+### Mantenimiento del respaldo madre
+`scripts/repair-backup-users.mjs GNEEX_Backup_Madre.json` reescribe `data["phoenix-users"]` con las plantillas integradas y fusiona movimientos desde `phoenix-movements`, `_rawMovements` y `movements`, deduplicando por `id`. Disparador conversacional: «**Madre mía**» (regla en `.cursor/rules/madre-backup.mdc`).
+
+---
+
+## Documentación
+
+| Recurso | Carpeta | Notas |
+|---|---|---|
+| Manual de usuario (ES/EN/FR) | `user-manual/` y fuente en `no-deployar/User Manual/` | HTML para producción, PDF generado vía `no-deployar/docs/export-user-docs-pdf.ps1` |
+| Presentaciones (ES/EN/FR) | `user-manual/` y `no-deployar/Presentation/` | MD fuente + HTML/PDF derivados |
+| Plan «G-NEEX en línea» | `no-deployar/docs/PLAN_APP_EN_LINEA_CAMINO_A.md` | Camino A (estático + JSON) |
+| Alineación cliente ↔ API | `no-deployar/docs/BACKEND_ALINEACION.md` | Endpoints, hash, plantillas |
+| Despliegue Oracle + Docker | `gneex-hosted-api/docs/DESPLEGUE_ORACLE_DOCKER_ES.md` | Paso a paso |
+| Checklist pre-entrega | `no-deployar/docs/REVISION_PRE_ENTREGA.md` | Modales, permisos finos, exportaciones |
+| Plantillas de permisos | `PlantillasPermisos.xlsx.csv` | Resumen por clave; se mantiene alineado con `Auth._getBuiltinUser()` |
+
+### Regenerar screenshots de manuales / presentaciones
+
+Los `.png` de `app-screenshots/` y `user-manual/app-screenshots/` se capturan con **Playwright** desde el equipo local. Procedimiento esperado:
+
+```powershell
+# 1) Servir la app en una URL fija (mismo origen que usen los usuarios)
+py -m http.server 8765
+# 2) Ejecutar el runner de capturas (script local; pendiente de versionar)
+#    Salida esperada: capture-{es|en|fr}-{login|panel|inventario|movimientos|...}.png
+```
+
+Si no tienes el runner de capturas versionado, las capturas vivas siguen siendo las datadas en mayo de 2026 (anteriores al logo clicable y a la pantalla de bienvenida). Para una próxima entrega oficial, recomiendo:
+1. Levantar `python -m http.server 8765`.
+2. Lanzar el flujo de Playwright con los tres locales y rutas principales.
+3. Reemplazar las imágenes en `app-screenshots/` y sincronizar `user-manual/app-screenshots/` con `no-deployar/docs/sync-user-manual.ps1`.
+
+### Regenerar PDFs de manuales y presentaciones
+
+```powershell
+.\no-deployar\docs\export-user-docs-pdf.ps1
+```
+
+Requiere Pandoc + wkhtmltopdf (o el motor que el script declare) instalados localmente.

@@ -654,6 +654,7 @@ const InventoryManager = {
     const boxId = String(payload?.boxId || `box-${n}-${Utils.generateId().slice(0, 8)}`);
     const idx = this._findBoxIndex(item, boxId);
     const markEmpty = !!payload?.empty;
+    const oldQty = idx >= 0 ? this._parseBoxStockQtyValue(item.boxStocks[idx].qty) : 0;
     const next = {
       boxId,
       boxNumber: n,
@@ -668,25 +669,40 @@ const InventoryManager = {
     else item.boxStocks.push(next);
     item.boxStocks = this._normalizeItemBoxStocks(item).boxStocks;
     this._syncItemLocationFromBox(item, boxId, locLab);
+    /* Mantén `mainStock` como suma efectiva: cuando el llamador edita una caja directamente
+       (Box Manager / importación masiva por caja), `syncMainStock: true` aplica el delta
+       de la caja al stock principal para que el total siga reflejando «todo lo que hay». */
+    if (options?.syncMainStock) {
+      const delta = Utils.roundDecimal(next.qty - oldQty);
+      if (delta !== 0) {
+        item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) + delta);
+      }
+    }
     this.save();
     if (!options?.silent) this.render(this.search(document.getElementById("inventory-search")?.value || ""));
-    return { ok: true, box: next };
+    return { ok: true, box: next, deltaApplied: options?.syncMainStock ? Utils.roundDecimal(next.qty - oldQty) : 0 };
   },
 
-  deleteItemBoxStock(itemId, boxId, force = false) {
+  deleteItemBoxStock(itemId, boxId, force = false, options = {}) {
     const item = this.getItemById(itemId);
     if (!item) return { ok: false, reason: "item-not-found" };
     item.boxStocks = Array.isArray(item.boxStocks) ? item.boxStocks : [];
     const idx = this._findBoxIndex(item, boxId);
     if (idx < 0) return { ok: false, reason: "box-not-found" };
     const b = item.boxStocks[idx];
-    if (!force && this._parseBoxStockQtyValue(b.qty) > 0) return { ok: false, reason: "box-has-stock" };
+    const removedQty = this._parseBoxStockQtyValue(b.qty);
+    if (!force && removedQty > 0) return { ok: false, reason: "box-has-stock" };
     const boxNumber = parseInt(b?.boxNumber, 10);
     item.boxStocks.splice(idx, 1);
     this._removeItemLocationForBox(item, boxNumber);
+    /* Si se borra una caja con unidades y el llamador pide sincronizar, descuenta del principal
+       (coherente con `upsertItemBoxStock({ syncMainStock: true })`). */
+    if (options?.syncMainStock && removedQty > 0) {
+      item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - removedQty);
+    }
     this.save();
     this.render(this.search(document.getElementById("inventory-search")?.value || ""));
-    return { ok: true };
+    return { ok: true, deltaApplied: options?.syncMainStock ? -removedQty : 0 };
   },
 
   consumeFromBoxAndMain(itemId, boxId, qty, options = {}) {
@@ -839,6 +855,440 @@ const InventoryManager = {
       s += this._parseBoxStockQtyValue(b.qty);
     }
     return Utils.roundDecimal(s);
+  },
+
+  /** Suma del stock declarado por ubicación (UbicacionesJson, sin contar cajas). */
+  _sumLocationStockQtyForItem(item) {
+    if (!item) return 0;
+    const rows = this._normalizeItemLocationStocks(item);
+    let s = 0;
+    for (const r of rows) s += parseFloat(r?.qty) || 0;
+    return Utils.roundDecimal(s);
+  },
+
+  /**
+   * Vista previa (sin aplicar) de la reconciliación: lista artículos cuyo
+   * `mainStock` está por debajo de la **suma real** de cajas + ubicaciones.
+   * Incluye el detalle por artículo para mostrarlo en la confirmación.
+   * @returns {{items: Array<{id:string, code:string, description:string, main:number, boxes:number, locs:number, sum:number, delta:number}>, totalDelta:number}}
+   */
+  previewReconcileMainStock() {
+    const out = [];
+    let totalDelta = 0;
+    for (const it of this.items || []) {
+      if (!it || it.inventoryConsumable) continue;
+      const boxes = this._sumBoxStockQtyForItem(it);
+      const locs = this._sumLocationStockQtyForItem(it);
+      const sum = Utils.roundDecimal(boxes + locs);
+      const main = Utils.roundDecimal(parseFloat(it.mainStock) || 0);
+      if (sum > main) {
+        const delta = Utils.roundDecimal(sum - main);
+        out.push({
+          id: it.id,
+          code: it.code || "",
+          description: it.description || "",
+          main,
+          boxes,
+          locs,
+          sum,
+          delta
+        });
+        totalDelta = Utils.roundDecimal(totalDelta + delta);
+      }
+    }
+    return { items: out, totalDelta };
+  },
+
+  /**
+   * Recalcula `mainStock` para cada artículo como **suma de todo lo registrado**
+   * (cajas + filas por ubicación, manteniendo el sobrante no asignado si supera al
+   * total registrado). Pensado para reparar inventarios cuyas cajas / ubicaciones
+   * se editaron sin sincronizar con el total y el principal aparece por debajo
+   * de la suma real. **No reduce** el principal en ningún caso: solo lo lleva al
+   * alza cuando hace falta (porque el principal puede incluir además un sobrante
+   * no asignado a cajas/ubicaciones).
+   * @returns {{changed:number, totalDelta:number, items:Array<object>}}
+   */
+  reconcileMainStockFromContainers() {
+    const preview = this.previewReconcileMainStock();
+    for (const row of preview.items) {
+      const it = this.getItemById(row.id);
+      if (!it) continue;
+      it.mainStock = row.sum;
+    }
+    if (preview.items.length > 0) {
+      this.save();
+      this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    }
+    return { changed: preview.items.length, totalDelta: preview.totalDelta, items: preview.items };
+  },
+
+  /**
+   * Vista previa (sin aplicar) de la normalización al formato de almacenamiento
+   * canónico: detecta artículos cuyo JSON difiere de la salida de
+   * `_normalizeItemForStorage` (ubicación, `locationStocks`, `boxStocks`). Es
+   * el mismo trabajo que se hace al guardar manualmente un artículo desde el
+   * editor, así que sirve para arrastrar al canon a items importados desde
+   * respaldos antiguos cuya ubicación venía en texto libre, en minúsculas, o
+   * con tokens de caja huérfanos que deben eliminarse o promoverse a la
+   * jerarquía `ubicación > BOXn`.
+   *
+   * @returns {{items: Array<{id:string, code:string, description:string, changes:Array<{field:string, from:any, to:any}>}>}}
+   */
+  previewNormalizeStorageDrift() {
+    const out = [];
+    for (const it of this.items || []) {
+      if (!it || typeof it !== "object") continue;
+      const normalized = this._normalizeItemForStorage(it);
+      const changes = [];
+      const stringify = v => JSON.stringify(v ?? null);
+      if (String(it.location || "") !== String(normalized.location || "")) {
+        changes.push({ field: "location", from: it.location || "", to: normalized.location || "" });
+      }
+      if (stringify(it.locationStocks) !== stringify(normalized.locationStocks)) {
+        changes.push({
+          field: "locationStocks",
+          from: Array.isArray(it.locationStocks) ? it.locationStocks.length : 0,
+          to: Array.isArray(normalized.locationStocks) ? normalized.locationStocks.length : 0
+        });
+      }
+      if (stringify(it.boxStocks) !== stringify(normalized.boxStocks)) {
+        changes.push({
+          field: "boxStocks",
+          from: Array.isArray(it.boxStocks) ? it.boxStocks.length : 0,
+          to: Array.isArray(normalized.boxStocks) ? normalized.boxStocks.length : 0
+        });
+      }
+      if (changes.length) {
+        out.push({
+          id: it.id,
+          code: it.code || "",
+          description: it.description || "",
+          changes
+        });
+      }
+    }
+    return { items: out };
+  },
+
+  /**
+   * Aplica la normalización canónica a cada artículo (equivalente a guardarlo
+   * todo desde el editor). Solo escribe cuando hay diferencias reales para no
+   * tocar `updatedAt` innecesariamente ni saturar respaldos posteriores con
+   * cambios fantasma.
+   * @returns {{items:Array<object>}}
+   */
+  normalizeStorageDrift() {
+    const preview = this.previewNormalizeStorageDrift();
+    if (!preview.items.length) return preview;
+    const byId = new Set(preview.items.map(r => String(r.id)));
+    this.items = (this.items || []).map(it => {
+      if (!byId.has(String(it.id))) return it;
+      return this._normalizeItemForStorage(it);
+    });
+    this.save();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return preview;
+  },
+
+  /**
+   * Vista previa (sin aplicar) del refresco de caducidades dinámicas. Identifica
+   * lotes con `lot.date` almacenado **redundante**: aquellos cuya fecha guardada
+   * coincide ya con `expDate + shelfLifeMonths`, o aquellos cuya `lot.date` no
+   * concuerda con la vida útil vigente (lotes legacy donde la vida útil cambió
+   * tras el registro). En ambos casos, eliminar `lot.date` deja que el motor lo
+   * recalcule al vuelo con el `shelfLifeMonths` actual.
+   *
+   * Nota: para evitar pisar caducidades **personalizadas** del envase (típico:
+   * "caducidad escrita a mano distinta a la calculada"), se reporta también la
+   * comparación contra el valor que se obtendría al recalcular: si la persona
+   * usuaria escribió una caducidad que coincide con la calculada, da igual
+   * limpiarla; si es distinta, se considera personalizada y la dejamos intacta.
+   *
+   * @returns {{itemsChanged:number, lotsChanged:number, lotsKept:number, items:Array<{id:string,code:string,description:string,lotIndex:number,storedDate:string,recomputedDate:string,expDate:string}>}}
+   */
+  previewRefreshLotExpiriesFromShelfLife() {
+    const items = [];
+    let itemsChanged = 0;
+    let lotsChanged = 0;
+    let lotsKept = 0;
+    for (const it of this.items || []) {
+      if (!it || it.inventoryConsumable) continue;
+      const months = Math.max(0, parseInt(it.shelfLifeMonths, 10) || 0);
+      if (months <= 0) continue;
+      const arr = Array.isArray(it.expirations) ? it.expirations : [];
+      let touched = false;
+      for (let i = 0; i < arr.length; i++) {
+        const lot = arr[i];
+        const expedition = String(lot?.expDate || "").trim().slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(expedition)) continue;
+        const stored = String(lot?.date || "").trim().slice(0, 10);
+        if (!stored) continue;
+        const recomputed = this.addMonthsToIsoDate(expedition, months) || "";
+        if (stored === recomputed) {
+          /* Redundante: clear no cambia comportamiento, pero migra al formato
+             nuevo (dinámico). Lo aplicamos. */
+          items.push({
+            id: it.id,
+            code: it.code || "",
+            description: it.description || "",
+            lotIndex: i,
+            storedDate: stored,
+            recomputedDate: recomputed,
+            expDate: expedition
+          });
+          touched = true;
+          lotsChanged++;
+        } else {
+          /* `lot.date` distinto a `expDate + vidaUtil`: lo dejamos. Es una
+             caducidad personalizada del envase (o legacy con vida útil cambiada
+             que queremos preservar como referencia). */
+          lotsKept++;
+        }
+      }
+      if (touched) itemsChanged++;
+    }
+    return { itemsChanged, lotsChanged, lotsKept, items };
+  },
+
+  /**
+   * Recalcula la fecha de caducidad por lote a partir de la expedición + vida
+   * útil **actual** del artículo. Limpia `lot.date` solo donde su valor ya
+   * coincide con la fecha computada (es decir, no había información extra) para
+   * que `getLotEffectiveExpiryDate` lo derive al vuelo con el `shelfLifeMonths`
+   * vigente. Caducidades personalizadas del envase (distintas a `expDate + vidaUtil`)
+   * se **preservan**.
+   * @returns {{itemsChanged:number, lotsChanged:number, lotsKept:number, items:object[]}}
+   */
+  refreshLotExpiriesFromShelfLife() {
+    const preview = this.previewRefreshLotExpiriesFromShelfLife();
+    if (!preview.items.length) return preview;
+    /* Aplicamos limpiando `lot.date` solo en las posiciones identificadas por la
+       vista previa, para no tocar nada más. */
+    for (const row of preview.items) {
+      const it = this.getItemById(row.id);
+      const lot = Array.isArray(it?.expirations) ? it.expirations[row.lotIndex] : null;
+      if (!lot) continue;
+      delete lot.date;
+    }
+    this.save();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return preview;
+  },
+
+  /**
+   * Acción combinada **«Actualizar inventario»**: encadena en una sola
+   * confirmación las tres rutinas de mantenimiento:
+   *
+   * 1. **Normalización de almacenamiento** (`normalizeStorageDrift`): para cada
+   *    artículo, re-aplica el mismo paso de saneo que se hace al guardar desde
+   *    el editor. Pone la ubicación en mayúsculas catálogo, promueve tokens
+   *    `BOXn` huérfanos, sincroniza `boxStocks`/`locationStocks` y limpia
+   *    cualquier residuo heredado de respaldos antiguos.
+   * 2. **Reconciliación de stock principal** (`reconcileMainStockFromContainers`):
+   *    eleva `mainStock` a la suma de cajas + ubicaciones cuando esté por debajo.
+   *    Solo sube, nunca baja.
+   * 3. **Migración de caducidades por lote** (`refreshLotExpiriesFromShelfLife`):
+   *    libera `lot.date` solo cuando es redundante con `expDate + vidaUtil`.
+   *    Caducidades personalizadas del envase se preservan.
+   *
+   * Cada rutina genera su propia vista previa y se muestran juntas en una
+   * confirmación común. Si ninguna tiene cambios, un toast informativo.
+   */
+  async runRefreshInventoryDataAction() {
+    if (typeof Auth !== "undefined" && !Auth.guardPerm("editItems")) return;
+    /* Importante: normalizamos PRIMERO para que `reconcileMainStockFromContainers`
+       trabaje sobre `locationStocks` y `boxStocks` ya saneados. Así no se queda
+       fuera ninguna ubicación importada en texto libre que el normalizador
+       acaba de promover al catálogo. */
+    const norm = this.previewNormalizeStorageDrift();
+    const recon = this.previewReconcileMainStock();
+    const lots = this.previewRefreshLotExpiriesFromShelfLife();
+    if (!norm.items.length && !recon.items.length && !lots.items.length) {
+      Utils.showToast(
+        I18n.t("inventory.refreshDataNothing") ||
+          "Nada que actualizar: stock principal, ubicaciones y caducidades de lotes ya están al día.",
+        "info"
+      );
+      return;
+    }
+    /* Detalle por sección para que la persona vea exactamente qué se va a tocar
+       antes de aceptar. Limitado a 5 filas por sección para mantener la
+       confirmación legible. */
+    const normBlock = (() => {
+      if (!norm.items.length) {
+        return `• ${I18n.t("inventory.refreshDataNormalizeSkip") || "Ubicaciones / cajas: ya están normalizadas."}`;
+      }
+      const sample = norm.items
+        .slice(0, 5)
+        .map(r => {
+          const fields = r.changes.map(c => c.field).join(", ");
+          return `   ${r.code} — ${fields}`;
+        })
+        .join("\n");
+      const extra = norm.items.length > 5 ? `\n   …y ${norm.items.length - 5} más` : "";
+      const head = (I18n.t("inventory.refreshDataNormalizeHead") ||
+        "• Ubicaciones / cajas: {n} artículo(s) se normalizarán al formato canónico (texto → catálogo)")
+        .replace("{n}", String(norm.items.length));
+      return `${head}\n${sample}${extra}`;
+    })();
+    const reconBlock = (() => {
+      if (!recon.items.length) {
+        return `• ${I18n.t("inventory.refreshDataReconcileSkip") || "Stock principal: ya cuadra con cajas + ubicaciones."}`;
+      }
+      const sample = recon.items
+        .slice(0, 5)
+        .map(r => {
+          const pieces = [];
+          if (r.boxes > 0) pieces.push(`cajas: ${Utils.formatDecimalDisplay(r.boxes)}`);
+          if (r.locs > 0) pieces.push(`ubicaciones: ${Utils.formatDecimalDisplay(r.locs)}`);
+          const breakdown = pieces.join(" + ") || "—";
+          return `   ${r.code} — ${Utils.formatDecimalDisplay(r.main)} → ${Utils.formatDecimalDisplay(r.sum)} (${breakdown})`;
+        })
+        .join("\n");
+      const extra = recon.items.length > 5 ? `\n   …y ${recon.items.length - 5} más` : "";
+      const head = (I18n.t("inventory.refreshDataReconcileHead") ||
+        "• Stock principal: {n} artículo(s), Δ total = +{d}")
+        .replace("{n}", String(recon.items.length))
+        .replace("{d}", Utils.formatDecimalDisplay(recon.totalDelta));
+      return `${head}\n${sample}${extra}`;
+    })();
+    const lotsBlock = (() => {
+      if (!lots.items.length) {
+        return `• ${I18n.t("inventory.refreshDataLotsSkip") || "Caducidades de lotes: ya están al día."}`;
+      }
+      const sample = lots.items
+        .slice(0, 5)
+        .map(r => `   ${r.code} — lote exp. ${r.expDate}`)
+        .join("\n");
+      const extra = lots.items.length > 5 ? `\n   …y ${lots.items.length - 5} más` : "";
+      const head = (I18n.t("inventory.refreshDataLotsHead") ||
+        "• Caducidades de lotes: {l} lote(s) en {n} artículo(s) pasarán al cálculo dinámico (vida útil vigente)")
+        .replace("{l}", String(lots.lotsChanged))
+        .replace("{n}", String(lots.itemsChanged));
+      const keepNote = lots.lotsKept > 0
+        ? `\n   (${(I18n.t("inventory.refreshDataLotsKept") ||
+            "{k} lote(s) con caducidad personalizada se preservan").replace("{k}", String(lots.lotsKept))})`
+        : "";
+      return `${head}\n${sample}${extra}${keepNote}`;
+    })();
+    const head = I18n.t("inventory.refreshDataConfirmHead") ||
+      "Se actualizará el inventario con tres pasadas de mantenimiento:";
+    const tail = I18n.t("inventory.refreshDataConfirmTail") ||
+      "\n\nNo se reducirá ningún stock principal y las caducidades personalizadas se conservan. ¿Continuar?";
+    const prompt = `${head}\n\n${normBlock}\n\n${reconBlock}\n\n${lotsBlock}${tail}`;
+    const apply = () => {
+      /* Orden estricto: 1) normalizar 2) reconciliar 3) caducidades. Cambiar el
+         orden puede dejar la reconciliación leyendo un `locationStocks` aún
+         sin normalizar y subir el principal por debajo de lo debido. */
+      const resNorm = this.normalizeStorageDrift();
+      const resRecon = this.reconcileMainStockFromContainers();
+      const resLots = this.refreshLotExpiriesFromShelfLife();
+      const msg = (I18n.t("inventory.refreshDataDone") ||
+        "Actualización aplicada. Normalizados: {p} artículo(s). Stock principal: {n} artículo(s) Δ=+{d}. Caducidades de lotes: {l} lote(s) en {m} artículo(s).")
+        .replace("{p}", String(resNorm.items.length))
+        .replace("{n}", String(resRecon.changed))
+        .replace("{d}", Utils.formatDecimalDisplay(resRecon.totalDelta))
+        .replace("{l}", String(resLots.lotsChanged))
+        .replace("{m}", String(resLots.itemsChanged));
+      const ok = resNorm.items.length > 0 || resRecon.changed > 0 || resLots.lotsChanged > 0;
+      Utils.showToast(msg, ok ? "success" : "info");
+      if (typeof window !== "undefined") {
+        window.__gneexLastNormalizeReport = resNorm;
+        window.__gneexLastReconcileReport = resRecon;
+        window.__gneexLastRefreshLotsReport = resLots;
+      }
+    };
+    if (typeof App !== "undefined" && App.showConfirm) {
+      App.showConfirm(prompt, apply);
+    } else if (window.confirm(prompt)) {
+      apply();
+    }
+  },
+
+  /** @deprecated Mantener por compatibilidad con automatizaciones externas; ahora unificado en `runRefreshInventoryDataAction`. */
+  async runReconcileMainStockAction() {
+    return this.runRefreshInventoryDataAction();
+  },
+
+  /** @deprecated Mantener por compatibilidad con automatizaciones externas; ahora unificado en `runRefreshInventoryDataAction`. */
+  async runRefreshLotExpiriesAction() {
+    return this.runRefreshInventoryDataAction();
+  },
+
+  /**
+   * Convierte el logo de la cabecera en el atajo rápido para «Actualizar
+   * inventario» (normalizar + reconciliar stock + caducidades de lotes).
+   *
+   * Decisiones de diseño:
+   * - **Idempotente**: si el logo ya está cableado lo detectamos con un flag
+   *   en el dataset y no duplicamos listeners (importante porque
+   *   `setupEventListeners` se llama en `init()` y podría re-ejecutarse tras
+   *   re-render del header tras cambio de tema/locale en el futuro).
+   * - **Permiso**: la propia acción interna ejecuta `Auth.guardPerm("editItems")`
+   *   y muestra toast denegando si procede. Aquí no bloqueamos el clic para
+   *   que el feedback (toast de denegación) llegue al usuario en lugar de
+   *   silenciar el botón.
+   * - **Spin antihorario**: añadimos la clase `is-spinning` (CSS keyframes
+   *   `gneex-logo-spin-ccw`) y la quitamos en `animationend`. Mantenemos un
+   *   timeout de seguridad por si el evento no llega (DevTools/iframe).
+   * - **Anti-doble-clic**: durante el giro ignoramos clics adicionales para
+   *   no encadenar varias confirmaciones del modal.
+   * - **Accesibilidad**: respondemos también a Enter / Espacio porque al
+   *   ser un `<img role="button" tabindex="0">` no recibe activación nativa.
+   */
+  setupLogoRefreshTrigger() {
+    if (typeof document === "undefined") return;
+    const logo = document.getElementById("app-logo-refresh");
+    if (!logo) return;
+    if (logo.dataset.gneexLogoRefreshWired === "1") return;
+    logo.dataset.gneexLogoRefreshWired = "1";
+
+    const SPIN_MS = 900;
+    let spinning = false;
+    let safetyTimer = null;
+
+    const stopSpin = () => {
+      spinning = false;
+      logo.classList.remove("is-spinning");
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+    };
+
+    const startSpinAndRun = () => {
+      if (spinning) return;
+      spinning = true;
+      logo.classList.remove("is-spinning");
+      /* Forzamos un reflow para reiniciar la animación si el usuario clica
+         repetidamente tras `animationend`. Sin esto, la segunda animación no
+         se reproduciría en algunos navegadores. */
+      void logo.offsetWidth;
+      logo.classList.add("is-spinning");
+      safetyTimer = setTimeout(stopSpin, SPIN_MS + 200);
+      try {
+        this.runRefreshInventoryDataAction();
+      } catch (err) {
+        console.error("❌ Logo refresh trigger failed:", err);
+        stopSpin();
+      }
+    };
+
+    logo.addEventListener("animationend", e => {
+      if (e.animationName === "gneex-logo-spin-ccw") stopSpin();
+    });
+
+    logo.addEventListener("click", e => {
+      e.preventDefault();
+      startSpinAndRun();
+    });
+
+    logo.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+      e.preventDefault();
+      startSpinAndRun();
+    });
   },
 
   /**
@@ -1624,10 +2074,50 @@ const InventoryManager = {
     };
   },
 
-  /** Lotes reales o fila única «artículo» para la misma vista. */
+  /**
+   * Fila «sintética» con el remanente de stock principal que **no está asignado**
+   * a ningún lote (mainStock − Σ qty lotes con qty > 0). Aparece cuando hay
+   * lotes reales pero la suma no cubre el stock principal: así el tooltip y la
+   * vista rápida reflejan también las unidades sin caducidad declarada (ej.
+   * stock de 55 con un lote de 30 → se añade una fila "Sin lote" de 25).
+   */
+  getUnassignedStockLotProxyRow(item) {
+    if (!item || item.inventoryConsumable) return null;
+    const main = Utils.roundDecimal(parseFloat(item.mainStock) || 0);
+    if (main <= 0) return null;
+    const lots = Array.isArray(item.expirations) ? item.expirations : [];
+    let lotted = 0;
+    for (const l of lots) {
+      const q = Utils.roundDecimal(parseFloat(l?.qty) || 0);
+      if (q > 0) lotted = Utils.roundDecimal(lotted + q);
+    }
+    /* Tolerancia decimal: nada que reportar si los lotes ya cubren (o exceden) el principal. */
+    const remainder = Utils.roundDecimal(main - lotted);
+    if (remainder <= 1e-9) return null;
+    return {
+      kind: "unassigned",
+      expeditionDate: "",
+      expiryDate: "",
+      qty: remainder,
+      days: null,
+      status: "unknown"
+    };
+  },
+
+  /**
+   * Lotes reales (con su orden FEFO) y, **solo si ya existe al menos un lote
+   * con caducidad declarada**, una fila sintética «Sin lote» con el remanente
+   * del stock principal. Si el artículo no tiene lotes, devuelve la fila
+   * «Nivel artículo» (con su caducidad propia) cuando aplica, pero **no** se
+   * pinta el remanente en este caso: para artículos sin caducidad no queremos
+   * mostrar «Sin lote» en el tooltip por defecto.
+   */
   getUnifiedLotRowsForDisplay(item) {
     const lots = this.getExpirationLotsBreakdown(item);
-    if (lots.length) return lots;
+    if (lots.length) {
+      const remainder = this.getUnassignedStockLotProxyRow(item);
+      return remainder ? [...lots, remainder] : lots;
+    }
     const proxy = this.getArticleOnlyLotProxyRow(item);
     return proxy ? [proxy] : [];
   },
@@ -1682,11 +2172,18 @@ const InventoryManager = {
       const expd = r.expeditionDate ? Utils.formatDate(r.expeditionDate) : "—";
       const st = this._lotStatusLabel(r.status);
       const dy = this._lotDaysLabel(r.days, r.status);
-      const lab = r.kind === "article" ? I18n.t("inventory.lotRowArticleLevel") : I18n.t("inventory.lotRowLotLevel");
+      const lab = this._lotRowKindLabel(r.kind);
       return `${lab}: ${fmt(r.qty)} · ${I18n.t("inventory.lotTooltipExpiry")} ${expL} · ${I18n.t("inventory.lotTooltipExped")} ${expd} · ${dy} · ${st}`;
     });
     const title = Utils.escapeAttr(tipLines.join("\n"));
     return `<td class="inv-lots-cell" title="${title}"><span class="inv-lots-pills">${pillParts.join("")}</span></td>`;
+  },
+
+  /** Etiqueta «Origen» para cada tipo de fila de la tabla/tooltip de lotes. */
+  _lotRowKindLabel(kind) {
+    if (kind === "article") return I18n.t("inventory.lotRowArticleLevel");
+    if (kind === "unassigned") return I18n.t("inventory.lotRowUnassigned") || "Sin lote";
+    return I18n.t("inventory.lotRowLotLevel");
   },
 
   _renderQuickViewLotsTable(item) {
@@ -1704,10 +2201,7 @@ const InventoryManager = {
               : r.status === "ok"
                 ? "inv-lots-tr--ok"
                 : "inv-lots-tr--unknown";
-        const kindLab =
-          r.kind === "article"
-            ? `<span class="inv-lots-kind">${this.esc(I18n.t("inventory.lotRowArticleLevel"))}</span>`
-            : `<span class="inv-lots-kind">${this.esc(I18n.t("inventory.lotRowLotLevel"))}</span>`;
+        const kindLab = `<span class="inv-lots-kind inv-lots-kind--${r.kind || "lot"}">${this.esc(this._lotRowKindLabel(r.kind))}</span>`;
         return `<tr class="${cls}">
           <td>${kindLab}</td>
           <td>${this.esc(fmt(r.qty))}</td>
@@ -1770,6 +2264,55 @@ const InventoryManager = {
   getEffectiveExpirationDate(item) {
     if (!item || !this.itemTracksExpiration(item)) return null;
     return this.getEffectiveExpirationDateForDisplay(item);
+  },
+
+  /**
+   * Desglose de unidades afectadas por caducidad: cuánto stock está **vencido**
+   * y cuánto **próximo a vencer** dentro del umbral configurado (`expAlertDays`).
+   *
+   * Reglas:
+   * - Si hay lotes reales (`item.expirations` con `qty > 0`), suma la cantidad
+   *   de cada lote según su estado individual (FEFO ya respeta cada caducidad).
+   *   El resto del stock principal (cajas/ubicaciones sin lote, o stock libre)
+   *   no se cuenta como afectado porque no tiene caducidad declarada.
+   * - Si no hay lotes pero sí caducidad a nivel artículo (campo `expirationDate`
+   *   o `expDate + shelfLifeMonths`), todo el `mainStock` se atribuye al estado
+   *   resultante (vencido o próximo).
+   * - Para artículos sin caducidad alguna, devuelve ceros.
+   *
+   * @returns {{expired:number, soon:number, total:number, lotsCount:number}}
+   */
+  getExpirationAffectedBreakdown(item) {
+    const empty = { expired: 0, soon: 0, total: 0, lotsCount: 0 };
+    if (!item || item.inventoryConsumable) return empty;
+    const alertDays = Math.max(1, parseInt(this.expAlertDays, 10) || 30);
+    const lots = this.getExpirationLotsBreakdown(item);
+    if (lots.length > 0) {
+      let exp = 0, soon = 0, n = 0;
+      for (const r of lots) {
+        if (r.status === "expired") {
+          exp = Utils.roundDecimal(exp + (parseFloat(r.qty) || 0));
+          n++;
+        } else if (r.status === "soon") {
+          soon = Utils.roundDecimal(soon + (parseFloat(r.qty) || 0));
+          n++;
+        }
+      }
+      return {
+        expired: Utils.roundDecimal(exp),
+        soon: Utils.roundDecimal(soon),
+        total: Utils.roundDecimal(exp + soon),
+        lotsCount: n
+      };
+    }
+    const eff = this.getEffectiveExpirationDateForDisplay(item);
+    if (!eff) return empty;
+    const days = this.daysTo(eff);
+    const qty = Utils.roundDecimal(parseFloat(item.mainStock) || 0);
+    if (qty <= 0) return empty;
+    if (days < 0) return { expired: qty, soon: 0, total: qty, lotsCount: 1 };
+    if (days <= alertDays) return { expired: 0, soon: qty, total: qty, lotsCount: 1 };
+    return empty;
   },
 
   getExpirationInsight(item) {
@@ -2256,32 +2799,75 @@ const InventoryManager = {
 
   /**
    * COMPRA hacia principal: acumula cantidad por fecha de caducidad / expedición de lote.
+   *
+   * Reglas de almacenamiento (fix vida-útil 2026-05):
+   * - Si el usuario fija explícitamente la fecha de caducidad → se guarda en `lot.date`.
+   * - Si solo da la fecha de expedición → **no** se precalcula `lot.date` a partir
+   *   de la vida útil del artículo: se almacena solo `lot.expDate` y la caducidad
+   *   efectiva se computa al vuelo en `getLotEffectiveExpiryDate` con el valor
+   *   actual de `item.shelfLifeMonths`. Así, si más adelante el usuario corrige
+   *   la vida útil (p. ej. de 1 a 18 meses), los lotes existentes reflejan
+   *   automáticamente la nueva caducidad.
    */
   mergeCompraLotIntoExpirations(itemId, quantity, lotMeta) {
     const item = this.getItemById(itemId);
     if (!item || item.inventoryConsumable) return;
     const q = Utils.roundDecimal(Math.abs(parseFloat(quantity) || 0));
     if (q <= 0) return;
-    let expiryDate = String((lotMeta && lotMeta.expiryDate) || "").trim().slice(0, 10);
+    const explicitExpiry = String((lotMeta && lotMeta.expiryDate) || "").trim().slice(0, 10);
     const expStr = String((lotMeta && lotMeta.expDate) || "").trim().slice(0, 10);
     const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) && /^\d{4}-\d{2}-\d{2}$/.test(expStr) && months > 0) {
-      expiryDate = this.addMonthsToIsoDate(expStr, months) || "";
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) return;
+    const hasExplicitExpiry = /^\d{4}-\d{2}-\d{2}$/.test(explicitExpiry);
+    const hasExpedition = /^\d{4}-\d{2}-\d{2}$/.test(expStr);
+    /* Sin caducidad explícita ni base (expedición + vida útil) no hay nada que registrar. */
+    if (!hasExplicitExpiry && !(hasExpedition && months > 0)) return;
     const arr = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
-    const k = `${expiryDate}|${expStr}`;
-    const idx = arr.findIndex(
+    /* Clave estable: usa la expiración explícita si existe; si no, solo la expedición
+       (para que cambios futuros de vida útil no creen duplicados). */
+    const storedDate = hasExplicitExpiry ? explicitExpiry : "";
+    const k = `${storedDate}|${expStr}`;
+    let idx = arr.findIndex(
       l => `${String(l.date || "").slice(0, 10)}|${String(l.expDate || "").slice(0, 10)}` === k
     );
+    /* Backwards-compat: lotes anteriores podían guardar `lot.date` precalculado
+       con la vida útil de entonces; intentamos identificarlos por la expedición
+       coincidente para acumular en la misma fila en vez de duplicar. */
+    if (idx < 0 && !hasExplicitExpiry && hasExpedition) {
+      idx = arr.findIndex(l => {
+        const sameExp = String(l.expDate || "").slice(0, 10) === expStr;
+        const noExplicitDate = !String(l.date || "").trim();
+        return sameExp && noExplicitDate;
+      });
+    }
     if (idx >= 0) {
       arr[idx].qty = Utils.roundDecimal((parseFloat(arr[idx].qty) || 0) + q);
+      /* Si encontramos un legacy con `date` precalculado y ahora el usuario no fija
+         caducidad explícita, lo migramos a la nueva forma (sin `date`) para que se
+         recalcule dinámicamente con la vida útil vigente. */
+      if (!hasExplicitExpiry && String(arr[idx].date || "").trim()) {
+        delete arr[idx].date;
+      }
     } else {
-      const row = { date: expiryDate, qty: q };
-      if (/^\d{4}-\d{2}-\d{2}$/.test(expStr)) row.expDate = expStr;
+      const row = { qty: q };
+      if (storedDate) row.date = storedDate;
+      if (hasExpedition) row.expDate = expStr;
       arr.push(row);
     }
-    this.updateItem(itemId, { expirations: arr, tracksExpiration: true });
+    /* Reflejamos las fechas del lote también a nivel artículo SOLO cuando el
+       campo correspondiente está vacío. Sirve como referencia rápida en la
+       tabla de inventario sin pisar lo que la persona ya escribió a mano. La
+       fuente de verdad para múltiples fechas sigue siendo `item.expirations`. */
+    const patch = { expirations: arr, tracksExpiration: true };
+    if (hasExpedition && !String(item.expDate || "").trim()) {
+      patch.expDate = expStr;
+    }
+    if (hasExplicitExpiry && !String(item.expirationDate || "").trim()) {
+      patch.expirationDate = explicitExpiry;
+    } else if (!hasExplicitExpiry && hasExpedition && months > 0 && !String(item.expirationDate || "").trim()) {
+      const computed = this.addMonthsToIsoDate(expStr, months);
+      if (computed) patch.expirationDate = computed;
+    }
+    this.updateItem(itemId, patch);
   },
 
   /** Anula merge de lote en COMPRA (principal). */
@@ -2290,18 +2876,24 @@ const InventoryManager = {
     if (!item || item.inventoryConsumable) return;
     const q = Utils.roundDecimal(Math.abs(parseFloat(quantity) || 0));
     if (q <= 0) return;
-    let expiryDate = String(line.compraLotExpiry || "").trim().slice(0, 10);
+    const explicitExpiry = String(line.compraLotExpiry || "").trim().slice(0, 10);
     const expStr = String(line.compraLotExpedition || "").trim().slice(0, 10);
     const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) && /^\d{4}-\d{2}-\d{2}$/.test(expStr) && months > 0) {
-      expiryDate = this.addMonthsToIsoDate(expStr, months) || "";
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) return;
+    const hasExplicitExpiry = /^\d{4}-\d{2}-\d{2}$/.test(explicitExpiry);
+    const hasExpedition = /^\d{4}-\d{2}-\d{2}$/.test(expStr);
+    if (!hasExplicitExpiry && !(hasExpedition && months > 0)) return;
     const arr = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
-    const k = `${expiryDate}|${expStr}`;
-    const idx = arr.findIndex(
-      l => `${String(l.date || "").slice(0, 10)}|${String(l.expDate || "").slice(0, 10)}` === k
+    const storedDate = hasExplicitExpiry ? explicitExpiry : "";
+    const k1 = `${storedDate}|${expStr}`;
+    let idx = arr.findIndex(
+      l => `${String(l.date || "").slice(0, 10)}|${String(l.expDate || "").slice(0, 10)}` === k1
     );
+    /* Fallback legacy: si el lote se guardó con `date` precalculado, intenta encontrarlo
+       sin tener que adivinar los meses originales: cualquier fila con la misma expedición
+       y sin caducidad explícita en la línea es elegible. */
+    if (idx < 0 && !hasExplicitExpiry && hasExpedition) {
+      idx = arr.findIndex(l => String(l.expDate || "").slice(0, 10) === expStr);
+    }
     if (idx < 0) return;
     arr[idx].qty = Utils.roundDecimal((parseFloat(arr[idx].qty) || 0) - q);
     if ((parseFloat(arr[idx].qty) || 0) <= 1e-9) arr.splice(idx, 1);
@@ -2817,7 +3409,7 @@ const InventoryManager = {
     const showDate = d => (d && /^\d{4}-\d{2}-\d{2}$/.test(String(d).slice(0, 10)) ? Utils.formatDate(String(d).slice(0, 10)) : "—");
     const bodyRows = rows
       .map(r => {
-        const kind = r.kind === "article" ? I18n.t("inventory.lotRowArticleLevel") : I18n.t("inventory.lotRowLotLevel");
+        const kind = this._lotRowKindLabel(r.kind);
         return `<tr>
           <td>${this.esc(kind)}</td>
           <td>${this.esc(fmt(r.qty))}</td>
@@ -2866,7 +3458,7 @@ const InventoryManager = {
     const out = rows.map(r => ({
       [headers[0]]: item.code || "",
       [headers[1]]: item.description || "",
-      [headers[2]]: r.kind === "article" ? I18n.t("inventory.lotRowArticleLevel") : I18n.t("inventory.lotRowLotLevel"),
+      [headers[2]]: this._lotRowKindLabel(r.kind),
       [headers[3]]: Utils.formatDecimalDisplay(r.qty),
       [headers[4]]: showDate(r.expeditionDate),
       [headers[5]]: showDate(r.expiryDate),
@@ -3758,6 +4350,196 @@ const InventoryManager = {
       title: I18n.t("export.manifest.inventoryCurrentView"),
       details
     });
+  },
+
+  /**
+   * Exporta una plantilla XLSX **minimalista** (solo-stock) con las columnas
+   * imprescindibles para actualizar cantidades por código: incluye una fila por
+   * artículo del inventario actual. El usuario edita las celdas de stock y la
+   * vuelve a importar con `importInventoryStockUpdate` para refrescar valores
+   * sin modificar nada más (descripciones, ubicaciones, lotes, cajas, etc.).
+   */
+  async exportInventoryStockUpdateTemplate() {
+    if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return;
+    const items = Array.isArray(this.items) ? this.items : [];
+    if (!items.length) {
+      Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
+      return;
+    }
+    const codeLab = I18n.t("table.code");
+    const descLab = I18n.t("table.description");
+    const mainLab = I18n.t("table.mainStock");
+    const prodLab = I18n.t("table.prodStock");
+    const transLab = I18n.t("table.transStock");
+    const minLab = I18n.t("inventory.exportCol.minStock") || "Stock mínimo";
+    const maxLab = I18n.t("inventory.exportCol.maxStock") || "Stock máximo";
+    const notesLab = I18n.t("inventory.stockUpdateNotesCol") || "Notas (opcional)";
+    const headers = [codeLab, descLab, mainLab, prodLab, transLab, minLab, maxLab, notesLab];
+    const rows = items
+      .filter(it => it && (it.code || "").trim() !== "")
+      .map(it => ({
+        [codeLab]: it.code || "",
+        [descLab]: it.description || "",
+        [mainLab]: Utils.roundDecimal(parseFloat(it.mainStock) || 0),
+        [prodLab]: Utils.roundDecimal(parseFloat(it.prodStock) || 0),
+        [transLab]: Utils.roundDecimal(parseFloat(it.transStock) || 0),
+        [minLab]: Utils.roundDecimal(parseFloat(it.minStock) || 0),
+        [maxLab]: Utils.roundDecimal(parseFloat(it.maxStock) || 0),
+        [notesLab]: ""
+      }));
+    const filename = `GNEEX_Inventario_Solo_Stock_${this._fileStamp()}.xlsx`;
+    await Utils.exportStyledXlsxToInformFolder(filename, headers, rows, {
+      kind: "inventory_stock_update_template",
+      title: I18n.t("export.manifest.inventoryStockUpdateTemplate") || "Plantilla XLSX — solo stock (actualización)",
+      details: [
+        `${I18n.t("export.manifest.rows") || "Filas"}: ${rows.length}`,
+        I18n.t("inventory.stockUpdateTemplateHint") ||
+          "Edite los valores de stock y vuelva a importar. Solo se actualizan cantidades; descripción, lotes, cajas y ubicaciones no se tocan."
+      ]
+    });
+  },
+
+  /**
+   * Importa una plantilla solo-stock: empareja por código y aplica únicamente
+   * los campos numéricos de stock (principal, producción, transformación,
+   * mínimo, máximo). No crea artículos nuevos, no toca cajas, lotes, ubicaciones
+   * ni metadatos. Si una cantidad viene vacía/no numérica, se omite ese campo.
+   */
+  importInventoryStockUpdate(file) {
+    if (!file) return;
+    Utils.importDataCSV(
+      file,
+      "__tmp_stock_update__",
+      parsed => {
+        try {
+          localStorage.removeItem("__tmp_stock_update__");
+        } catch (e) {}
+        const rows = Array.isArray(parsed) ? parsed : [];
+        if (!rows.length) {
+          Utils.showToast(I18n.t("msg.noDataToExport"), "warning");
+          return;
+        }
+        const byCode = new Map();
+        for (const it of this.items || []) {
+          const k = this._normalizeImportCodeValue(it.code);
+          if (k) byCode.set(k, it);
+        }
+        const codeAliases = [
+          "Codigo", "Código", "CODE", "Code", "CODIGO", "SKU", "Articulo",
+          "Artículo", "Item", "Article", "Référence", "Reference", "Referencia", "Ref"
+        ];
+        const mainAliases = [
+          "StockPrincipal", "Stock Principal", "Stock principal", "MainStock",
+          "Main Stock", "Stock Main", I18n.t("table.mainStock")
+        ];
+        const prodAliases = [
+          "StockProduccion", "Stock Produccion", "Stock Producción",
+          "ProductionStock", "Production Stock", I18n.t("table.prodStock")
+        ];
+        const transAliases = [
+          "StockTransformacion", "Stock Transformacion", "Stock Transformación",
+          "TransformationStock", "StockTransformation", I18n.t("table.transStock")
+        ];
+        const minAliases = [
+          "StockMinimo", "Stock Mínimo", "Stock mínimo", "MinimumStock",
+          I18n.t("inventory.exportCol.minStock") || ""
+        ].filter(Boolean);
+        const maxAliases = [
+          "StockMaximo", "Stock Máximo", "Stock máximo", "MaximumStock",
+          I18n.t("inventory.exportCol.maxStock") || ""
+        ].filter(Boolean);
+        let applied = 0;
+        let skipped = 0;
+        const skippedRows = [];
+        const touchedItems = [];
+        const prevMap = {};
+        const readNum = raw => {
+          if (raw === null || raw === undefined || String(raw).trim() === "") return null;
+          const n = parseFloat(String(raw).replace(",", "."));
+          return Number.isFinite(n) ? Utils.roundDecimal(n) : null;
+        };
+        for (const r of rows) {
+          if (!r || typeof r !== "object") continue;
+          const codeRaw = this._firstCsvField(r, codeAliases) || r.Codigo || r.code || "";
+          const codeKey = this._normalizeImportCodeValue(codeRaw);
+          if (!codeKey) {
+            skipped++;
+            skippedRows.push({ reason: "no-code", raw: r });
+            continue;
+          }
+          const it = byCode.get(codeKey);
+          if (!it) {
+            skipped++;
+            skippedRows.push({ reason: "code-not-found", code: codeRaw });
+            continue;
+          }
+          const patch = {};
+          const main = readNum(this._firstCsvField(r, mainAliases));
+          if (main !== null) patch.mainStock = main;
+          const prod = readNum(this._firstCsvField(r, prodAliases));
+          if (prod !== null) patch.prodStock = prod;
+          const trans = readNum(this._firstCsvField(r, transAliases));
+          if (trans !== null) patch.transStock = trans;
+          const mn = readNum(this._firstCsvField(r, minAliases));
+          if (mn !== null) patch.minStock = mn;
+          const mx = readNum(this._firstCsvField(r, maxAliases));
+          if (mx !== null) patch.maxStock = mx;
+          if (!Object.keys(patch).length) {
+            skipped++;
+            skippedRows.push({ reason: "no-numeric-value", code: codeRaw });
+            continue;
+          }
+          if (!prevMap[it.id]) {
+            prevMap[it.id] = {
+              main: parseFloat(it.mainStock) || 0,
+              prod: parseFloat(it.prodStock) || 0,
+              trans: parseFloat(it.transStock) || 0
+            };
+            touchedItems.push(it);
+          }
+          Object.assign(it, patch);
+          applied++;
+        }
+        if (applied > 0) {
+          this.save();
+          /* Registra los cambios como AJUSTE para que el historial refleje quién y
+             cuándo actualizó las cantidades vía plantilla solo-stock. */
+          if (
+            typeof MovementManager !== "undefined" &&
+            MovementManager.recordAjusteInventoryCsvImportBatch
+          ) {
+            try {
+              MovementManager.recordAjusteInventoryCsvImportBatch({
+                prevMap,
+                items: touchedItems,
+                notes:
+                  I18n.t("movements.stockUpdateImportNote") ||
+                  "Actualización vía plantilla solo-stock"
+              });
+            } catch (e) {
+              console.warn("Stock-only update: ajuste audit failed", e);
+            }
+          }
+          this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+        }
+        const summary =
+          (I18n.t("inventory.stockUpdateApplied") || "Stock actualizado en {n} artículos.").replace(
+            "{n}",
+            String(applied)
+          ) +
+          (skipped
+            ? ` · ${(I18n.t("inventory.stockUpdateSkipped") || "Filas omitidas: {n}").replace(
+                "{n}",
+                String(skipped)
+              )}`
+            : "");
+        Utils.showToast(summary, skipped && !applied ? "warning" : "success");
+        if (typeof window !== "undefined") {
+          window.__gneexLastStockUpdateReport = { summary, applied, skipped, skippedRows };
+        }
+      },
+      { silentToast: true }
+    );
   },
 
   async exportInventoryImportTemplateCsv() {
@@ -4754,15 +5536,19 @@ const InventoryManager = {
     const notes = document.getElementById("inventory-box-notes")?.value || "";
     const empty = !!document.getElementById("inventory-box-mark-empty")?.checked;
     const res = itemId
-      ? this.upsertItemBoxStock(itemId, {
-          boxId: this._boxMgrEditBoxId || undefined,
-          boxNumber,
-          qty,
-          qtyBoxes,
-          empty,
-          locationLabel,
-          notes
-        })
+      ? this.upsertItemBoxStock(
+          itemId,
+          {
+            boxId: this._boxMgrEditBoxId || undefined,
+            boxNumber,
+            qty,
+            qtyBoxes,
+            empty,
+            locationLabel,
+            notes
+          },
+          { syncMainStock: true }
+        )
       : this.upsertStandaloneBox({
           boxNumber,
           locationLabel,
@@ -5457,7 +6243,7 @@ const InventoryManager = {
         const res = this.upsertItemBoxStock(
           item.id,
           { boxId, boxNumber, qty, qtyBoxes, locationLabel, empty: !!empty },
-          { silent: true }
+          { silent: true, syncMainStock: true }
         );
         if (res.ok) applied++;
         else {
@@ -6496,6 +7282,10 @@ const InventoryManager = {
     const canToggleLowIgnore = typeof Auth === "undefined" || Auth.hasPerm?.("editItems");
     const showLowIgnore = kind === "low";
     const showBuyAction = kind === "low";
+    /* Solo el insight de caducidad gana una columna extra con el desglose de
+       unidades afectadas (vencidas + próximas). En el resto de paneles seguiría
+       siendo ruido — el dato no aplica. */
+    const showAffectedQty = kind === "expiration";
     const rows = items
       .map(it => {
         const tot = this.itemTotalStock(it);
@@ -6527,6 +7317,26 @@ const InventoryManager = {
               I18n.t("inventory.addPurchaseFromRow").replace("{code}", String(it.code || ""))
             )}">🛒</button></td>`
           : "";
+        let affectedCell = "";
+        if (showAffectedQty) {
+          const a = this.getExpirationAffectedBreakdown(it);
+          const parts = [];
+          if (a.expired > 0) {
+            parts.push(
+              `<span class="inv-lot-pill inv-lot-pill--expired" title="${Utils.escapeAttr(I18n.t("inventory.affectedExpiredTooltip") || "Unidades vencidas")}">${this.esc(fmt(a.expired))}</span>`
+            );
+          }
+          if (a.soon > 0) {
+            parts.push(
+              `<span class="inv-lot-pill inv-lot-pill--soon" title="${Utils.escapeAttr(I18n.t("inventory.affectedSoonTooltip") || "Unidades próximas a vencer")}">${this.esc(fmt(a.soon))}</span>`
+            );
+          }
+          const totLabel = a.total > 0 ? this.esc(fmt(a.total)) : "—";
+          const detail = parts.length
+            ? `<span class="inv-affected-detail">${parts.join("")}</span>`
+            : "";
+          affectedCell = `<td class="inv-affected-cell"><strong>${totLabel}</strong>${detail}</td>`;
+        }
         return `<tr${rowClass}${rowAttrs}>
           ${lowIgnoreCell}
           ${buyActionCell}
@@ -6536,6 +7346,7 @@ const InventoryManager = {
           <td>${this._formatPriceDisplay(it.defaultPrice ?? 0, it.priceCurrency)}</td>
           <td>${fmt(it.mainStock ?? 0)}</td>
           <td>${fmt(tot)}</td>
+          ${affectedCell}
           <td>${minS}</td>
           <td>${maxS}</td>
           <td>${it.expDate ? Utils.formatDate(it.expDate) : "—"}</td>
@@ -6558,6 +7369,7 @@ const InventoryManager = {
             ${th("table.defaultPrice")}
             ${th("table.mainStock")}
             ${th("inventory.colTotal")}
+            ${showAffectedQty ? th("inventory.affectedQtyCol") : ""}
             ${th("inventory.colMin")}
             ${th("inventory.colMax")}
             ${th("table.expDate")}
@@ -6868,6 +7680,22 @@ const InventoryManager = {
       this.openZeroTotalStockByBoxModal()
     );
     document.getElementById("inventory-box-manager-btn")?.addEventListener("click", () => this.openBoxManagerModal());
+    document.getElementById("inventory-refresh-data-btn")?.addEventListener("click", () =>
+      this.runRefreshInventoryDataAction()
+    );
+    this.setupLogoRefreshTrigger();
+    document.getElementById("inventory-export-stock-template-btn")?.addEventListener("click", () =>
+      void this.exportInventoryStockUpdateTemplate()
+    );
+    document.getElementById("inventory-import-stock-update-btn")?.addEventListener("click", () => {
+      if (typeof Auth !== "undefined" && !Auth.guardLoadInventoryCsv()) return;
+      document.getElementById("inventory-stock-update-import-input")?.click();
+    });
+    document.getElementById("inventory-stock-update-import-input")?.addEventListener("change", e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) this.importInventoryStockUpdate(file);
+      e.target.value = "";
+    });
     document.getElementById("close-inventory-box-zero-total")?.addEventListener("click", () =>
       this.closeZeroTotalStockByBoxModal()
     );

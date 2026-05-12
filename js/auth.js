@@ -2629,6 +2629,10 @@ const Auth = {
     const u = this.getCurrentUser();
     if (u) this.logAudit("auth.logout", u.username);
     this.saveSession(null);
+    /* Permitir que el splash vuelva a salir en el siguiente login (la clave
+       se setea al mostrarlo y por sí sola sobrevive a F5 pero no a cerrar
+       la pestaña; aquí la limpiamos explícitamente para cerrar el ciclo). */
+    try { sessionStorage.removeItem("gneex-welcome-splash-shown"); } catch { /* noop */ }
     window.location.reload();
   },
 
@@ -3118,8 +3122,96 @@ const Auth = {
   enterApp() {
     const gate = document.getElementById("login-gate");
     if (gate) gate.classList.add("login-gate--hidden");
+    /* Paramos el carrusel de fondos del login: ya no se ve y mantenerlo
+       activo cada 12 s es CPU/IO desperdiciada que además impide al
+       navegador suspender la pestaña en background. */
+    if (this._bgTimer) {
+      clearInterval(this._bgTimer);
+      this._bgTimer = null;
+    }
+    /* La inicialización pesada (Inventory, Movements, History…) corre en
+       segundo plano detrás del splash. No la bloqueamos: si tarda más de
+       3 s, el splash se cierra igual y la app queda lista o casi lista. */
     App.initApplication();
     this.applyPermissions();
+    this.showWelcomeSplash();
+  },
+
+  /**
+   * Pantalla de bienvenida cinemática (~5 s) que saluda al usuario con su
+   * nombre (`displayName` o `username`) y va revelando elementos uno a uno
+   * con scanline + neón + barra de progreso. La duración la lee el JS desde
+   * la variable CSS `--welcome-duration` para mantener una sola fuente de
+   * verdad: si cambias el CSS a 4 s o 6 s, este timer se ajusta solo.
+   *
+   * Decisiones:
+   * - **No bloquea**: la app ya está iniciada; el splash es feedback visual.
+   * - **Idempotente**: si se llama dos veces (p. ej. reanudar sesión vs
+   *   login manual) la segunda vez no se reapila, simplemente se reinicia
+   *   la animación borrando y volviendo a aplicar la clase de animación
+   *   mediante reflujo del nodo.
+   * - **Skip por sesionStorage** (`gneex-welcome-splash-shown`): evita que
+   *   recargar la página repita el saludo en la misma pestaña. Se borra al
+   *   cerrar sesión para que el próximo login lo muestre de nuevo.
+   * - **Sin foco**: durante los 3 s el splash cubre la app pero
+   *   `pointer-events: auto` permitiría capturar clics si bloqueáramos
+   *   teclado. Lo mantenemos visible sin trampear el foco para no perder
+   *   pulsaciones que el usuario inicie justo al entrar.
+   * - **Cleanup garantizado**: ocultamos por `setTimeout` (no `animationend`,
+   *   porque depende del valor del CSS `--welcome-duration`). Si el usuario
+   *   navega rápido (cambio de pestaña), el timer sigue válido al volver.
+   */
+  showWelcomeSplash() {
+    if (typeof document === "undefined") return;
+    const node = document.getElementById("welcome-splash");
+    if (!node) return;
+    try {
+      if (sessionStorage.getItem("gneex-welcome-splash-shown") === "1") return;
+      sessionStorage.setItem("gneex-welcome-splash-shown", "1");
+    } catch {
+      /* sessionStorage podría no estar disponible (file:// estricto): seguimos. */
+    }
+    const userText = (() => {
+      try {
+        const u = this.getCurrentUser();
+        if (!u) return "";
+        const name = (u.displayName || u.username || "").trim();
+        if (!name) return "";
+        const tpl = (typeof I18n !== "undefined" && I18n.t)
+          ? I18n.t("welcome.userGreeting")
+          : "";
+        return tpl && !tpl.startsWith("welcome.")
+          ? tpl.replace("{name}", name)
+          : name;
+      } catch {
+        return "";
+      }
+    })();
+    const userEl = document.getElementById("welcome-splash-user");
+    if (userEl) userEl.textContent = userText;
+    node.hidden = false;
+    node.setAttribute("aria-hidden", "false");
+    /* Reinicio de animación: quitar y reaplicar la clase tras un reflujo
+       fuerza al navegador a reproducir los keyframes desde 0 incluso si la
+       función se llamara varias veces en la misma sesión. */
+    node.classList.remove("welcome-splash--running");
+    void node.offsetWidth;
+    node.classList.add("welcome-splash--running");
+    const durMs = (() => {
+      try {
+        const raw = getComputedStyle(node).getPropertyValue("--welcome-duration").trim();
+        const n = parseFloat(raw);
+        if (!Number.isFinite(n)) return 5000;
+        return raw.endsWith("ms") ? n : n * 1000;
+      } catch {
+        return 5000;
+      }
+    })();
+    setTimeout(() => {
+      node.hidden = true;
+      node.setAttribute("aria-hidden", "true");
+      node.classList.remove("welcome-splash--running");
+    }, durMs + 60);
   },
 
   /**

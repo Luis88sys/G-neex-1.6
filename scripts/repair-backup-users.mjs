@@ -1,6 +1,9 @@
 /**
- * Repara `data["phoenix-users"]` en un respaldo G-NEEX usando la misma lógica que
- * migrateUserPerms + syncBuiltinStoredUsersWithTemplate en auth.js (sin navegador).
+ * Repara un respaldo G-NEEX completo:
+ * - `data["phoenix-users"]`: migrateUserPerms + syncBuiltinStoredUsersWithTemplate (auth.js en VM).
+ * - `data["phoenix-movements"]`: fusiona todas las listas de movimientos encontradas en el archivo
+ *   (string JSON en phoenix-movements, `_rawMovements`, `movements` legible) y opcionalmente otros JSON
+ *   pasados como argv[4…], deduplicando por `id` y conservando la copia más completa por movimiento.
  */
 import fs from "fs";
 import path from "path";
@@ -153,8 +156,148 @@ Auth.users.forEach(u => {
 
 backup.data[usersKey] = JSON.stringify(Auth.users);
 
+const MOV_KEY = "phoenix-movements";
+
+/** Prioriza registros con más detalle (ítems, campos) para no pisar un movimiento completo con un resumen. */
+function movementFullness(m) {
+  if (!m || typeof m !== "object") return 0;
+  let n = Object.keys(m).length;
+  if (Array.isArray(m.items)) {
+    n += m.items.length * 3;
+    for (const it of m.items) {
+      if (it && typeof it === "object") n += Object.keys(it).length;
+    }
+  }
+  return n;
+}
+
+function mergeMovementLists(labeled) {
+  const byId = new Map();
+  for (const { arr } of labeled) {
+    if (!Array.isArray(arr)) continue;
+    for (const m of arr) {
+      if (!m || typeof m !== "object") continue;
+      const id = m.id != null ? String(m.id) : "";
+      if (!id) continue;
+      const prev = byId.get(id);
+      if (!prev) {
+        byId.set(id, m);
+        continue;
+      }
+      const fp = movementFullness(prev);
+      const fn = movementFullness(m);
+      if (fn > fp) byId.set(id, m);
+      else if (fn === fp && JSON.stringify(m).length > JSON.stringify(prev).length) byId.set(id, m);
+    }
+  }
+  const out = Array.from(byId.values());
+  out.sort((a, b) => {
+    const ta = new Date(a?.date || 0).getTime();
+    const tb = new Date(b?.date || 0).getTime();
+    const va = Number.isFinite(ta) ? ta : 0;
+    const vb = Number.isFinite(tb) ? tb : 0;
+    if (va !== vb) return va - vb;
+    return String(a?.id || "").localeCompare(String(b?.id || ""));
+  });
+  return out;
+}
+
+function parseMovementsString(raw) {
+  if (raw == null || raw === "") return { ok: true, arr: [] };
+  if (typeof raw !== "string") return { ok: false, arr: [] };
+  try {
+    const arr = JSON.parse(raw);
+    return { ok: true, arr: Array.isArray(arr) ? arr : [] };
+  } catch {
+    return { ok: false, arr: [] };
+  }
+}
+
+function collectMovementSources(backupRoot, extraPaths) {
+  /** @type {{ label: string; arr: unknown[] }[]} */
+  const sources = [];
+
+  if (backupRoot.data && typeof backupRoot.data === "object") {
+    const raw = backupRoot.data[MOV_KEY];
+    const { ok, arr } = parseMovementsString(raw);
+    sources.push({
+      label: ok ? `data.${MOV_KEY} (${arr.length})` : `data.${MOV_KEY} (JSON inválido → 0 parseados)`,
+      arr
+    });
+    if (!ok && typeof raw === "string" && raw.trim().length > 0) {
+      console.warn(
+        "Advertencia: data[\"phoenix-movements\"] no es JSON válido; intente fusionar con _rawMovements o un archivo de archivo adjunto."
+      );
+    }
+  }
+
+  if (Array.isArray(backupRoot._rawMovements)) {
+    sources.push({ label: `root._rawMovements (${backupRoot._rawMovements.length})`, arr: backupRoot._rawMovements });
+  }
+  if (Array.isArray(backupRoot.movements)) {
+    sources.push({ label: `root.movements (${backupRoot.movements.length})`, arr: backupRoot.movements });
+  }
+
+  for (const ep of extraPaths) {
+    try {
+      const txt = stripBom(fs.readFileSync(ep, "utf8"));
+      const parsed = JSON.parse(txt);
+      if (parsed.data && typeof parsed.data === "object" && parsed.data[MOV_KEY] != null) {
+        const { ok, arr } = parseMovementsString(parsed.data[MOV_KEY]);
+        if (arr.length)
+          sources.push({
+            label: `${path.basename(ep)} data.${MOV_KEY} (${arr.length})${ok ? "" : " parse parcial"}`,
+            arr
+          });
+      }
+      if (Array.isArray(parsed._rawMovements) && parsed._rawMovements.length) {
+        sources.push({
+          label: `${path.basename(ep)}._rawMovements (${parsed._rawMovements.length})`,
+          arr: parsed._rawMovements
+        });
+      }
+      if (Array.isArray(parsed.movements) && parsed.movements.length) {
+        sources.push({
+          label: `${path.basename(ep)}.movements (${parsed.movements.length})`,
+          arr: parsed.movements
+        });
+      }
+    } catch (e) {
+      console.warn("No se pudieron leer movimientos extra de", ep, e.message || e);
+    }
+  }
+
+  return sources;
+}
+
+function repairMovementsInBackup(backupRoot, extraMovementFiles) {
+  if (!backupRoot.data || typeof backupRoot.data !== "object") {
+    console.warn("Sin data: se omitió fusión de movimientos.");
+    return;
+  }
+
+  const labeled = collectMovementSources(backupRoot, extraMovementFiles);
+  const nonempty = labeled.filter(s => Array.isArray(s.arr) && s.arr.length > 0);
+  if (!nonempty.length) {
+    console.warn("Movimientos: no hay listas no vacías para fusionar.");
+    return;
+  }
+
+  const merged = mergeMovementLists(labeled);
+  if (!merged.length) {
+    console.warn("Movimientos: tras fusionar no quedó ningún movimiento con id.");
+    return;
+  }
+
+  backupRoot.data[MOV_KEY] = JSON.stringify(merged);
+  console.log(`Movimientos: ${merged.length} únicos ← ${nonempty.map(s => s.label).join("; ")}`);
+}
+
 const outArg = process.argv[3];
 const outPath = outArg ? path.resolve(outArg) : backupPath;
+
+const extraMovementPaths = process.argv.slice(4).map(p => path.resolve(p));
+repairMovementsInBackup(backup, extraMovementPaths);
 
 fs.writeFileSync(outPath, JSON.stringify(backup, null, 2), "utf8");
 console.log("Listo:", outPath);

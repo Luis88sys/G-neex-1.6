@@ -1786,6 +1786,48 @@ const ConfigManager = {
       qtyPerBoxEl.addEventListener("input", syncBoxes);
     }
 
+    /* === Editor de lotes en el modal de edición de artículo ============== */
+    if (!this._itemEditLotsBound) {
+      this._itemEditLotsBound = true;
+      const addBtn = document.getElementById("edit-lots-add-btn");
+      if (addBtn) addBtn.addEventListener("click", () => this.addEditLotRow());
+      const list = document.getElementById("edit-lots-list");
+      if (list) {
+        /* Delegamos eventos en el contenedor para soportar filas que se crean al
+           vuelo (`innerHTML`). Cada cambio sincroniza la fila contra el estado y
+           refresca solo su preview, evitando re-render completo. */
+        list.addEventListener("input", ev => {
+          const target = ev.target;
+          if (!(target instanceof HTMLElement)) return;
+          const row = target.closest(".item-edit-lot-row");
+          if (!row) return;
+          const idx = parseInt(row.getAttribute("data-lot-index") || "-1", 10);
+          if (!Number.isFinite(idx) || idx < 0) return;
+          this._syncEditLotRowFromDom(idx);
+        });
+        list.addEventListener("click", ev => {
+          const btn = ev.target instanceof HTMLElement
+            ? ev.target.closest("[data-lot-remove]")
+            : null;
+          if (!btn) return;
+          const idx = parseInt(btn.getAttribute("data-lot-remove") || "-1", 10);
+          if (!Number.isFinite(idx) || idx < 0) return;
+          this.removeEditLotRow(idx);
+        });
+      }
+      /* Cambiar `Vida útil (meses)` debe refrescar TODAS las previsualizaciones
+         para que la persona vea al vuelo cómo cambian las caducidades efectivas
+         de los lotes que no tienen caducidad explícita. */
+      const shelfInp = document.getElementById("edit-shelf-life-months");
+      if (shelfInp) {
+        shelfInp.addEventListener("input", () => {
+          const lots = Array.isArray(this._editLotsState) ? this._editLotsState : [];
+          for (let i = 0; i < lots.length; i++) this._refreshEditLotPreview(i);
+        });
+      }
+    }
+    /* ===================================================================== */
+
     const unlockBtn = document.getElementById("item-edit-unlock-btn");
     if (unlockBtn) {
       unlockBtn.addEventListener("click", async () => {
@@ -2405,6 +2447,7 @@ const ConfigManager = {
         "edit-exp-date",
         "edit-days-to-expire",
         "edit-expiration-date",
+        "edit-shelf-life-months",
         "edit-supplier",
         "edit-last-order",
         "edit-min-stock",
@@ -2420,6 +2463,8 @@ const ConfigManager = {
       const consEl = document.getElementById("edit-inventory-consumable");
       if (consEl) consEl.checked = false;
       document.getElementById("config-item-delete-btn") && (document.getElementById("config-item-delete-btn").disabled = true);
+      this._editLotsState = [];
+      this._renderEditLotsEditor();
       return;
     }
 
@@ -2438,6 +2483,7 @@ const ConfigManager = {
     set("edit-exp-date", item.expDate || "");
     set("edit-days-to-expire", item.daysToExpire ?? 0);
     set("edit-expiration-date", item.expirationDate || "");
+    set("edit-shelf-life-months", Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0));
     set("edit-supplier", item.supplier);
     set("edit-last-order", item.lastOrder);
     set("edit-min-stock", item.minStock ?? 0);
@@ -2457,6 +2503,205 @@ const ConfigManager = {
       trkEl.disabled = !!item.inventoryConsumable;
     }
     this._populateMeasureUnitSelects(item);
+    this._editLotsState = this._cloneLotsForEditor(item);
+    this._renderEditLotsEditor();
+  },
+
+  /**
+   * Estado en memoria del editor de lotes (lista de filas {expDate, date, qty}).
+   * Se rellena al abrir un artículo y se vuelca a `item.expirations` al guardar.
+   * @type {Array<{expDate: string, date: string, qty: number}>}
+   */
+  _editLotsState: [],
+
+  /** Copia editable de los lotes del artículo (no mutar el original directamente). */
+  _cloneLotsForEditor(item) {
+    const src = Array.isArray(item?.expirations) ? item.expirations : [];
+    return src
+      .map(l => ({
+        expDate: String(l?.expDate || "").trim().slice(0, 10),
+        /* Solo conservamos `lot.date` cuando es **caducidad explícita** escrita a
+           mano (sin expedición + vida útil). El resto se deja vacío para que
+           `getLotEffectiveExpiryDate` la derive al vuelo. Esto evita que valores
+           precalculados antiguos queden congelados en el editor. */
+        date: String(l?.date || "").trim().slice(0, 10),
+        qty: Utils.roundDecimal(parseFloat(l?.qty) || 0)
+      }))
+      .filter(l => l.expDate || l.date || l.qty > 0);
+  },
+
+  /** Inserta una fila vacía y vuelve a renderizar. */
+  addEditLotRow() {
+    if (!Array.isArray(this._editLotsState)) this._editLotsState = [];
+    this._editLotsState.push({ expDate: "", date: "", qty: 0 });
+    this._renderEditLotsEditor();
+    const list = document.getElementById("edit-lots-list");
+    if (list) {
+      const rows = list.querySelectorAll(".item-edit-lot-row");
+      const last = rows[rows.length - 1];
+      if (last) {
+        const inp = last.querySelector('input[data-lot-field="expDate"]');
+        if (inp) inp.focus();
+      }
+    }
+  },
+
+  /** Elimina la fila `index` del estado del editor. */
+  removeEditLotRow(index) {
+    if (!Array.isArray(this._editLotsState)) return;
+    if (index < 0 || index >= this._editLotsState.length) return;
+    this._editLotsState.splice(index, 1);
+    this._renderEditLotsEditor();
+  },
+
+  /** Lee la fila `index` del DOM y la sincroniza con el estado. */
+  _syncEditLotRowFromDom(index) {
+    if (!Array.isArray(this._editLotsState)) return;
+    if (index < 0 || index >= this._editLotsState.length) return;
+    const list = document.getElementById("edit-lots-list");
+    if (!list) return;
+    const row = list.querySelector(`.item-edit-lot-row[data-lot-index="${index}"]`);
+    if (!row) return;
+    const exp = row.querySelector('input[data-lot-field="expDate"]')?.value || "";
+    const dat = row.querySelector('input[data-lot-field="date"]')?.value || "";
+    const qty = parseFloat(row.querySelector('input[data-lot-field="qty"]')?.value || "0") || 0;
+    this._editLotsState[index] = {
+      expDate: String(exp).trim().slice(0, 10),
+      date: String(dat).trim().slice(0, 10),
+      qty: Utils.roundDecimal(qty)
+    };
+    this._refreshEditLotPreview(index);
+  },
+
+  /**
+   * Recalcula y vuelve a pintar SOLO la columna de preview (caducidad efectiva +
+   * días restantes + badge de estado) de una fila del editor de lotes. Se
+   * dispara en cada `input` de fecha / cantidad / vida útil para que la persona
+   * vea al vuelo el resultado de aplicar `expDate + shelfLifeMonths` o la
+   * caducidad explícita escrita en el envase.
+   */
+  _refreshEditLotPreview(index) {
+    const list = document.getElementById("edit-lots-list");
+    if (!list) return;
+    const row = list.querySelector(`.item-edit-lot-row[data-lot-index="${index}"]`);
+    if (!row) return;
+    const lot = this._editLotsState[index];
+    if (!lot) return;
+    const months = Math.max(0, parseInt(document.getElementById("edit-shelf-life-months")?.value, 10) || 0);
+    const eff = this._computeEffectiveLotExpiry(lot, months);
+    const previewEl = row.querySelector(".item-edit-lot-preview");
+    if (!previewEl) return;
+    previewEl.innerHTML = this._lotPreviewHtml(lot, eff);
+  },
+
+  /** Igual que `InventoryManager.getLotEffectiveExpiryDate` pero contra el estado del editor. */
+  _computeEffectiveLotExpiry(lot, months) {
+    const dateExplicit = String(lot?.date || "").trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateExplicit)) return dateExplicit;
+    const exp = String(lot?.expDate || "").trim().slice(0, 10);
+    const m = Math.max(0, parseInt(months, 10) || 0);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(exp) && m > 0 && typeof InventoryManager !== "undefined") {
+      return InventoryManager.addMonthsToIsoDate(exp, m) || null;
+    }
+    return null;
+  },
+
+  /** HTML del preview (badge de estado + días + fecha) para una fila de lote. */
+  _lotPreviewHtml(lot, eff) {
+    if (!eff) {
+      const txt = I18n.t("inventory.lotsEditorPreviewMissing") || "Falta expedición y/o vida útil";
+      return `<span class="item-edit-lot-status-badge item-edit-lot-status-unknown">${Utils.escapeHtml(txt)}</span>`;
+    }
+    const days = InventoryManager.daysTo(eff);
+    const alertDays = Math.max(1, parseInt(InventoryManager.expAlertDays, 10) || 30);
+    let status = "ok";
+    if (days < 0) status = "expired";
+    else if (days <= alertDays) status = "soon";
+    const statusTxt =
+      status === "expired"
+        ? I18n.t("inventory.lotStatusExpired") || "Vencido"
+        : status === "soon"
+          ? I18n.t("inventory.lotStatusSoon") || "Próximo a vencer"
+          : I18n.t("inventory.lotStatusOk") || "Vigente";
+    const daysTxt = (I18n.t("inventory.lotsEditorPreviewDays") || "{n} días")
+      .replace("{n}", String(days));
+    const dateTxt = Utils.formatDate ? Utils.formatDate(eff) : eff;
+    return [
+      `<span class="item-edit-lot-preview-date">${Utils.escapeHtml(dateTxt)}</span>`,
+      `<span class="muted">${Utils.escapeHtml(daysTxt)}</span>`,
+      `<span class="item-edit-lot-status-badge item-edit-lot-status-${status}">${Utils.escapeHtml(statusTxt)}</span>`
+    ].join("");
+  },
+
+  /**
+   * Vuelve a pintar el editor de lotes completo a partir de `_editLotsState`.
+   * Se llama tras `addEditLotRow`, `removeEditLotRow`, al abrir un artículo y al
+   * cambiar `shelfLifeMonths` para recalcular todas las previsualizaciones.
+   */
+  _renderEditLotsEditor() {
+    const list = document.getElementById("edit-lots-list");
+    const empty = document.getElementById("edit-lots-empty");
+    if (!list || !empty) return;
+    const lots = Array.isArray(this._editLotsState) ? this._editLotsState : [];
+    if (lots.length === 0) {
+      list.innerHTML = "";
+      empty.style.display = "";
+      return;
+    }
+    empty.style.display = "none";
+    const months = Math.max(0, parseInt(document.getElementById("edit-shelf-life-months")?.value, 10) || 0);
+    const expLabel = I18n.t("inventory.lotsEditorExpDate") || "Expedición";
+    const dateLabel = I18n.t("inventory.lotsEditorExplicitExpiry") || "Caducidad (envase)";
+    const qtyLabel = I18n.t("inventory.lotsEditorQty") || "Cantidad";
+    const previewLabel = I18n.t("inventory.lotsEditorPreview") || "Caducidad efectiva";
+    const removeTitle = I18n.t("buttons.delete") || "Eliminar";
+    list.innerHTML = lots
+      .map((lot, idx) => {
+        const eff = this._computeEffectiveLotExpiry(lot, months);
+        return `
+          <div class="item-edit-lot-row" data-lot-index="${idx}" role="listitem">
+            <div class="item-edit-lot-field">
+              <span class="item-edit-lot-field-label">${Utils.escapeHtml(expLabel)}</span>
+              <input type="date" data-lot-field="expDate" value="${Utils.escapeHtml(lot.expDate || "")}">
+            </div>
+            <div class="item-edit-lot-field">
+              <span class="item-edit-lot-field-label">${Utils.escapeHtml(dateLabel)}</span>
+              <input type="date" data-lot-field="date" value="${Utils.escapeHtml(lot.date || "")}">
+            </div>
+            <div class="item-edit-lot-field">
+              <span class="item-edit-lot-field-label">${Utils.escapeHtml(qtyLabel)}</span>
+              <input type="number" step="0.0001" min="0" data-lot-field="qty" value="${Utils.escapeHtml(String(lot.qty || 0))}">
+            </div>
+            <div class="item-edit-lot-field">
+              <span class="item-edit-lot-field-label">${Utils.escapeHtml(previewLabel)}</span>
+              <div class="item-edit-lot-preview">${this._lotPreviewHtml(lot, eff)}</div>
+            </div>
+            <button type="button" class="item-edit-lot-remove-btn" data-lot-remove="${idx}" title="${Utils.escapeHtml(removeTitle)}" aria-label="${Utils.escapeHtml(removeTitle)}">✕</button>
+          </div>
+        `;
+      })
+      .join("");
+  },
+
+  /**
+   * Vuelca `_editLotsState` al campo `item.expirations` esperado por el motor:
+   * descarta filas vacías, agrupa por (expDate, date) si fuera necesario, y
+   * deja `lot.date` SOLO cuando el usuario escribió una caducidad explícita
+   * (para que el cálculo se haga al vuelo con la vida útil vigente).
+   */
+  _collectEditLotsFromState() {
+    const lots = Array.isArray(this._editLotsState) ? this._editLotsState : [];
+    return lots
+      .map(l => {
+        const expDate = String(l?.expDate || "").trim().slice(0, 10);
+        const date = String(l?.date || "").trim().slice(0, 10);
+        const qty = Utils.roundDecimal(parseFloat(l?.qty) || 0);
+        const out = { qty };
+        if (/^\d{4}-\d{2}-\d{2}$/.test(expDate)) out.expDate = expDate;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) out.date = date;
+        return out;
+      })
+      .filter(l => l.qty > 0 || l.expDate || l.date);
   },
 
   _populateMeasureUnitSelects(item) {
@@ -2509,7 +2754,14 @@ const ConfigManager = {
     const get = id => document.getElementById(id)?.value ?? "";
     const toNum = id => parseFloat(get(id)) || 0;
     const round4 = n => Utils.roundDecimal(n, 4);
-    const shelfLifeMonths = Math.max(0, parseInt(existing?.shelfLifeMonths, 10) || 0);
+    /* Vida útil leída del formulario (no del registro existente) para que la
+       persona pueda corregirla en el mismo modal de edición y al guardar se
+       recalculen las caducidades dinámicas de cada lote sin tocarlas a mano. */
+    const shelfLifeMonths = Math.max(
+      0,
+      parseInt(get("edit-shelf-life-months"), 10) || 0
+    );
+    const editedLots = this._collectEditLotsFromState();
     const mainStock = round4(toNum("edit-main-stock"));
     const qtyPerBox = round4(toNum("edit-qty-per-box"));
     const numBoxes =
@@ -2553,6 +2805,11 @@ const ConfigManager = {
     if (measureStockUnitId && measureAltUnitId === measureStockUnitId) measureAltUnitId = "";
     updated.measureStockUnitId = measureStockUnitId;
     updated.measureAltUnitId = measureAltUnitId;
+    /* Lotes editables: vuelcan al motor de caducidades (`item.expirations`) en
+       el mismo paso que el resto del formulario. Se respeta lo que la persona
+       dejó escrito: si solo dio expedición, no se guarda `lot.date` y el motor
+       la calcula al vuelo con `shelfLifeMonths`. */
+    updated.expirations = editedLots;
 
     const numBoxesEl = document.getElementById("edit-num-boxes");
     if (numBoxesEl) numBoxesEl.value = String(updated.numBoxes);
@@ -2622,7 +2879,8 @@ const ConfigManager = {
         ignoreLowStockAlert: updated.ignoreLowStockAlert,
         tracksExpiration: updated.tracksExpiration,
         measureStockUnitId: updated.measureStockUnitId,
-        measureAltUnitId: updated.measureAltUnitId
+        measureAltUnitId: updated.measureAltUnitId,
+        expirations: Array.isArray(updated.expirations) ? updated.expirations : []
       });
       const hid = document.getElementById("config-item-editor-id");
       if (hid) hid.value = newItem.id;

@@ -1,9 +1,9 @@
-# Phoenix Cell G-NEEX 1.6
+# Phoenix Cell G-NEEX 1.7
 
 ### Sistema Integral de Gestión de Inventario y Logística
 
 *Desarrollo: **Luis Goire** — aficionado a la programación, en formación como programador.*
-*Actualizado: mayo de 2026*
+*Actualizado: mayo de 2026 (v1.7)*
 
 ---
 
@@ -320,9 +320,23 @@ Los archivos incluyen rango de fechas en el nombre:
 
 ---
 
+## Novedades 1.7 (mayo 2026)
+
+- **Pantalla de bienvenida cinemática (9 s)** tras iniciar sesión: secuencia tipo «boot up» con **scanner verde Matrix** lento, **anillos orbitales** alrededor del logo, **«G-neex» con flicker fuerte tipo neón**, sweep de «BIENVENIDO A», «PHOENIX EVOLUTION» y tu nombre. Sirve también como margen de carga real de la app.
+- **Logo como atajo de actualización**: clic en el logo del header → giro antihorario y se dispara la acción unificada **Actualizar inventario** (normaliza ubicaciones / cajas, reconcilia el stock principal con cajas y ubicaciones, refresca caducidades de lotes). Mismo acceso desde el menú herramientas.
+- **Cajas en stock principal**: el principal ahora cuadra automáticamente con la suma de cajas + ubicaciones; al consumir desde una caja el principal baja igual. La acción «Actualizar inventario» repara respaldos antiguos donde el principal y los contenedores no estaban alineados.
+- **Editor de lotes en el artículo**: añadir varias fechas de expedición / caducidad / cantidad por artículo, con cálculo en vivo de la caducidad efectiva según la **vida útil en meses** declarada. La compra de stock añade un lote por fila automáticamente.
+- **Insight de caducidad** con columna nueva **Cantidad afectada** (vencidas + próximas a vencer) y tooltip de desglose.
+- **Tooltip de lotes en la tabla** muestra una fila sintética «Sin lote (resto del stock principal)» cuando hay al menos un lote explícito, para que la suma cuadre con el principal.
+- **Plantilla solo-stock**: exportar plantilla XLSX con código y stock principal, modificar a mano y reimportar — solo se actualizan cantidades, sin tocar ubicaciones ni catálogo.
+- **Equivalencia** (`≈`) en inventario con badge de mayor contraste en tema claro y oscuro.
+- **Alineación con `gneex-hosted-api`**: el cliente `GneexApiClient` (offline hoy) deja preparado el hueco para que el siguiente paso enchufe login JWT, `GET/PATCH /api/v1/sync` y `POST /api/v1/backup/import` cuando el backend esté activo en producción.
+
+---
+
 ## Contacto
 
-**Phoenix Cell G-NEEX v1.6**
+**Phoenix Cell G-NEEX v1.7**
 
 Gestión de inventario industrial — simple, seguro, sin conexión.
 

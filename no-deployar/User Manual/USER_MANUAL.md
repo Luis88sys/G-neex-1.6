@@ -1,7 +1,27 @@
-﻿# User Manual — Phoenix Cell G-NEEX 1.6
+﻿# User Manual — Phoenix Cell G-NEEX 1.7
 
 *Phoenix Cell G-NEEX is developed by **Luis Goire**, as a hobby and with a strong interest in programming, on the path toward working as a professional developer.*
-*Updated: May 2026*
+*Updated: May 2026 (v1.7)*
+
+## What's new in 1.7 (May 2026) — read first
+
+> If you're coming from 1.6, the points below are the only new pieces. The rest of the manual still applies.
+
+- **Cinematic welcome splash (9 s):** after login a 9-second "boot up" sequence runs that also acts as a **real loading buffer** for the app. A **Matrix-green scanner** (`#00ff41`) sweeps slowly down the screen, **orbital rings** close around the logo, **"WELCOME TO"** is revealed via clip-path wipe, **"G-neex"** flashes with a **strong neon flicker** before staying lit, and finally **"PHOENIX EVOLUTION"** and **your name** appear. A linear progress bar covers the 8.7 useful seconds. It does not repeat on tab reload; it shows again on the next login.
+- **Header logo as the "Update inventory" shortcut:** clicking the logo (header, top left) spins it counter-clockwise and triggers the unified **Update inventory** action, in this order:
+  1. **Normalize locations and boxes** (free-text from older backups → canonical catalog; syncs `boxStocks` and `locationStocks`).
+  2. **Reconcile main stock:** adjusts `mainStock = max(current, sum(boxes) + sum(locations))`. **Never reduces** main stock; it only raises it if your boxes/locations add up to more.
+  3. **Refresh lot expiry:** lots whose expiry was **computed** are recomputed on the fly from the item's current shelf life. **Hand-typed expiries are preserved.**
+  A confirmation modal previews the per-section detail (up to 5 rows each) before applying. If nothing is pending, an info toast appears and nothing is changed. Same action is available from the tools menu (↺) and via Enter / Space on the focused logo.
+- **Boxes integrated into main stock:** consuming, moving or editing a box updates main stock automatically. If you have older backups out of sync, **Update inventory** repairs them without touching anything else.
+- **Lots editor on the item:** in ⚙️ → edit item there is a new section **Lots (expiry per purchase)** where you add, one per row, **expedition date + optional explicit expiry + quantity**. Effective expiry is computed on the fly from the item's **shelf-life in months** unless you type an explicit one. Stock purchases auto-feed one lot per row; you can edit or remove them later.
+- **Expiration: expired or soon-to-expire — new "Affected quantity" column:** sum of units in expired + soon-to-expire lots, with a breakdown tooltip. Helps prioritize what to move first.
+- **Lot tooltip in the table:** when at least one explicit lot exists, a synthetic "Unassigned (rest of main stock)" row appears so the sum reconciles to main stock. With no lots, the tooltip stays empty (no noise).
+- **Stock-only template (export/import):** two new options in the tools menu:
+  - 🧾 **Export stock-only template** → XLSX with `Code`, `Description`, `MainStock` (editable). Nothing else.
+  - ♻ **Import stock-only update** → reads that same XLSX back and only updates main-stock quantities. Locations, lots and catalog are not touched.
+- **Equivalence (`≈`) clarity:** the inventory column now shows a higher-contrast badge in both light and dark themes.
+- **Alignment with the future `gneex-hosted-api`:** the app stays 100 % offline; the `GneexApiClient` is prepared to connect to the backend once it ships (JWT login + sync + backup import). See `no-deployar/docs/BACKEND_ALINEACION.md`.
 
 ## Background and purpose
 

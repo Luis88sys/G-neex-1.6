@@ -1,9 +1,9 @@
-# Phoenix Cell G-NEEX 1.6
+# Phoenix Cell G-NEEX 1.7
 
 ### Sistema Integral de Gestión de Inventario y Logística
 
 *Desarrollo: **Luis Goire** — aficionado a la programación, en formación como programador.*
-*Actualizado: mayo de 2026*
+*Actualizado: mayo de 2026 (v1.7)*
 
 ---
 
@@ -35,27 +35,30 @@ Las empresas de instalaciones eléctricas y proyectos industriales enfrentan des
 
 **Datos en el navegador:** inventario, movimientos y sesión se guardan en el almacenamiento local del navegador. Bloquee el equipo, use cuentas personales, exporte respaldos e importe JSON solo si confía en el origen.
 
-**Respaldo e Import/Export:** la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la **cuenta administrador**; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según `assets/login-bg-manifest.json`. Al importar JSON, las claves ausentes ya no borran datos locales inconexos.
+**Misma URL siempre:** los datos dependen del *origen* del navegador (protocolo, host, puerto, ruta). Use siempre la misma forma de abrir la app (p. ej. servidor local `http://127.0.0.1:PUERTO/`). No mezcle `file://` con `http://` ni cambie de puerto sin darse cuenta: listas «vacías» suelen ser otro almacén.
 
-**Misma URL siempre:** los datos dependen del *origen* del navegador (protocolo, host, puerto y ruta). Mantenga una URL fija (por ejemplo `http://127.0.0.1:PUERTO/`) y no mezcle `file://` con HTTP.
+**Respaldo e Import/Export:** la pestaña Import/Export y las operaciones críticas de respaldo están reservadas a la **cuenta administrador**; la elevación temporal de permisos no sustituye ese rol. Los fondos del inicio de sesión pueden rotar según `assets/login-bg-manifest.json`. El **respaldo JSON completo** incluye el catálogo de **unidades de medida y equivalencias**. Al importar JSON, las claves que **no vienen** en el archivo **ya no borran** el resto de datos locales (los respaldos viejos sin ciertas secciones no vacían, por ejemplo, el catálogo de unidades).
 
-**Unidades de medida:** el catálogo conserva la unidad reservada **U**; cada artículo puede usar una unidad de stock o quedar sin unidad (sin asignación automática a U).
+**Unidades de medida:** ⚙️ Configuración → **Unidades** (símbolos y equivalencias); el catálogo incluye **U** como referencia genérica (no se borra); cada artículo elige unidad de stock en el editor o puede quedar sin unidad; el inventario muestra el símbolo junto al stock principal cuando está definido y, si aplica, una línea **≈** en otra unidad; plantilla/CSV con columnas opcionales `UnidadStockSimbolo` y `UnidadEquivalenteSimbolo`. En **movimientos** las cantidades siguen siendo numéricas: la coherencia con la unidad del artículo es operativa.
 
 Gestiona todo el ciclo de vida del material:
 
 **Entrada** → **Almacén** → **Salida** → **Transporte** → **Obra**
 
-![Inicio de sesión (entrada a la app)](../docs/app-screenshots/capture-es-01-login.png)
+*Capturas reales v1.6 (Playwright). Regenerar: `docs/app-screenshots/README.md`.*
+
+![Inicio de sesión (entrada a la app)](../app-screenshots/capture-es-01-login.png)
 
 ---
 
 ## Inventario en Tiempo Real
 
-![Pestaña Inventario](../docs/app-screenshots/capture-es-inventario.png)
+![Pestaña Inventario](../app-screenshots/capture-es-inventario.png)
 
 | Función | Descripción |
 |---------|-------------|
 | **Vista completa** | Tabla con código, descripción, categoría, stock Principal/Producción/Transformación, ubicación y fecha de expiración |
+| **Unidades de medida** | Símbolo junto al stock principal si el artículo tiene unidad (y equivalente opcional **≈**); ⚙️ **Unidades** + edición por artículo |
 | **3 stocks independientes** | Principal, Producción y Transformación — cada uno con seguimiento propio |
 | **Búsqueda instantánea** | Filtro en vivo por código, descripción, categoría o ubicación |
 | **Menú herramientas (⋮)** | Primera opción **Ocultar filtros en línea** (flecha): cierra las barras caja / depósito / consumible; **deshabilitada** si ninguna barra está abierta. El menú **⋮** agrupa exportar, imprimir, filtros, stock a fecha, resúmenes, etc. |
@@ -72,7 +75,7 @@ Gestiona todo el ciclo de vida del material:
 
 ## 16 Tipos de Movimiento
 
-![Pestaña Movimientos (rejilla de tipos)](../docs/app-screenshots/capture-es-movimientos.png)
+![Pestaña Movimientos (rejilla de tipos)](../app-screenshots/capture-es-movimientos.png)
 
 G-NEEX soporta **16 tipos de movimiento** que cubren todas las operaciones de un almacén industrial:
 
@@ -113,13 +116,13 @@ Cada movimiento registra automáticamente:
 
 ## Pedidos a proveedor (órdenes por línea)
 
-![Pestaña Pedidos](../docs/app-screenshots/capture-es-pedidos.png)
+![Pestaña Pedidos](../app-screenshots/capture-es-pedidos.png)
 
-- Pestaña **Pedidos**: líneas vinculadas al inventario (código, proveedor, cantidad); el **OC/PO** se informa **por línea** en **Compra de stock** al recibir (el vínculo con el pedido exige **mismo código de artículo** y **mismo proveedor**, no igualdad de PO).
+- Pestaña **Pedidos**: líneas vinculadas al inventario (código, proveedor, cantidad); el **OC/PO** se informa **por línea** en **Compra de stock** al recibir (no filtra el vínculo con el pedido: deben coincidir **código de artículo** y **proveedor**).
 - Filtros en el panel: búsqueda de texto (referencia/código/descripción/proveedor/cantidades), estado, fecha clave (desde/hasta) e historial (con/sin recepción, con pedido, con anulación).
 - Estados: borrador → pedida → recepción parcial/total o cancelada; fechas guardadas para seguimiento.
 - La **recepción** abre el mismo formulario **Compra de stock** que en Movimientos; se confirma con **Procesar movimiento**.
-- Si la compra se registra **solo** desde Movimientos y hay línea pendiente con **mismo código y mismo proveedor** que la línea de compra, diálogos **Sí / No** permiten vincular y actualizar panel (recibido / estado / acciones).
+- Si registra **Compra de stock** solo desde Movimientos y hay un pedido pendiente con **mismo código y mismo proveedor** que la línea de compra, pueden aparecer diálogos **Sí / No** para enlazar y actualizar cantidad recibida y estado.
 - **Exportar / Imprimir tabla** trabajan sobre la vista filtrada; hay limpieza masiva (+1 año) y eliminación por línea (>3 meses).
 - **Referencias** de movimiento: **siglas del tipo + 6 dígitos correlativos por tipo** (p. ej. `AJU000001`, `COM000002`); los datos antiguos con más dígitos se normalizan al cargar.
 - Algunas categorías se gestionan como **recepción provisional** con PO obligatoria antes de impactar stock principal.
@@ -129,7 +132,7 @@ Cada movimiento registra automáticamente:
 
 ## Vistas de listado (estilo Explorador)
 
-![Pestaña Historial (vistas mosaico / tabla / carrusel)](../docs/app-screenshots/capture-es-historial.png)
+![Pestaña Historial (vistas mosaico / tabla / carrusel)](../app-screenshots/capture-es-historial.png)
 
 - **Historial**, **Transporte** y **Pedidos** incluyen un selector **Vista** con disposición en **mosaico** (tarjetas o iconos), **lista compacta** y, donde aplica, **tabla detallada**; además, en **Historial** hay **Carrusel cronológico** para recorrer tarjetas en secuencia horizontal. Las tarjetas minimizadas muestran también el **ID Proyecto** cuando corresponde.
 - En **Historial**, movimientos anulados en total o con **anulado parcial** muestran un **sello diagonal** (marco discontinuo inclinado); también hay filtro por tipo de anulación.
@@ -143,7 +146,7 @@ Cada movimiento registra automáticamente:
 
 ## Transporte Inteligente
 
-![Pestaña Transporte](../docs/app-screenshots/capture-es-transporte.png)
+![Pestaña Transporte](../app-screenshots/capture-es-transporte.png)
 
 El módulo de transporte automatiza la logística de envío a obra:
 
@@ -154,13 +157,13 @@ El módulo de transporte automatiza la logística de envío a obra:
 - **Creación manual** — Para casos excepcionales sin checklist asociado
 - **Historial completo** — Registro de cada acción realizada sobre el transporte
 - **Trazabilidad** — Resumen en la pestaña Transporte (recepciones pendientes de expedir, líneas con cantidad en camiones activos, últimos expedidos, stock en empresa) más una **lista manual** editable por tipo de material y fase (en planta / camión / ya salió)
-- **Reporte por camión** — Cada camión permite **Exportar** o **Imprimir** una tabla con materiales, cantidades y dimensiones de la carga actual; con **varios paquetes** por línea, el XLSX y la impresión usan **filas apiladas** (columnas fijas **Paquete**, **L**, **W**, **H**), no muchas columnas horizontales.
+- **Reporte por camión** — Cada camión permite **Exportar** o **Imprimir** una tabla con materiales, cantidades y dimensiones de la carga actual
 
 ---
 
 ## Dashboard — Visión General al Instante
 
-![Panel tras el inicio de sesión (resumen)](../docs/app-screenshots/capture-es-panel.png)
+![Panel tras el inicio de sesión (resumen)](../app-screenshots/capture-es-panel.png)
 
 Al iniciar sesión, un panel muestra el estado actual de la operación:
 
@@ -179,20 +182,19 @@ Indicadores visuales alertan si hay stock crítico o si el respaldo tiene más d
 
 ---
 
-## Recordatorios
+## Recordatorios (Admin)
 
-![Pestaña Recordatorios](../docs/app-screenshots/capture-es-recordatorios.png)
+![Pestaña Recordatorios](../app-screenshots/capture-es-recordatorios.png)
 
-- Pestaña dedicada para recordatorios operativos con fecha objetivo y prioridad (según permisos del perfil).
+- Pestaña dedicada para recordatorios operativos con fecha objetivo y prioridad.
 - Las prioridades pueden escalar automáticamente por antigüedad en días hábiles.
 - El dashboard incluye vista previa y navegación rápida a recordatorios.
-- **Cada usuario solo ve los recordatorios que él creó** (los datos siguen en el respaldo JSON del equipo).
 
 ---
 
 ## Aplicación en pantalla (visión de uso)
 
-![Panel o dashboard (G-NEEX)](../docs/app-screenshots/capture-es-panel.png)
+![Panel o dashboard (G-NEEX)](../app-screenshots/capture-es-panel.png)
 
 - G-NEEX organiza el trabajo en módulos con acceso directo desde la barra: inventario, movimientos, historial, transporte, pedidos, recordatorios y ajustes.
 - El administrador define usuarios en **⚙️ Configuración → Usuarios** con plantillas genéricas o **perfiles de referencia** (mismo comportamiento que las cuentas integradas del proyecto); la tabla **`PlantillasPermisos.xlsx.csv`** documenta cada clave.
@@ -214,10 +216,6 @@ Indicadores visuales alertan si hay stock crítico o si el respaldo tiene más d
 Los archivos incluyen rango de fechas en el nombre:
 
 `GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx`
-
-**Recepciones (Configuración):** la exportación/impresión de la lista filtrada repite el mismo criterio de **paquetes en filas** que el reporte de carga (tabla legible, sin ensanchar con columnas por paquete).
-
-**Consumibles:** al marcar un artículo como **consumible de inventario** en el editor y guardar, su nombre pasa a la lista maestra **Configuración → Consumibles**; al desmarcar, se quita de esa lista si coincidía.
 
 ---
 
@@ -322,9 +320,23 @@ Los archivos incluyen rango de fechas en el nombre:
 
 ---
 
+## Novedades 1.7 (mayo 2026)
+
+- **Pantalla de bienvenida cinemática (9 s)** tras iniciar sesión: secuencia tipo «boot up» con **scanner verde Matrix** lento, **anillos orbitales** alrededor del logo, **«G-neex» con flicker fuerte tipo neón**, sweep de «BIENVENIDO A», «PHOENIX EVOLUTION» y tu nombre. Sirve también como margen de carga real de la app.
+- **Logo como atajo de actualización**: clic en el logo del header → giro antihorario y se dispara la acción unificada **Actualizar inventario** (normaliza ubicaciones / cajas, reconcilia el stock principal con cajas y ubicaciones, refresca caducidades de lotes). Mismo acceso desde el menú herramientas.
+- **Cajas en stock principal**: el principal ahora cuadra automáticamente con la suma de cajas + ubicaciones; al consumir desde una caja el principal baja igual. La acción «Actualizar inventario» repara respaldos antiguos donde el principal y los contenedores no estaban alineados.
+- **Editor de lotes en el artículo**: añadir varias fechas de expedición / caducidad / cantidad por artículo, con cálculo en vivo de la caducidad efectiva según la **vida útil en meses** declarada. La compra de stock añade un lote por fila automáticamente.
+- **Insight de caducidad** con columna nueva **Cantidad afectada** (vencidas + próximas a vencer) y tooltip de desglose.
+- **Tooltip de lotes en la tabla** muestra una fila sintética «Sin lote (resto del stock principal)» cuando hay al menos un lote explícito, para que la suma cuadre con el principal.
+- **Plantilla solo-stock**: exportar plantilla XLSX con código y stock principal, modificar a mano y reimportar — solo se actualizan cantidades, sin tocar ubicaciones ni catálogo.
+- **Equivalencia** (`≈`) en inventario con badge de mayor contraste en tema claro y oscuro.
+- **Alineación con `gneex-hosted-api`**: el cliente `GneexApiClient` (offline hoy) deja preparado el hueco para que el siguiente paso enchufe login JWT, `GET/PATCH /api/v1/sync` y `POST /api/v1/backup/import` cuando el backend esté activo en producción.
+
+---
+
 ## Contacto
 
-**Phoenix Cell G-NEEX v1.6**
+**Phoenix Cell G-NEEX v1.7**
 
 Gestión de inventario industrial — simple, seguro, sin conexión.
 

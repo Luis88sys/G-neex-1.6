@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>User Manual — G-NEEX 1.6</title>
+<title>User Manual — G-NEEX 1.7</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -100,9 +100,36 @@
 <div class="orange-bar"></div>
 <div class="brand">G-NEEX</div>
 
-<h1>User Manual — Phoenix Cell G-NEEX 1.6</h1>
+<h1>User Manual — Phoenix Cell G-NEEX 1.7</h1>
 <p style="font-size:0.95em;color:#666;font-style:italic;margin-top:4px;">Phoenix Cell G-NEEX is developed by <strong>Luis Goire</strong>, as a hobby and with a strong interest in programming, on the path toward working as a professional developer.</p>
-<p style="font-size:0.9em;color:#777;font-style:italic;">Updated: May 2026</p>
+<p style="font-size:0.9em;color:#777;font-style:italic;">Updated: May 2026 (v1.7)</p>
+
+<h2>What's new in 1.7 (May 2026) — read first</h2>
+<blockquote>If you're coming from 1.6, the points below are the only new pieces. The rest of the manual still applies.</blockquote>
+<ul>
+<li><strong>Cinematic welcome splash (9 s):</strong> after login a 9-second "boot up" sequence runs that also acts as a <strong>real loading buffer</strong> for the app. A <strong>Matrix-green scanner</strong> (<code>#00ff41</code>) sweeps slowly down the screen, <strong>orbital rings</strong> close around the logo, <strong>"WELCOME TO"</strong> is revealed via clip-path wipe, <strong>"G-neex"</strong> flashes with a <strong>strong neon flicker</strong> before staying lit, and finally <strong>"PHOENIX EVOLUTION"</strong> and <strong>your name</strong> appear. A linear progress bar covers the 8.7 useful seconds. It does not repeat on tab reload; it shows again on the next login.</li>
+<li><strong>Header logo as the "Update inventory" shortcut:</strong> clicking the logo (header, top left) spins it counter-clockwise and triggers the unified <strong>Update inventory</strong> action, in this order:
+  <ol>
+    <li><strong>Normalize locations and boxes</strong> (free-text from older backups → canonical catalog; syncs <code>boxStocks</code> and <code>locationStocks</code>).</li>
+    <li><strong>Reconcile main stock:</strong> adjusts <code>mainStock = max(current, sum(boxes) + sum(locations))</code>. <strong>Never reduces</strong> main stock.</li>
+    <li><strong>Refresh lot expiry:</strong> lots whose expiry was <em>computed</em> are recomputed on the fly from the item's current shelf life. <strong>Hand-typed expiries are preserved.</strong></li>
+  </ol>
+  A confirmation modal previews the per-section detail (up to 5 rows each) before applying. Same action is available from the tools menu (↺) and via Enter / Space on the focused logo.</li>
+<li><strong>Boxes integrated into main stock:</strong> consuming, moving or editing a box updates main stock automatically. Older backups can be repaired with <strong>Update inventory</strong>.</li>
+<li><strong>Lots editor on the item:</strong> in ⚙️ → edit item there is a new <strong>Lots (expiry per purchase)</strong> section where you add, one per row, <strong>expedition date + optional explicit expiry + quantity</strong>. Effective expiry is computed on the fly from the item's <strong>shelf-life in months</strong> unless you type an explicit one.</li>
+<li><strong>Expiration: expired or soon-to-expire — new "Affected quantity" column:</strong> sum of units in expired + soon-to-expire lots, with a breakdown tooltip.</li>
+<li><strong>Lot tooltip in the table:</strong> when at least one explicit lot exists, a synthetic "Unassigned (rest of main stock)" row appears so the sum reconciles to main stock.</li>
+<li><strong>Stock-only template (export/import):</strong> two new options in the tools menu:
+  <ul>
+    <li>🧾 <strong>Export stock-only template</strong> → XLSX with <code>Code</code>, <code>Description</code>, <code>MainStock</code> (editable).</li>
+    <li>♻ <strong>Import stock-only update</strong> → reads that same XLSX back and only updates main-stock quantities.</li>
+  </ul>
+</li>
+<li><strong>Equivalence (≈)</strong> badge in the inventory table now has stronger contrast in both light and dark themes.</li>
+<li><strong>Alignment with the future <code>gneex-hosted-api</code>:</strong> the app stays 100 % offline; <code>GneexApiClient</code> is prepared to connect to the backend when it ships.</li>
+</ul>
+
+<hr>
 
 <h2>Background and purpose</h2>
 <h3>Shop-floor need</h3>

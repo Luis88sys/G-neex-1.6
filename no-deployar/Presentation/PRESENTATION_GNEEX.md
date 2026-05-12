@@ -1,9 +1,9 @@
-﻿# Phoenix Cell G-NEEX 1.6
+﻿# Phoenix Cell G-NEEX 1.7
 
 ### Comprehensive Inventory and Logistics Management System
 
 *Built by **Luis Goire** — programming enthusiast, aspiring professional developer.*
-*Updated: May 2026*
+*Updated: May 2026 (v1.7)*
 
 ---
 
@@ -35,27 +35,30 @@ Electrical installation and industrial project companies face daily challenges:
 
 **Browser-stored data:** inventory, movements, and session live in the browser’s local storage. Lock the workstation, use personal accounts, export backups regularly, and only import JSON backups from trusted sources.
 
-**Backup & Import/Export:** the Import/Export tab and critical backup actions are limited to the **administrator account**; temporary elevation does not replace that role. Login backgrounds may rotate per `assets/login-bg-manifest.json`. JSON import no longer removes unrelated local data when keys are absent from the file.
+**Same URL every time:** data is scoped to the browser *origin* (protocol, host, port, path). Use one fixed launch method (e.g. local server `http://127.0.0.1:PORT/`). Do not mix opening `index.html` as `file://` with `http://` or hop between ports — empty-looking lists are often a different storage bucket.
 
-**Use a stable URL:** browser data is tied to the *origin* (protocol, host, port, path). Keep one fixed launch URL (for example `http://127.0.0.1:PORT/`) and do not mix `file://` with HTTP.
+**Backup & Import/Export:** the Import/Export tab and critical backup actions are limited to the **administrator account**; temporary elevation does not replace that role. Login backgrounds may rotate per `assets/login-bg-manifest.json`. Full JSON backup includes the **units-of-measure catalog** (symbols and equivalences). When importing JSON, keys **missing** from the file no longer erase unrelated local data (older backups won’t wipe the units catalog, for example).
 
-**Units of measure:** the catalog keeps reserved **U**; each article may set a stock unit or leave it unset (no automatic fill to U).
+**Units of measure:** ⚙️ Settings → **Units** maintains symbols and equivalences; the catalog keeps a reserved **U** row (cannot delete). Each article may set a **stock unit** or leave it unset — no automatic fill to **U**. Inventory shows the symbol next to main stock **when a unit is chosen** (and optional **≈** equivalent); optional CSV columns `UnidadStockSimbolo` / `UnidadEquivalenteSimbolo`. Movement screens still use plain numbers — operators must stay consistent with each article’s stock unit.
 
 It manages the entire material lifecycle:
 
 **Intake** → **Warehouse** → **Dispatch** → **Transport** → **Job Site**
 
-![Login (entry to the app)](../docs/app-screenshots/capture-en-01-login.png)
+*Real v1.6 captures (Playwright). Regenerate: `docs/app-screenshots/README.md`.*
+
+![Login (entry to the app)](../app-screenshots/capture-en-01-login.png)
 
 ---
 
 ## Real-Time Inventory
 
-![Inventory tab](../docs/app-screenshots/capture-en-inventario.png)
+![Inventory tab](../app-screenshots/capture-en-inventario.png)
 
 | Feature | Description |
 |---------|-------------|
 | **Full overview** | Table with code, description, category, main/production/transformation stock, location, and expiration date |
+| **Units of measure** | Stock unit symbol next to main qty when the article has a unit (optional **≈**); ⚙️ **Units** + **Article editing** |
 | **3 independent stocks** | Main, Production, and Transformation — each with its own tracking |
 | **Instant search** | Live filter by code, description, category, or location |
 | **Tools menu (⋮)** | First item **Hide inline filter bars** (chevron): closes box / depot / consumable strips; **disabled** when no strip is open. The **⋮** menu groups export, print, filters, as-of date, summaries, etc. |
@@ -72,7 +75,7 @@ It manages the entire material lifecycle:
 
 ## 16 Movement Types
 
-![Movements tab (type grid)](../docs/app-screenshots/capture-en-movimientos.png)
+![Movements tab (type grid)](../app-screenshots/capture-en-movimientos.png)
 
 G-NEEX supports **16 movement types** covering all operations in an industrial warehouse:
 
@@ -113,13 +116,13 @@ Each movement automatically records:
 
 ## Supplier orders (order lines)
 
-![Orders tab](../docs/app-screenshots/capture-en-pedidos.png)
+![Orders tab](../app-screenshots/capture-en-pedidos.png)
 
-- **Orders** tab: lines tied to inventory (code, supplier, quantity); **PO/OC** is entered **per row** in **Stock purchase** on receipt (linking to an order line requires **same article code** and **same supplier**, not PO equality).
+- **Orders** tab: lines tied to inventory (supplier, quantity); **PO/OC** is captured on **receipt** in Stock purchase.
 - Panel filters: text search (ref/code/description/supplier/quantities), status, key date range (from/to), and timeline preset (with/without receipt, ordered, cancelled).
 - States: draft → ordered → partial/full receipt or cancelled; dates kept for tracking.
 - **Receipt** opens the same **Stock purchase** form as under Movements; confirm with **Process movement**.
-- Entering **Stock purchase** **only** from Movements may show **Yes / No** dialogs when a pending order line has the **same article code** and **supplier** as the purchase line (PO on the purchase row is recorded but does not decide the match).
+- Purchases logged **only** under Movements can trigger **Yes / No** prompts to link to a pending order and update the Orders panel (received / status / actions).
 - **Export / Print table** use the current filtered view; there is bulk cleanup (+1 year) and per-line removal (>3 months).
 - Movement **references** use **type letters + 6-digit sequence per type** (e.g. `AJU000001`, `COM000002`); legacy refs normalize on load.
 - Some categories use **provisional reception** with mandatory PO before main-stock impact.
@@ -129,7 +132,7 @@ Each movement automatically records:
 
 ## List layouts (Explorer-style)
 
-![History tab (tiles / table / carousel)](../docs/app-screenshots/capture-en-historial.png)
+![History tab (tiles / table / carousel)](../app-screenshots/capture-en-historial.png)
 
 - **History**, **Transport**, and **Orders** include a **View** control for **tiles**, a compact **list**, and (where relevant) a **detailed table**; in **History**, a **Chronological carousel** is also available for horizontal card browsing. Minimized cards also show the **Project ID** when relevant.
 - In **History**, movements that are fully voided or **partial annulments** show a **diagonal stamp** (tilted dashed frame); filters also include annulment type.
@@ -143,7 +146,7 @@ Each movement automatically records:
 
 ## Smart Transport
 
-![Transport tab](../docs/app-screenshots/capture-en-transporte.png)
+![Transport tab](../app-screenshots/capture-en-transporte.png)
 
 The transport module automates shipment logistics to job sites:
 
@@ -154,13 +157,13 @@ The transport module automates shipment logistics to job sites:
 - **Manual creation** — For exceptional cases without an associated checklist
 - **Full history** — Record of every action performed on the transport
 - **Traceability** — Transport tab summary (receptions waiting to ship, quantities on active truck lines, recent shipments, stock on hand) plus an editable **manual list** by material family and phase (on-site / truck / departed)
-- **Per-truck report** — Each truck can **Export** or **Print** a cargo table with materials, quantities, and current dimensions; with **multiple packages** per line, XLSX and print use **stacked rows** (fixed **Package**, **L**, **W**, **H** columns), not many horizontal package columns.
+- **Per-truck report** — Each truck can **Export** or **Print** a cargo table with materials, quantities, and current dimensions
 
 ---
 
 ## Dashboard — Instant Overview
 
-![Main screen after login (summary)](../docs/app-screenshots/capture-en-panel.png)
+![Main screen after login (summary)](../app-screenshots/capture-en-panel.png)
 
 Upon login, a panel displays the current operational status:
 
@@ -179,23 +182,21 @@ Visual indicators alert if there is critical stock or if the backup is more than
 
 ---
 
-## Reminders
+## Reminders (Admin)
 
-![Reminders tab](../docs/app-screenshots/capture-en-recordatorios.png)
+![Reminders tab](../app-screenshots/capture-en-recordatorios.png)
 
-- Dedicated tab for operational reminders with due date and priority (per profile permissions).
+- Dedicated tab for operational reminders with due date and priority.
 - Priorities can auto-escalate by business-day aging.
 - Dashboard includes reminder preview with quick navigation.
-- **Each user only sees reminders they created** (data still lives in the machine’s JSON backup).
 
 ---
 
 ## The app in use (on-screen)
 
-![Dashboard and navigation (G-NEEX)](../docs/app-screenshots/capture-en-panel.png)
+![Dashboard and navigation (G-NEEX)](../app-screenshots/capture-en-panel.png)
 
 - G-NEEX groups daily work in modules you open from the top bar: inventory, movements, history, transport, orders, reminders, and settings.
-- An administrator sets users under **⚙️ Settings → Users** using generic templates or **reference profiles** (same behaviour as built-in accounts); keys are documented in **`PlantillasPermisos.xlsx.csv`**.
 - The user manual explains each screen and workflow. **How** access and copies are run on your site is an operational matter; the focus here is day-to-day **use** of the interface and inventory features.
 
 ---
@@ -214,10 +215,6 @@ Visual indicators alert if there is critical stock or if the backup is more than
 Files include the date range in their name:
 
 `GNEEX_All_Movements_2024-03-15_to_2026-04-15.xlsx`
-
-**Receptions (Settings):** exporting or printing the filtered list uses the same **packages-as-rows** layout as the truck cargo report.
-
-**Consumables:** marking an item **inventory consumable** in the editor and saving adds its name to **Settings → Consumables**; unchecking removes the matching list entry.
 
 ---
 
@@ -322,9 +319,23 @@ Files include the date range in their name:
 
 ---
 
+## What's new in 1.7 (May 2026)
+
+- **Cinematic welcome splash (9 s)** after login: a "boot up"-style sequence with a slow **Matrix-green scanner**, **orbital rings** around the logo, **strong neon flicker on "G-neex"**, sweeping reveal of "WELCOME TO", "PHOENIX EVOLUTION" and your name. Also acts as a real loading buffer for the app.
+- **Logo as refresh shortcut**: clicking the header logo spins it counter-clockwise and triggers the unified **Update inventory** action (normalize locations / boxes, reconcile main stock with boxes + locations, refresh lot expiry from shelf life). Same action also available in the tools menu.
+- **Boxes integrated into main stock**: main stock now reconciles to `max(current, sum(boxes + locations))`; consuming from a box decrements the main stock too. The new action repairs older backups where main and containers were out of sync.
+- **Lots editor on the item**: add multiple expedition / explicit expiry / quantity rows per item with live computation of effective expiry from the declared **shelf-life in months**. Stock purchases auto-feed one lot per row.
+- **Expiration insight** with a new **Affected quantity** column (already-expired plus soon-to-expire units) and breakdown tooltip.
+- **Lot tooltip in the table** shows a synthetic "Unassigned (rest of main stock)" row when at least one explicit lot exists, so the sum reconciles with main stock.
+- **Stock-only template**: export XLSX with code + main stock only, edit by hand, re-import to update *only* quantities without touching the catalog.
+- **Equivalence** (`≈`) badge in the inventory table now has stronger contrast in both light and dark themes.
+- **Alignment with `gneex-hosted-api`**: `GneexApiClient` (still offline today) reserves the wiring for future login JWT, `GET/PATCH /api/v1/sync` and `POST /api/v1/backup/import` once the backend is live in production.
+
+---
+
 ## Contact
 
-**Phoenix Cell G-NEEX v1.6**
+**Phoenix Cell G-NEEX v1.7**
 
 Industrial inventory management — simple, secure, offline.
 

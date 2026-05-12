@@ -1,7 +1,27 @@
-﻿# Manual de Usuario — Phoenix Cell G-NEEX 1.6
+﻿# Manual de Usuario — Phoenix Cell G-NEEX 1.7
 
 *Phoenix Cell G-NEEX es desarrollada por **Luis Goire**, de forma aficionada y con interés en la programación, en camino a formarse como programador.*
-*Actualizado: mayo de 2026*
+*Actualizado: mayo de 2026 (v1.7)*
+
+## Novedades 1.7 (mayo 2026) — leer antes que el resto
+
+> Si vienes de la 1.6, los puntos abajo son lo único nuevo. El resto del manual aplica igual.
+
+- **Pantalla de bienvenida cinemática (9 s):** al iniciar sesión arranca una secuencia tipo «boot up» de 9 segundos que sirve también como **margen de carga** de la app. El **scanner verde Matrix** (`#00ff41`) cruza despacio la pantalla, los **anillos orbitales** se cierran alrededor del logo, **«BIENVENIDO A»** se revela por barrido, **«G-neex»** parpadea con **flicker fuerte tipo neón** y queda encendido, y por último aparecen **«PHOENIX EVOLUTION»** y **tu nombre**. La barra de progreso inferior cubre los 8.7 s útiles. No se repite al recargar la pestaña; vuelve a salir al volver a iniciar sesión.
+- **Logo del header como atajo «Actualizar inventario»:** un clic en el logo (header arriba a la izquierda) da una vuelta antihoraria y dispara la acción unificada **Actualizar inventario**, que en este orden:
+  1. **Normaliza ubicaciones y cajas** (texto libre importado de respaldos antiguos → catálogo canónico; sincroniza `boxStocks` y `locationStocks`).
+  2. **Reconcilia stock principal:** ajusta `stockPrincipal = máx(actual, suma(cajas) + suma(ubicaciones))`. **Nunca reduce** el principal; solo lo sube si tus cajas/ubicaciones suman más.
+  3. **Refresca caducidades de lotes:** los lotes con caducidad **calculada** pasan a recalcularse al vuelo con la vida útil vigente del artículo. **Los lotes con caducidad escrita a mano se preservan.**
+  Antes de aplicar, se muestra un modal con el detalle por sección (hasta 5 filas por bloque). Si no hay nada que hacer, sale un toast informativo y no se aplica nada. La misma acción está accesible desde el menú de herramientas (↺) y se puede activar por teclado con Enter / Espacio sobre el logo.
+- **Cajas integradas al stock principal:** consumir, mover o editar una caja actualiza el stock principal automáticamente. Si tienes respaldos viejos donde no cuadran, la acción **Actualizar inventario** los repara sin pisar lo que ya hay.
+- **Editor de lotes en el artículo:** en ⚙️ → editar artículo hay una sección nueva **Lotes (caducidad por compra)** donde añades, una por línea, **fecha de expedición + caducidad explícita opcional + cantidad**. La caducidad efectiva se calcula al vuelo a partir de la **vida útil en meses** del artículo si no escribes una caducidad explícita. Cada compra de stock añade un lote por fila automáticamente; puedes editarlos o borrarlos después.
+- **Caducidad: vencidos o próximos a vencer — columna «Cantidad afectada»:** suma de unidades en lotes vencidos + próximos a vencer, con tooltip de desglose. Útil para priorizar qué bajar a planta antes.
+- **Tooltip de lotes en la tabla:** si hay al menos un lote explícito, aparece una fila sintética «Sin lote (resto del stock principal)» para que la suma cuadre con el stock principal. Si no hay lotes, el tooltip queda vacío (sin ruido).
+- **Plantilla solo-stock (export/import):** dos opciones nuevas en el menú de herramientas:
+  - 🧾 **Exportar plantilla solo-stock** → XLSX con `Codigo`, `Descripcion`, `StockPrincipal` (editable). Nada más.
+  - ♻ **Importar actualización solo-stock** → re-lee ese mismo XLSX y solo actualiza cantidades del stock principal. No toca ubicaciones, lotes, ni catálogo.
+- **Equivalencia (`≈`) más legible:** la columna del inventario muestra un badge con mayor contraste en tema claro y oscuro.
+- **Alineación con futuro `gneex-hosted-api`:** la app sigue 100 % offline; el cliente `GneexApiClient` queda preparado para conectarse al backend cuando esté en producción (login JWT + sync + import respaldo). Ver `no-deployar/docs/BACKEND_ALINEACION.md`.
 
 ## Antecedentes y propósito
 

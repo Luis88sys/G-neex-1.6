@@ -1,9 +1,9 @@
-# Phoenix Cell G-NEEX 1.6
+# Phoenix Cell G-NEEX 1.7
 
 ### Système Intégral de Gestion d'Inventaire et de Logistique
 
 *Développement : **Luis Goire** — passionné de programmation, en route vers le métier de développeur.*
-*Mis à jour : mai 2026*
+*Mis à jour : mai 2026 (v1.7)*
 
 ---
 
@@ -320,9 +320,23 @@ Les fichiers incluent la plage de dates dans leur nom :
 
 ---
 
+## Nouveautés 1.7 (mai 2026)
+
+- **Écran de bienvenue cinématique (9 s)** après connexion : séquence type « boot up » avec **scanner vert Matrix** lent, **anneaux orbitaux** autour du logo, **fort effet néon clignotant sur « G-neex »**, balayage révélant « BIENVENUE SUR », « PHOENIX EVOLUTION » et votre nom. Sert aussi de vraie marge de chargement pour l'application.
+- **Logo comme raccourci de mise à jour** : un clic sur le logo de l'en-tête le fait tourner dans le sens antihoraire et déclenche l'action unifiée **Mettre à jour l'inventaire** (normalisation des emplacements / boîtes, réconciliation du stock principal avec boîtes et emplacements, rafraîchissement des péremptions de lots depuis la durée de vie).
+- **Boîtes intégrées au stock principal** : le principal correspond maintenant à `max(actuel, somme(boîtes + emplacements))` ; consommer depuis une boîte décrémente le principal. La nouvelle action répare les anciens backups où principal et conteneurs n'étaient pas alignés.
+- **Éditeur de lots dans l'article** : ajouter plusieurs lignes d'expédition / péremption explicite / quantité par article, avec calcul en direct de la péremption effective à partir de la **durée de vie en mois** déclarée.
+- **Insight de péremption** avec une nouvelle colonne **Quantité affectée** (déjà périmées + bientôt périmées) et tooltip de détail.
+- **Tooltip des lots dans le tableau** : ligne synthétique « Sans lot (reste du stock principal) » dès qu'au moins un lot explicite existe, pour que la somme corresponde au stock principal.
+- **Gabarit stock-seul** : exporter un XLSX avec code + stock principal uniquement, éditer à la main et réimporter pour ne mettre à jour *que* les quantités, sans toucher au catalogue.
+- **Équivalence** (`≈`) dans la table d'inventaire : badge avec meilleur contraste dans les deux thèmes.
+- **Alignement avec `gneex-hosted-api`** : le client `GneexApiClient` (hors-ligne aujourd'hui) prépare le terrain pour le futur login JWT, `GET/PATCH /api/v1/sync` et `POST /api/v1/backup/import` quand le backend sera en production.
+
+---
+
 ## Contact
 
-**Phoenix Cell G-NEEX v1.6**
+**Phoenix Cell G-NEEX v1.7**
 
 Gestion d'inventaire industriel — simple, sécurisé, hors ligne.
 

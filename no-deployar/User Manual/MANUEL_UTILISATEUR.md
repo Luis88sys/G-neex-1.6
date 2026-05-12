@@ -1,7 +1,27 @@
-﻿# Manuel Utilisateur — Phoenix Cell G-NEEX 1.6
+﻿# Manuel Utilisateur — Phoenix Cell G-NEEX 1.7
 
 *Phoenix Cell G-NEEX est développée par **Luis Goire**, par passion pour la programmation et dans une démarche d’apprentissage vers le métier de développeur.*
-*Mis à jour : mai 2026*
+*Mis à jour : mai 2026 (v1.7)*
+
+## Nouveautés 1.7 (mai 2026) — à lire en premier
+
+> Si vous arrivez de la 1.6, les points ci-dessous sont les seules nouveautés. Le reste du manuel reste valable.
+
+- **Écran de bienvenue cinématique (9 s) :** après la connexion, une séquence type « boot up » de 9 secondes démarre, qui sert aussi de **marge de chargement réelle** pour l'application. Un **scanner vert Matrix** (`#00ff41`) traverse lentement l'écran, les **anneaux orbitaux** se referment autour du logo, **« BIENVENUE SUR »** se révèle par balayage, **« G-neex »** clignote avec un **fort effet néon** avant de rester allumé, puis apparaissent **« PHOENIX EVOLUTION »** et **votre nom**. Une barre de progression linéaire couvre les 8.7 secondes utiles. L'écran ne se répète pas au rechargement de l'onglet ; il réapparaît à la prochaine connexion.
+- **Logo de l'en-tête comme raccourci « Mettre à jour l'inventaire » :** un clic sur le logo (en-tête, en haut à gauche) le fait tourner dans le sens antihoraire et déclenche l'action unifiée **Mettre à jour l'inventaire**, dans cet ordre :
+  1. **Normaliser les emplacements et les boîtes** (texte libre des anciens backups → catalogue canonique ; synchronise `boxStocks` et `locationStocks`).
+  2. **Réconcilier le stock principal :** ajuste `stockPrincipal = max(actuel, somme(boîtes) + somme(emplacements))`. **Ne réduit jamais** le principal ; il ne fait que monter si les boîtes/emplacements totalisent plus.
+  3. **Rafraîchir les péremptions de lots :** les lots dont la péremption était **calculée** sont recalculés à la volée à partir de la durée de vie actuelle de l'article. **Les péremptions saisies à la main sont préservées.**
+  Un modal de confirmation montre le détail par section (jusqu'à 5 lignes par bloc) avant d'appliquer. Si rien n'est en attente, un toast info apparaît et rien n'est modifié. La même action est dispo dans le menu outils (↺) et via Entrée / Espace sur le logo en focus.
+- **Boîtes intégrées au stock principal :** consommer, déplacer ou modifier une boîte met à jour le stock principal automatiquement. Si vous avez d'anciens backups désynchronisés, **Mettre à jour l'inventaire** les répare sans toucher au reste.
+- **Éditeur de lots dans l'article :** dans ⚙️ → éditer l'article, une nouvelle section **Lots (péremption par achat)** permet d'ajouter, une par ligne, **date d'expédition + péremption explicite optionnelle + quantité**. La péremption effective est calculée à la volée à partir de la **durée de vie en mois** de l'article si vous ne saisissez pas de péremption explicite. Chaque achat de stock ajoute un lot par ligne automatiquement ; vous pouvez les éditer ou les supprimer ensuite.
+- **Péremption : périmés ou bientôt périmés — nouvelle colonne « Quantité affectée » :** somme des unités dans les lots périmés + bientôt périmés, avec tooltip de détail. Aide à prioriser ce qu'il faut bouger en premier.
+- **Tooltip des lots dans le tableau :** dès qu'au moins un lot explicite existe, une ligne synthétique « Sans lot (reste du stock principal) » apparaît pour que la somme corresponde au stock principal. Sans lots, le tooltip reste vide (pas de bruit).
+- **Gabarit stock-seul (export/import) :** deux nouvelles options dans le menu outils :
+  - 🧾 **Exporter le gabarit stock-seul** → XLSX avec `Code`, `Description`, `StockPrincipal` (modifiable). Rien d'autre.
+  - ♻ **Importer la mise à jour stock-seul** → relit ce XLSX et ne met à jour que les quantités du stock principal. Les emplacements, les lots et le catalogue ne sont pas touchés.
+- **Équivalence (`≈`) plus lisible :** la colonne d'inventaire affiche maintenant un badge avec un meilleur contraste dans les deux thèmes.
+- **Alignement avec le futur `gneex-hosted-api` :** l'application reste 100 % hors-ligne ; le client `GneexApiClient` est préparé pour se connecter au backend une fois en production (login JWT + sync + import de sauvegarde). Voir `no-deployar/docs/BACKEND_ALINEACION.md`.
 
 ## Contexte et objectif
 

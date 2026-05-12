@@ -1,9 +1,9 @@
-﻿# Phoenix Cell G-NEEX 1.6
+﻿# Phoenix Cell G-NEEX 1.7
 
 ### Comprehensive Inventory and Logistics Management System
 
 *Built by **Luis Goire** — programming enthusiast, aspiring professional developer.*
-*Updated: May 2026*
+*Updated: May 2026 (v1.7)*
 
 ---
 
@@ -319,9 +319,23 @@ Files include the date range in their name:
 
 ---
 
+## What's new in 1.7 (May 2026)
+
+- **Cinematic welcome splash (9 s)** after login: a "boot up"-style sequence with a slow **Matrix-green scanner**, **orbital rings** around the logo, **strong neon flicker on "G-neex"**, sweeping reveal of "WELCOME TO", "PHOENIX EVOLUTION" and your name. Also acts as a real loading buffer for the app.
+- **Logo as refresh shortcut**: clicking the header logo spins it counter-clockwise and triggers the unified **Update inventory** action (normalize locations / boxes, reconcile main stock with boxes + locations, refresh lot expiry from shelf life). Same action also available in the tools menu.
+- **Boxes integrated into main stock**: main stock now reconciles to `max(current, sum(boxes + locations))`; consuming from a box decrements the main stock too. The new action repairs older backups where main and containers were out of sync.
+- **Lots editor on the item**: add multiple expedition / explicit expiry / quantity rows per item with live computation of effective expiry from the declared **shelf-life in months**. Stock purchases auto-feed one lot per row.
+- **Expiration insight** with a new **Affected quantity** column (already-expired plus soon-to-expire units) and breakdown tooltip.
+- **Lot tooltip in the table** shows a synthetic "Unassigned (rest of main stock)" row when at least one explicit lot exists, so the sum reconciles with main stock.
+- **Stock-only template**: export XLSX with code + main stock only, edit by hand, re-import to update *only* quantities without touching the catalog.
+- **Equivalence** (`≈`) badge in the inventory table now has stronger contrast in both light and dark themes.
+- **Alignment with `gneex-hosted-api`**: `GneexApiClient` (still offline today) reserves the wiring for future login JWT, `GET/PATCH /api/v1/sync` and `POST /api/v1/backup/import` once the backend is live in production.
+
+---
+
 ## Contact
 
-**Phoenix Cell G-NEEX v1.6**
+**Phoenix Cell G-NEEX v1.7**
 
 Industrial inventory management — simple, secure, offline.
 

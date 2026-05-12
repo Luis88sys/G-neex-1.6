@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manuel Utilisateur — G-NEEX 1.6</title>
+<title>Manuel Utilisateur — G-NEEX 1.7</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -100,9 +100,31 @@
 <div class="orange-bar"></div>
 <div class="brand">G-NEEX</div>
 
-<h1>Manuel Utilisateur — Phoenix Cell G-NEEX 1.6</h1>
+<h1>Manuel Utilisateur — Phoenix Cell G-NEEX 1.7</h1>
 <p style="font-size:0.95em;color:#666;font-style:italic;margin-top:4px;">Phoenix Cell G-NEEX est développée par <strong>Luis Goire</strong>, par passion pour la programmation et dans une démarche d’apprentissage vers le métier de développeur.</p>
-<p style="font-size:0.9em;color:#777;font-style:italic;">Mis à jour : mai 2026</p>
+<p style="font-size:0.9em;color:#777;font-style:italic;">Mis à jour : mai 2026 (v1.7)</p>
+
+<h2>Nouveautés 1.7 (mai 2026) — à lire en premier</h2>
+<blockquote>Si vous arrivez de la 1.6, les points ci-dessous sont les seules nouveautés. Le reste du manuel reste valable.</blockquote>
+<ul>
+<li><strong>Écran de bienvenue cinématique (9 s) :</strong> après la connexion, une séquence type « boot up » de 9 secondes démarre, qui sert aussi de <strong>marge de chargement réelle</strong> pour l'application. Un <strong>scanner vert Matrix</strong> (<code>#00ff41</code>) traverse lentement l'écran, les <strong>anneaux orbitaux</strong> se referment autour du logo, <strong>« BIENVENUE SUR »</strong> se révèle par balayage, <strong>« G-neex »</strong> clignote avec un <strong>fort effet néon</strong> avant de rester allumé, puis apparaissent <strong>« PHOENIX EVOLUTION »</strong> et <strong>votre nom</strong>. Une barre de progression linéaire couvre les 8.7 secondes utiles.</li>
+<li><strong>Logo de l'en-tête comme raccourci « Mettre à jour l'inventaire » :</strong> un clic sur le logo (en-tête, en haut à gauche) le fait tourner dans le sens antihoraire et déclenche l'action unifiée <strong>Mettre à jour l'inventaire</strong>, dans cet ordre :
+  <ol>
+    <li><strong>Normaliser les emplacements et les boîtes</strong> (texte libre des anciens backups → catalogue canonique).</li>
+    <li><strong>Réconcilier le stock principal :</strong> <code>stockPrincipal = max(actuel, somme(boîtes) + somme(emplacements))</code>. <strong>Ne réduit jamais</strong> le principal.</li>
+    <li><strong>Rafraîchir les péremptions de lots :</strong> les péremptions calculées sont recalculées à partir de la durée de vie actuelle. <strong>Les péremptions saisies à la main sont préservées.</strong></li>
+  </ol>
+  Un modal de confirmation montre le détail par section avant d'appliquer.</li>
+<li><strong>Boîtes intégrées au stock principal :</strong> consommer ou modifier une boîte met à jour le stock principal automatiquement.</li>
+<li><strong>Éditeur de lots dans l'article :</strong> nouvelle section <strong>Lots (péremption par achat)</strong> avec <strong>date d'expédition + péremption explicite optionnelle + quantité</strong> par ligne. La péremption effective est calculée à la volée à partir de la <strong>durée de vie en mois</strong> de l'article.</li>
+<li><strong>Péremption : périmés ou bientôt périmés — nouvelle colonne « Quantité affectée » :</strong> somme des unités dans les lots concernés, avec tooltip de détail.</li>
+<li><strong>Tooltip des lots dans le tableau :</strong> ligne synthétique « Sans lot (reste du stock principal) » dès qu'un lot explicite existe.</li>
+<li><strong>Gabarit stock-seul (export/import) :</strong> 🧾 <strong>Exporter le gabarit stock-seul</strong> et ♻ <strong>Importer la mise à jour stock-seul</strong>.</li>
+<li><strong>Équivalence (≈)</strong> avec meilleur contraste dans les deux thèmes.</li>
+<li><strong>Alignement avec le futur <code>gneex-hosted-api</code> :</strong> l'application reste 100 % hors-ligne ; <code>GneexApiClient</code> est préparé pour se connecter au backend.</li>
+</ul>
+
+<hr>
 
 <h2>Contexte et objectif</h2>
 <h3>Besoin en atelier</h3>

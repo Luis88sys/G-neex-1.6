@@ -13,6 +13,14 @@
     <link rel="icon" href="favicon.ico" sizes="32x32" type="image/x-icon">
     <link rel="icon" type="image/png" href="assets/logo.png" sizes="any">
     <link rel="apple-touch-icon" href="assets/logo.png">
+    <!-- Preload del logo (lo usan login-gate, welcome splash y header de la app):
+         con la misma respuesta cacheada se evita un flash de "sin imagen" al
+         entrar y reduce un round trip en navegación normal. -->
+    <link rel="preload" as="image" href="assets/logo.png" fetchpriority="high">
+    <!-- Preconnect a Google Fonts: solo abre la conexión TCP+TLS al servidor
+         de la hoja de estilo, sin descargar nada antes de que toque hacerlo. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -132,10 +140,41 @@
     </div>
 </div>
 
+<!-- ========== PANTALLA DE BIENVENIDA (5 s post-login) ==========
+     Estilo "boot up" tipo intro de juego/película: fondo entra, scanline
+     recorre la pantalla, logo arranca con anillo orbital, título se revela
+     por barrido y "G-neex" hace flicker tipo neón antes de quedar fijo.
+     Da 5 s para que la app termine de cargar tras `App.initApplication()`.
+     Honra `prefers-reduced-motion`: en ese modo todo aparece estático sin
+     animación. Montado/desmontado desde `Auth.showWelcomeSplash()`. -->
+<div id="welcome-splash" class="welcome-splash" hidden aria-hidden="true">
+    <div class="welcome-splash__bg" aria-hidden="true"></div>
+    <div class="welcome-splash__grid" aria-hidden="true"></div>
+    <div class="welcome-splash__scanline" aria-hidden="true"></div>
+    <div class="welcome-splash__panel" role="status" aria-live="polite">
+        <div class="welcome-splash__logo-wrap" aria-hidden="true">
+            <span class="welcome-splash__logo-ring"></span>
+            <span class="welcome-splash__logo-ring welcome-splash__logo-ring--inner"></span>
+            <img class="welcome-splash__logo" src="assets/logo.png" alt="" width="140" height="140" decoding="async">
+        </div>
+        <div class="welcome-splash__brand">
+            <h2 class="welcome-splash__title">
+                <span class="welcome-splash__hello" data-i18n="welcome.hello">Bienvenido a</span>
+                <span class="welcome-splash__app" data-text="G-neex">G-neex</span>
+            </h2>
+            <p class="welcome-splash__subtitle" data-i18n="app.taglineEvolution">PHOENIX EVOLUTION</p>
+            <p class="welcome-splash__user" id="welcome-splash-user"></p>
+        </div>
+        <div class="welcome-splash__progress" aria-hidden="true">
+            <span class="welcome-splash__progress-bar"></span>
+        </div>
+    </div>
+</div>
+
 <header class="main-header">
     <div class="header-left">
         <div class="logo-container">
-            <img class="logo" src="assets/logo.png" alt="" width="48" height="48" decoding="async">
+            <img class="logo logo-refresh-trigger" id="app-logo-refresh" src="assets/logo.png" alt="" width="48" height="48" decoding="async" role="button" tabindex="0" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="header.logoRefreshTooltip" data-i18n-aria-label="header.logoRefreshTooltip" title="Actualizar inventario" aria-label="Actualizar inventario">
             <div class="app-brand">
                 <h1 class="app-title">G-NEEX</h1>
                 <p class="app-subtitle" data-i18n="app.taglineEvolution">PHOENIX EVOLUTION</p>
@@ -516,6 +555,19 @@
                       <span class="inventory-header-tools-menu-ico" aria-hidden="true">🗃</span>
                       <span data-i18n="inventory.toolsItemBoxManager">Gestionar stock por caja</span>
                     </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-refresh-data-btn" data-auth-act="invTools" data-auth-act-level="edit">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">↺</span>
+                      <span data-i18n="inventory.toolsItemRefreshData">Actualizar inventario (normalizar + stock + caducidad)</span>
+                    </button>
+                    <div class="inventory-header-tools-menu-sep" role="separator"></div>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-export-stock-template-btn" data-auth-act="invTools" data-auth-act-level="view">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">🧾</span>
+                      <span data-i18n="inventory.toolsItemExportStockTemplate">Exportar plantilla solo-stock</span>
+                    </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-import-stock-update-btn" data-auth-act="invTools" data-auth-act-level="edit">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">♻</span>
+                      <span data-i18n="inventory.toolsItemImportStockUpdate">Importar actualización solo-stock</span>
+                    </button>
                   </div>
                 </div>
                 <div id="inventory-box-filter-wrap" class="inventory-box-filter-wrap" hidden>
@@ -557,8 +609,12 @@
                   <button type="button" id="inventory-box-summary-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxSummaryBtnTitle" data-i18n-aria-label="inventory.boxSummaryBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧰</span></button>
                   <button type="button" id="inventory-box-zero-total-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxZeroTotalBtnTitle" data-i18n-aria-label="inventory.boxZeroTotalBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">📭</span></button>
                   <button type="button" id="inventory-box-manager-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.boxManagerBtnTitle" data-i18n-aria-label="inventory.boxManagerBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🗃</span></button>
+                  <button type="button" id="inventory-refresh-data-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.toolsItemRefreshData" data-i18n-aria-label="inventory.toolsItemRefreshData"><span class="inventory-box-summary-btn-icon" aria-hidden="true">↺</span></button>
+                  <button type="button" id="inventory-export-stock-template-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="view" data-i18n-title="inventory.toolsItemExportStockTemplate" data-i18n-aria-label="inventory.toolsItemExportStockTemplate"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧾</span></button>
+                  <button type="button" id="inventory-import-stock-update-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.toolsItemImportStockUpdate" data-i18n-aria-label="inventory.toolsItemImportStockUpdate"><span class="inventory-box-summary-btn-icon" aria-hidden="true">♻</span></button>
                 </div>
                 <input type="file" id="inventory-box-stock-import-input" accept=".csv,.xlsx,.xls" style="display:none;" data-auth-act="invTools" data-auth-act-level="edit">
+                <input type="file" id="inventory-stock-update-import-input" accept=".csv,.xlsx,.xls" style="display:none;" data-auth-act="invTools" data-auth-act-level="edit">
             </div>
         </div>
 
@@ -1280,6 +1336,20 @@
               <label data-i18n="table.expirationDate">Fecha expiración</label>
               <input id="edit-expiration-date" type="date">
             </div>
+            <div class="form-group">
+              <label for="edit-shelf-life-months" data-i18n="config.expShelfLifeMonths">Vida útil (meses)</label>
+              <input id="edit-shelf-life-months" type="number" min="0" step="1" value="0">
+              <span class="muted form-hint" data-i18n="inventory.shelfLifeMonthsHint">Si das fecha de expedición y vida útil, la caducidad se calcula al vuelo.</span>
+            </div>
+          </div>
+          <div class="form-group item-edit-lots-block" id="edit-lots-section">
+            <div class="item-edit-lots-header">
+              <label data-i18n="inventory.lotsEditorTitle">Lotes (caducidad por compra)</label>
+              <button type="button" id="edit-lots-add-btn" class="btn btn-secondary btn-sm" data-i18n="inventory.lotsEditorAddBtn">+ Añadir lote</button>
+            </div>
+            <p class="muted form-hint" data-i18n="inventory.lotsEditorHint">Para cada lote indica la fecha de expedición (y opcionalmente la caducidad escrita en el envase) y la cantidad. La caducidad efectiva se calcula al vuelo con la vida útil del artículo.</p>
+            <div id="edit-lots-empty" class="item-edit-lots-empty muted" data-i18n="inventory.lotsEditorEmpty">Aún no hay lotes. Cada compra de stock añade un lote nuevo automáticamente.</div>
+            <div id="edit-lots-list" class="item-edit-lots-list" role="list"></div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -2226,32 +2296,36 @@
     </div>
 </div>
 
-<!-- ========== SCRIPTS ========== -->
-<script src="vendor/xlsx-js-style.min.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/api-client.js"></script>
-<script src="js/i18n.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/measureUnits.js"></script>
-<script src="js/inventory.js"></script>
-<script src="js/employees.js"></script>
-    <script src="js/suppliers.js"></script>
-    <script src="js/consumables.js"></script>
-    <script src="js/movements.js"></script>
-<script src="js/history.js"></script>
-<script src="js/transport.js"></script>
-<script src="js/meLegacyPending.js"></script>
-<script src="js/receptions.js"></script>
-<script src="js/config.js"></script>
-<script src="js/reports.js"></script>
-<script src="js/reminders.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/orderLines.js"></script>
-<script src="js/float-fab-drag.js"></script>
-<script src="js/help-coach.js"></script>
-<script src="js/help-ui.js"></script>
-<script src="js/layout-tools.js"></script>
-<script src="js/app.js"></script>
+<!-- ========== SCRIPTS ==========
+     `defer` en todos: descarga paralela + ejecución en orden tras el DOM.
+     Mejora la sensación de arranque sin alterar dependencias (Utils → I18n →
+     Auth → módulos → App). Si añade nuevos módulos, manténgalos con `defer`
+     para preservar este contrato. -->
+<script defer src="vendor/xlsx-js-style.min.js"></script>
+<script defer src="js/utils.js"></script>
+<script defer src="js/api-client.js"></script>
+<script defer src="js/i18n.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/measureUnits.js"></script>
+<script defer src="js/inventory.js"></script>
+<script defer src="js/employees.js"></script>
+<script defer src="js/suppliers.js"></script>
+<script defer src="js/consumables.js"></script>
+<script defer src="js/movements.js"></script>
+<script defer src="js/history.js"></script>
+<script defer src="js/transport.js"></script>
+<script defer src="js/meLegacyPending.js"></script>
+<script defer src="js/receptions.js"></script>
+<script defer src="js/config.js"></script>
+<script defer src="js/reports.js"></script>
+<script defer src="js/reminders.js"></script>
+<script defer src="js/dashboard.js"></script>
+<script defer src="js/orderLines.js"></script>
+<script defer src="js/float-fab-drag.js"></script>
+<script defer src="js/help-coach.js"></script>
+<script defer src="js/help-ui.js"></script>
+<script defer src="js/layout-tools.js"></script>
+<script defer src="js/app.js"></script>
 
 </body>
 </html>
