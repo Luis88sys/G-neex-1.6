@@ -506,7 +506,16 @@ const MovementManager = {
             }
         }
 
-        if (typeof this._syncCompraConsumibleInventoryVisibility === "function")
+        /* Importante: marcar `consOnly.checked = true/false` por código NO dispara
+           el evento `change`, así que el handler `_onCompraConsumibleToggle` no
+           corre y el bloque `#mov-compra-consumible-fields` (PO, proveedor,
+           cantidad) se queda en `display:none`. Por eso antes había que apagar y
+           encender el checkbox manualmente para que apareciera el PO. Llamamos al
+           toggle directamente: él se encarga de mostrar/ocultar el bloque y
+           además invoca `_syncCompraConsumibleInventoryVisibility` por dentro. */
+        if (typeof this._onCompraConsumibleToggle === "function")
+            this._onCompraConsumibleToggle();
+        else if (typeof this._syncCompraConsumibleInventoryVisibility === "function")
             this._syncCompraConsumibleInventoryVisibility();
 
         setTimeout(() => document.getElementById("process-movement")?.focus({ preventScroll: true }), 400);
@@ -603,7 +612,15 @@ const MovementManager = {
         }
 
         this.renderSelectedItems();
-        if (typeof this._syncCompraConsumibleInventoryVisibility === "function")
+        /* Mismo motivo que en `openCompraStockFromOrderLine`: si el usuario venía
+           de recibir un consumible single, el checkbox podría haber quedado
+           marcado y `selectType` habría mostrado el bloque consumible aunque
+           ahora lo dejamos en `false`. Llamar al toggle con el checkbox ya en
+           false cierra el bloque sin tocar los `selectedItems` recién armados
+           (la rama que vacía `selectedItems` solo corre cuando `on === true`). */
+        if (typeof this._onCompraConsumibleToggle === "function")
+            this._onCompraConsumibleToggle();
+        else if (typeof this._syncCompraConsumibleInventoryVisibility === "function")
             this._syncCompraConsumibleInventoryVisibility();
         setTimeout(() => document.getElementById("process-movement")?.focus({ preventScroll: true }), 400);
         Utils.showToast(I18n.t("orderLines.msgOpenCompraFormBatch"), "info");
