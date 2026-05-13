@@ -4,6 +4,10 @@
  * - `data["phoenix-movements"]`: fusiona todas las listas de movimientos encontradas en el archivo
  *   (string JSON en phoenix-movements, `_rawMovements`, `movements` legible) y opcionalmente otros JSON
  *   pasados como argv[4…], deduplicando por `id` y conservando la copia más completa por movimiento.
+ *
+ * Compatibilidad: los objetos de movimiento y de cada línea (`items[]`) pueden traer propiedades nuevas
+ * o ausentes según la versión que generó el respaldo (p. ej. metadatos de ajuste por caja, notas
+ * ampliadas). La fusión no las elimina; solo elige qué copia de cada `id` conservar por «plenitud».
  */
 import fs from "fs";
 import path from "path";

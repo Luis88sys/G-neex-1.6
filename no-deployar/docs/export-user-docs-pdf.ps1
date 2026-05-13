@@ -1,5 +1,6 @@
 # Genera PDF desde los .html de manuales y presentaciones (mismo contenido que en pantalla).
 # Requisito: Microsoft Edge (Chromium) instalado.
+# Rutas de imagen: en no-deployar, los manuales deben usar ../docs/app-screenshots/ y las presentaciones lo mismo (file:// + ruta relativa al .html).
 # Uso: desde la raíz del repo:  powershell -NoProfile -ExecutionPolicy Bypass -File no-deployar\docs\export-user-docs-pdf.ps1
 #      o con ruta:  -Root "C:\ruta\al\proyecto"
 

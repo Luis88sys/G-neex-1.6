@@ -63,6 +63,10 @@ Si tiene Node.js, una alternativa es `npx --yes serve -l 8765` en la misma carpe
 - En Ayuda, los enlaces de `Presentaciones` dentro de `user-manual/` se muestran solo para perfil administrador.
 - En movimientos, la validación de `Origen stock` se aplica solo en tipos/líneas que descuentan stock desde ese origen; con sobregiro permitido exige causa obligatoria, y en los demás casos bloquea hasta corregir origen/distribución.
 - **Pedidos ↔ Compra de stock:** el vínculo automático exige **mismo código de artículo** (pedido vs línea de compra) y **mismo proveedor**; el **número de PO/OC** se informa **por fila** en el formulario de Compra de stock y **no** se usa para decidir si la compra corresponde al pedido — al recepcionar, ese PO (y proveedor) actualizan la línea de pedido cuando aplica. Si registra la compra solo desde Movimientos y existe una línea pendiente que cumpla eso, pueden mostrarse cuadros **Sí / No** para enlazar y actualizar cantidad recibida, estado y acciones (véase manual §2.5). Otras confirmaciones siguen con **Confirmar / Cancelar** salvo ese flujo sí/no.
+- **Historial:** filtro dedicado **Notas del movimiento** (texto parcial solo en el campo `notes`). El filtro por **código** de artículo ya **no** busca dentro de las notas del movimiento.
+- **Historial → detalle:** con permiso de movimientos puede **añadir notas** al final del bloque (cabecera automática con fecha y usuario); el texto ya guardado no se sobrescribe desde ahí.
+- **Inventario → gestión de stock por caja:** al **guardar** un cambio de cantidad con artículo vinculado y sincronización al principal, se registra un **AJUSTE** en movimientos (motivo opcional, como en el editor de artículo). Anulación y fusión de movimientos contemplan metadatos de caja en esas líneas.
+- **Compatibilidad de respaldos:** los movimientos siguen siendo JSON estándar en `phoenix-movements`. Las líneas pueden incluir campos opcionales nuevos (`metaBoxMgrAjuste`, etc.); los archivos **antiguos sin esos campos** se importan y fusionan igual. El script `scripts/repair-backup-users.mjs` solo fusiona listas y deduplica por `id`; no elimina propiedades desconocidas.
 
 ---
 
@@ -157,4 +161,4 @@ Si no tienes el runner de capturas versionado, las capturas vivas siguen siendo 
 .\no-deployar\docs\export-user-docs-pdf.ps1
 ```
 
-Requiere Pandoc + wkhtmltopdf (o el motor que el script declare) instalados localmente.
+Requiere **Microsoft Edge** (Chromium) instalado; el script usa impresión headless a PDF (véase `no-deployar/docs/export-user-docs-pdf.ps1`).

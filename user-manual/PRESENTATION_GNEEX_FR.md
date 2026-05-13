@@ -136,6 +136,7 @@ Chaque mouvement enregistre automatiquement :
 
 - **Historique**, **Transport** et **Commandes** proposent un sélecteur **Affichage** : **mosaïque**, **liste compacte** et, selon l’écran, **tableau détaillé** ; dans **Historique**, un **Carrousel chronologique** est aussi disponible pour parcourir les cartes à l’horizontale. Les cartes minimisées affichent aussi l’**ID projet** quand pertinent.
 - Dans **Historique**, les mouvements entièrement annulés ou avec **annulation partielle** affichent un **tampon diagonal** (cadre en pointillés incliné) ; les filtres incluent aussi le type d’annulation.
+- Nouveau filtre **Notes du mouvement** ; **Ajouter une note** dans le détail s’ajoute sans effacer l’existant ; les changements **gestion par caisse** créent un **ajustement (AJUSTE)** dans l’historique.
 - **Dates à l’écran (toute l’app) :** jour, mois en trois lettres, année sur quatre chiffres ; avec l’heure, **24 h** locale.
 - Dans **Historique → Consommation quotidienne par destinataire**, le tableau permet désormais de **modifier les destinataires**, **enregistrer les changements** et **nettoyer les lignes visibles** selon les filtres.
 - **Pièces jointes (📎)** dans le détail d’un mouvement et le transport déplié : lient des fichiers dans n’importe quel dossier (sans copie dans l’app) ; ouverture avec Chrome/Edge. Les sauvegardes JSON n’incluent pas les fichiers : relier sur un autre PC.

@@ -70,6 +70,8 @@ curl -X POST http://localhost:3040/api/v1/backup/import ^
 
 Requiere rol **admin**. El cuerpo debe ser el JSON completo exportado por la app; se usa el campo `data` (las mismas claves que `localStorage`). `phoenix-session` se ignora.
 
+Los valores de `data` son **cadenas JSON** tal como en el navegador (p. ej. `phoenix-movements` es un array serializado). Las **líneas** dentro de cada movimiento pueden incluir propiedades opcionales que añada solo el cliente en versiones nuevas; el servidor las **persiste tal cual** — no hace falta migrar respaldos viejos por ausencia de esas claves.
+
 ### 4. Leer / escribir estado
 
 - **GET** `/api/v1/sync` — Header `Authorization: Bearer …`. Devuelve `{ data: { clave: valorString }, revision }`.

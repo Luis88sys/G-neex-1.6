@@ -29,5 +29,7 @@ powershell -NoProfile -File scripts\generate-login-bg-manifest.ps1
 
 ## Notas técnicas
 
+- **Historial (cliente):** hay un filtro de texto **solo en notas del movimiento**; las notas guardadas al crear el movimiento y las **añadidas después** (desde el detalle, sin borrar lo anterior) se buscan ahí. El filtro por código de artículo **no** incluye el texto de `notes`.
+- **Respaldo JSON:** el campo `notes` de cada movimiento y cualquier metadato extra en `items` viajan en el string de `phoenix-movements`; importar un archivo antiguo **no** exige reescribir esos campos.
 - La elevación temporal de permisos sigue existiendo para **transporte** y otras acciones; **no** sustituye al administrador para **Usuarios**, **códigos de elevación** ni **borrar base de datos**.
 - El archivo `login-bg-manifest.json` debe servirse con el mismo origen que la app (misma carpeta o CDN) para que `fetch` funcione sin CORS adicional.

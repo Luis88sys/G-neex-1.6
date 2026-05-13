@@ -133,6 +133,7 @@ Array de objetos. Campos típicos al crear un movimiento en la app (ver `js/move
 | `projectId`, `notes` | Texto |
 | `date` | ISO 8601 (`new Date().toISOString()`) |
 | `items` | Array de líneas: `itemId`, `code`, `description`, `quantity`, `target` (`main` \| `production` \| `transformation`), `annulled`, etc. |
+| *(línea, opcional)* | La app y el backend hospedado **persisten** propiedades extra en cada línea si ya vienen en el JSON (p. ej. `metaBoxMgrAjuste` para ajustes desde **Inventario → gestor de cajas**). Los respaldos antiguos sin esos campos siguen siendo válidos; al fusionar o reparar respaldos (`scripts/repair-backup-users.mjs`, etc.) no se eliminan claves desconocidas en movimientos ya deduplicados por `id`. |
 | `createdBy` | Nombre visible (texto) |
 | `annulled`, `hadOverdraft` | Boolean |
 | `overdraftReason` | Si aplica |

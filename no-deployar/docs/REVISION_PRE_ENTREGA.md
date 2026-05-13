@@ -43,3 +43,11 @@ Siguientes fases previstas: Inventario, Panel, Movimientos, Historial, Recordato
 
 - Estilos de impresión: `Utils.PRINT_DOCUMENT_CSS` (`js/utils.js`); tablas con clase `inventory-table` para ancho fijo y saltos de página razonables.
 - Columnas de dimensiones por paquete: `Utils.packageDimColumnLabel` + clave i18n `export.packageDimHeader` (no dejar “Paquete” fijo en español en exportaciones).
+
+## 7. Historial, notas del movimiento y cajas
+
+- **Filtro “Notas”** en historial: aplica solo al campo **`notes` del movimiento** (no busca en notas de línea ni descripciones de artículo); comprobar UX y textos i18n del placeholder/ayuda.
+- **Detalle del movimiento:** las notas del movimiento deben **acumularse** al añadir desde el detalle (no sobrescribir historial previo salvo flujo explícito de edición).
+- **Gestión por caja / AJUSTE:** al guardar cantidad desde el gestor de cajas, el movimiento tipo `AJUSTE` debe reflejar `metaBoxMgrAjuste` donde corresponda; historial e informes deben seguir mostrando coherencia de stock.
+- **Asistente “Consumo por cajas (orden)”** (`MovementManager`, modal en `index.html`): visible solo cuando aplica el tipo de movimiento; comprobar cierre de modal, foco y que las líneas generadas respetan permisos y destinatario.
+- **Respaldo / API:** importar respaldos viejos sin `metaBoxMgrAjuste` u otras propiedades opcionales en líneas no debe romper la carga; documentado en `no-deployar/docs/BACKEND_ALINEACION.md` y `README.md` raíz.

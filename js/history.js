@@ -35,6 +35,7 @@ const HistoryManager = {
             'filter-ref',
             'filter-code',
             'filter-desc',
+            'filter-notes',
             'filter-recipient',
             'filter-supplier',
             'filter-location',
@@ -342,7 +343,8 @@ const HistoryManager = {
 
     /**
      * ¿El filtro por código coincide con este movimiento?
-     * Incluye líneas, artículo resultado de transformación (guardado + inventario), recepción (nombre material) y notas.
+     * Incluye líneas, artículo resultado de transformación (guardado + inventario) y recepción (nombre material).
+     * Las notas del movimiento tienen filtro propio (`filter-notes`).
      */
     _movementMatchesCodeFilter(mov, needleNorm) {
         if (!needleNorm) return true;
@@ -363,7 +365,6 @@ const HistoryManager = {
         }
         const snap = mov.receptionSnapshot;
         if (snap && hit(snap.itemName)) return true;
-        if (mov.notes && hit(mov.notes)) return true;
         return false;
     },
 
@@ -537,6 +538,7 @@ const HistoryManager = {
         const ref = this._normalizeFilterText(document.getElementById('filter-ref')?.value || '');
         const code = this._normalizeFilterText(document.getElementById('filter-code')?.value || '');
         const desc = this._normalizeFilterText(document.getElementById('filter-desc')?.value || '');
+        const notesNeedle = this._normalizeFilterText(document.getElementById('filter-notes')?.value || '');
         const dateFrom = document.getElementById('filter-date-from')?.value || '';
         const dateTo = document.getElementById('filter-date-to')?.value || '';
         const location = this._normalizeFilterText(document.getElementById('filter-location')?.value || '');
@@ -594,6 +596,7 @@ const HistoryManager = {
                 }
                 if (!inLines && !inTfTarget && !invDesc) return false;
             }
+            if (notesNeedle && !this._normalizeFilterText(mov.notes || '').includes(notesNeedle)) return false;
             if (dateFrom && new Date(mov.date) < new Date(dateFrom)) return false;
             if (dateTo && new Date(mov.date) > new Date(dateTo + 'T23:59:59')) return false;
             if (location) {
@@ -1354,6 +1357,43 @@ const HistoryManager = {
         });
     },
 
+    /**
+     * Depósito / origen en el detalle de línea (modal Historial).
+     * AJUSTE ligado a caja: «Principal — Caja N (cantidad)» usando el mismo criterio que el formulario de movimientos.
+     */
+    _movementLineTargetLabelForDetail(movement, item) {
+        if (
+            movement.type === "TRANSFERENCIA" &&
+            item.transferFrom &&
+            item.transferTo &&
+            item.transferFrom !== item.transferTo
+        ) {
+            return `${I18n.t(`target.${item.transferFrom}`)} → ${I18n.t(`target.${item.transferTo}`)}`;
+        }
+        if (movement.type === "AJUSTE" && item) {
+            const sid = String(item.stockSourceId || "").trim();
+            const boxLinked = !!(item.metaBoxMgrAjuste || sid.startsWith("box:"));
+            if (boxLinked && typeof MovementManager !== "undefined" && MovementManager._formatStockSourceAsDestLabel) {
+                const bl = MovementManager._formatStockSourceAsDestLabel(item);
+                if (bl && String(bl).trim()) {
+                    return `${I18n.t("target.main")} — ${bl}`;
+                }
+            }
+        }
+        const t = item.target || "main";
+        const key = `target.${t}`;
+        const lab = I18n.t(key);
+        return lab !== key ? lab : t;
+    },
+
+    /** Evita «Caja N» duplicada cuando el resumen de depósito ya incluye la caja (AJUSTE desde gestor / origen box:). */
+    _movementLineRedundantBoxNumberSuffix(movement, item) {
+        if (!item || item.boxNumber == null || item.boxNumber === "") return false;
+        if (movement.type !== "AJUSTE") return false;
+        const sid = String(item.stockSourceId || "").trim();
+        return !!(item.metaBoxMgrAjuste || sid.startsWith("box:"));
+    },
+
     showMovementDetail(movementId) {
         const movement = MovementManager.getMovementById(movementId);
         if (!movement) return;
@@ -1542,7 +1582,43 @@ const HistoryManager = {
                     <span class="detail-value">+${Utils.escapeHtml(fmtStock(parseFloat(movement.transformationOutputQuantity)))} → ${Utils.escapeHtml(I18n.t('target.main'))}</span>
                 </div>
             </div>` : ''}
-            ${movement.notes ? `<p style="margin-top: 1rem;"><strong>${this._esc(I18n.t('movements.notes'))}:</strong> ${Utils.escapeHtml(movement.notes)}</p>` : ''}
+            ${(() => {
+                const canNotes =
+                    typeof Auth !== "undefined" && Auth.hasPerm && Auth.hasPerm("movements");
+                const existing = String(movement.notes || "").trim();
+                const escExisting = Utils.escapeHtml(existing);
+                if (canNotes) {
+                    const existingBlock =
+                        existing.length > 0
+                            ? `<div style="margin-bottom:0.75rem;">
+                        <strong class="detail-label" style="display:block;margin-bottom:0.35rem;">${this._esc(
+                            I18n.t("history.movementNotesExisting")
+                        )}</strong>
+                        <div class="form-input" style="white-space:pre-wrap;max-height:12rem;overflow:auto;background:var(--bg-secondary, #f5f5f5);cursor:default;" readonly tabindex="0" aria-readonly="true">${escExisting}</div>
+                    </div>`
+                            : "";
+                    return `<div class="gneex-movement-notes-block" style="margin-top:1rem;">
+                    ${existingBlock}
+                    <label for="movement-detail-note-new" class="detail-label" style="display:block;margin-bottom:0.35rem;"><strong>${this._esc(
+                        I18n.t("history.movementNotesNewLabel")
+                    )}</strong></label>
+                    <textarea id="movement-detail-note-new" class="form-input" rows="3" style="width:100%;max-width:100%;box-sizing:border-box;resize:vertical;" placeholder="${this._esc(
+                        I18n.t("history.movementNotesNewPlaceholder")
+                    )}"></textarea>
+                    <div style="margin-top:0.4rem;">
+                        <button type="button" class="btn btn-sm btn-primary" id="movement-detail-notes-append">${this._esc(
+                            I18n.t("history.movementNotesAppend")
+                        )}</button>
+                    </div>
+                </div>`;
+                }
+                if (movement.notes && String(movement.notes).trim()) {
+                    return `<p style="margin-top:1rem;white-space:pre-wrap;"><strong>${this._esc(
+                        I18n.t("movements.notes")
+                    )}:</strong> ${Utils.escapeHtml(movement.notes)}</p>`;
+                }
+                return `<p class="muted" style="margin-top:1rem;">${this._esc(I18n.t("history.movementNotesReadOnlyEmpty"))}</p>`;
+            })()}
             ${movement.purchaseMeta ? `
             <div class="detail-info" style="margin-top:0.75rem;">
                 ${
@@ -1584,15 +1660,8 @@ const HistoryManager = {
                                 movement.type === 'CONSUMO_DIARIO' && (item.recipientName || '').trim()
                                     ? `${Utils.escapeHtml(I18n.t('movements.recipientShort'))}: ${Utils.escapeHtml(String(item.recipientName).trim())} · `
                                     : ''
-                            }${
-                                movement.type === 'TRANSFERENCIA' &&
-                                item.transferFrom &&
-                                item.transferTo &&
-                                item.transferFrom !== item.transferTo
-                                    ? `${this._esc(I18n.t(`target.${item.transferFrom}`))} → ${this._esc(I18n.t(`target.${item.transferTo}`))}`
-                                    : `${this._esc(I18n.t(`target.${item.target}`))}`
-                            } | ${Utils.escapeHtml(item.location || '-')}${
-                                item.boxNumber
+                            }${this._esc(this._movementLineTargetLabelForDetail(movement, item))} | ${Utils.escapeHtml(item.location || '-')}${
+                                item.boxNumber && !this._movementLineRedundantBoxNumberSuffix(movement, item)
                                     ? ` · ${this._esc(I18n.t('inventory.boxFilterOption').replace('{n}', String(item.boxNumber)))}`
                                     : ''
                             }${
@@ -1670,7 +1739,7 @@ const HistoryManager = {
         clearTimeout(this._historyFilterDebounceT);
         this._historyFilterDebounceT = null;
         const ids = [
-            'filter-type', 'filter-ref', 'filter-code', 'filter-desc', 'filter-recipient', 'filter-date-from', 'filter-date-to',
+            'filter-type', 'filter-ref', 'filter-code', 'filter-desc', 'filter-notes', 'filter-recipient', 'filter-date-from', 'filter-date-to',
             'filter-location', 'filter-project-id', 'filter-created-by', 'filter-overdraft', 'filter-negative-stock', 'filter-annul-status'
         ];
         ids.forEach(id => {
@@ -1690,6 +1759,7 @@ const HistoryManager = {
             ref: 'filter-ref',
             code: 'filter-code',
             desc: 'filter-desc',
+            notes: 'filter-notes',
             dateFrom: 'filter-date-from',
             dateTo: 'filter-date-to',
             location: 'filter-location',
@@ -1720,6 +1790,8 @@ const HistoryManager = {
         document.getElementById('filter-ref').value = '';
         document.getElementById('filter-code').value = '';
         document.getElementById('filter-desc').value = '';
+        const notesEl = document.getElementById('filter-notes');
+        if (notesEl) notesEl.value = '';
         document.getElementById('filter-date-from').value = '';
         document.getElementById('filter-date-to').value = '';
         document.getElementById('filter-location').value = '';
@@ -1843,6 +1915,23 @@ const HistoryManager = {
                             this.showMovementDetail(mid);
                         }
                     });
+                    return;
+                }
+                if (e.target.closest('#movement-detail-notes-append')) {
+                    if (!this.currentMovement) return;
+                    const mid = this.currentMovement.id;
+                    const ta = document.getElementById('movement-detail-note-new');
+                    const raw = ta ? ta.value : '';
+                    if (!String(raw).trim()) {
+                        Utils.showToast(I18n.t('history.movementNotesAppendEmpty'), 'warning');
+                        return;
+                    }
+                    if (typeof MovementManager.appendMovementNote !== 'function') return;
+                    if (MovementManager.appendMovementNote(mid, raw)) {
+                        Utils.showToast(I18n.t('history.movementNotesAppended'), 'success');
+                        this.currentMovement = MovementManager.getMovementById(mid);
+                        this.showMovementDetail(mid);
+                    }
                     return;
                 }
                 const rmAtt = e.target.closest('[data-remove-movement-attachment]');

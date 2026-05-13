@@ -117,6 +117,9 @@ const MovementManager = {
         this.renderRecentMovements();
         if (typeof Dashboard !== "undefined" && Dashboard.refresh) Dashboard.refresh();
         if (typeof TransportManager !== "undefined" && TransportManager.render) TransportManager.render();
+        if (typeof InventoryManager !== "undefined" && typeof InventoryManager._syncZeroTotalBoxToolbarBtn === "function") {
+            InventoryManager._syncZeroTotalBoxToolbarBtn();
+        }
     },
 
     /**
@@ -327,6 +330,65 @@ const MovementManager = {
             hadOverdraft,
             applyDeltas: true,
             auditDetail: "config editor",
+            deferSave: false,
+            logMovementAudit: true
+        });
+    },
+
+    /** True si algún depósito o fila de caja del artículo queda por debajo de cero (tras un guardado). */
+    _itemSnapshotHasNegativeStock(invItem) {
+        if (!invItem) return false;
+        if ((parseFloat(invItem.mainStock) || 0) < -1e-9) return true;
+        if ((parseFloat(invItem.prodStock) || 0) < -1e-9) return true;
+        if ((parseFloat(invItem.transStock) || 0) < -1e-9) return true;
+        const rows = invItem.boxStocks || [];
+        for (let i = 0; i < rows.length; i++) {
+            if ((parseFloat(rows[i].qty) || 0) < -1e-9) return true;
+        }
+        return false;
+    },
+
+    /**
+     * Registra un AJUSTE al editar stock por caja en Inventario → gestor de cajas (el inventario ya se actualizó en `upsertItemBoxStock`).
+     * @returns {object|null|{skipped:true}} Igual que `recordAjusteFromConfigEditor`.
+     */
+    recordAjusteFromBoxManager({ itemId, boxId, boxNumber, deltaBox, notes }) {
+        if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return null;
+        const item = typeof InventoryManager !== "undefined" ? InventoryManager.getItemById(itemId) : null;
+        if (!item) return null;
+        if (item.inventoryConsumable) return { skipped: true };
+
+        const d = Utils.roundDecimal(parseFloat(deltaBox) || 0);
+        if (Math.abs(d) < 1e-9) return { skipped: true };
+
+        const bid = String(boxId || "").trim();
+        if (!bid) return { skipped: true };
+
+        const bn = Number.isFinite(Number(boxNumber)) ? Number(boxNumber) : undefined;
+        const hadOverdraft = this._itemSnapshotHasNegativeStock(item);
+
+        const lines = [
+            {
+                itemId: item.id,
+                code: item.code,
+                description: item.description,
+                quantity: d,
+                target: "main",
+                stockSourceId: `box:${bid}`,
+                boxId: bid,
+                boxNumber: bn,
+                location: item.location || "",
+                annulled: false,
+                metaBoxMgrAjuste: { boxId: bid, boxNumber: bn, deltaBox: d }
+            }
+        ];
+
+        return this._appendAjusteMovement({
+            lines,
+            notes,
+            hadOverdraft,
+            applyDeltas: false,
+            auditDetail: "box manager",
             deferSave: false,
             logMovementAudit: true
         });
@@ -666,6 +728,7 @@ const MovementManager = {
         const fields = document.getElementById("mov-compra-consumible-fields");
         if (fields) fields.style.display = on ? "grid" : "none";
         this._syncCompraConsumibleInventoryVisibility();
+        this._syncBoxCascadeActionWrapVisibility();
     },
 
     updateEditingBadge() {
@@ -1755,10 +1818,14 @@ const MovementManager = {
 
         const thTargetCol = document.getElementById('mov-selected-target-col');
         if (thTargetCol && typeof I18n !== 'undefined' && I18n.t) {
+            const effDisp =
+                type === "STANDBY"
+                    ? document.getElementById("standby-release-type")?.value || "AJUSTE"
+                    : type;
             thTargetCol.textContent =
-                type === 'TRANSFERENCIA'
+                effDisp === 'TRANSFERENCIA'
                     ? I18n.t('movements.transferColumn')
-                    : type === 'TRANSFORMACION'
+                    : effDisp === 'TRANSFORMACION'
                       ? I18n.t('movements.transformationInsumoDepotCol')
                       : I18n.t('table.target');
         }
@@ -1769,7 +1836,14 @@ const MovementManager = {
         }
         const thBox = document.getElementById('mov-selected-box-th');
         if (thBox) {
-            const showSrc = conf.behavior === 'negative' && conf.id !== 'TRANSFERENCIA' && conf.id !== 'TRANSFORMACION';
+            const effConf =
+                type === "STANDBY"
+                    ? MOVEMENT_TYPES[document.getElementById("standby-release-type")?.value] || MOVEMENT_TYPES.AJUSTE
+                    : conf;
+            const showSrc =
+                effConf.behavior === "negative" &&
+                effConf.id !== "TRANSFERENCIA" &&
+                effConf.id !== "TRANSFORMACION";
             thBox.style.display = showSrc ? '' : 'none';
             if (showSrc && typeof I18n !== 'undefined' && I18n.t) {
                 thBox.textContent = I18n.t('movements.stockSourceColumn');
@@ -2344,9 +2418,10 @@ const MovementManager = {
      * antes de procesar el movimiento. Evita que quede la cantidad antigua (p. ej. 1) si el usuario
      * escribió otra (p. ej. 200) y pulsó Procesar sin disparar `change` en el input.
      */
-    syncSelectedItemQuantitiesFromDom() {
+    syncSelectedItemQuantitiesFromDom(opts) {
         if (!this.currentType || !this.selectedItems?.length) return;
         const conf = MOVEMENT_TYPES[this.currentType];
+        const lineConf = this.currentType === "STANDBY" ? this._getMovementFormConf() : conf;
         if (conf?.specialForm === "recepcion") return;
         if (this.currentType === "COMPRA_STOCK" && this.isCompraConsumibleReceiptMode()) return;
         if (this.currentType === "CONSUMO_DIARIO") this._syncConsumoRecipientsFromDom();
@@ -2356,11 +2431,14 @@ const MovementManager = {
         const inputs = document.querySelectorAll("#selected-items-body tr .quantity-input");
         if (!inputs.length) return;
         const n = Math.min(inputs.length, this.selectedItems.length);
+        const isTransferForm =
+            this.currentType === "TRANSFERENCIA" ||
+            (this.currentType === "STANDBY" && lineConf.id === "TRANSFERENCIA");
         for (let i = 0; i < n; i++) {
             const item = this.selectedItems[i];
             if (!item) continue;
             const raw = inputs[i].value;
-            if (this.currentType === "TRANSFERENCIA") {
+            if (isTransferForm) {
                 item.quantity = Utils.roundDecimal(Math.abs(this._parseQuantityInputValue(raw)));
                 const row = document.querySelectorAll("#selected-items-body tr")[i];
                 const fromSel = row ? row.querySelector('.transfer-depot-cell .target-select[data-transfer-role="from"]') : null;
@@ -2380,12 +2458,592 @@ const MovementManager = {
                 }
             } else {
                 let qty = this._parseQuantityInputValue(raw);
-                if (conf.behavior === "negative") qty = -Math.abs(qty);
-                else if (conf.behavior === "positive") qty = Math.abs(qty);
+                if (lineConf.behavior === "negative") qty = -Math.abs(qty);
+                else if (lineConf.behavior === "positive") qty = Math.abs(qty);
                 item.quantity = Utils.roundDecimal(qty);
             }
         }
+        if (!opts || !opts.skipRender) this.renderSelectedItems();
+    },
+
+    /** Con 2+ líneas: columna para subir/bajar filas; al procesar el stock se aplica en ese orden (p. ej. vaciar cajas en secuencia). */
+    _movementLineOrderColumnActive() {
+        const conf = MOVEMENT_TYPES[this.currentType];
+        if (!this.currentType || !conf || conf.specialForm === "recepcion") return false;
+        if (
+            this.currentType === "COMPRA_STOCK" &&
+            typeof this.isCompraConsumibleReceiptMode === "function" &&
+            this.isCompraConsumibleReceiptMode()
+        ) {
+            return false;
+        }
+        return (this.selectedItems || []).length > 1;
+    },
+
+    _syncLineOrderThVisibility() {
+        const th = document.getElementById("mov-line-order-th");
+        if (!th) return;
+        const show = this._movementLineOrderColumnActive();
+        th.style.display = show ? "" : "none";
+        if (show && typeof I18n !== "undefined" && I18n.t) {
+            th.setAttribute("title", I18n.t("movements.lineOrderColTitle"));
+        } else {
+            th.removeAttribute("title");
+        }
+    },
+
+    _renderLineOrderTd(index, total) {
+        if (!this._movementLineOrderColumnActive()) return "";
+        const upDis = index === 0 ? " disabled" : "";
+        const downDis = index >= total - 1 ? " disabled" : "";
+        const titUp = typeof I18n !== "undefined" && I18n.t ? I18n.t("movements.lineOrderUp") : "Up";
+        const titDown = typeof I18n !== "undefined" && I18n.t ? I18n.t("movements.lineOrderDown") : "Down";
+        return `<td class="mov-line-order-cell" style="white-space:nowrap;vertical-align:middle;">
+      <button type="button" class="btn btn-sm btn-secondary mov-line-order-up"${upDis} data-line-order-up="${index}" title="${this._escAttr(
+            titUp
+        )}" aria-label="${this._escAttr(titUp)}">↑</button>
+      <button type="button" class="btn btn-sm btn-secondary mov-line-order-down"${downDis} data-line-order-down="${index}" title="${this._escAttr(
+            titDown
+        )}" aria-label="${this._escAttr(titDown)}">↓</button>
+    </td>`;
+    },
+
+    moveSelectedLineUp(index) {
+        if (!Auth.guardPerm("movements")) return;
+        const arr = this.selectedItems;
+        if (index < 1 || index >= arr.length) return;
+        this.syncSelectedItemQuantitiesFromDom({ skipRender: true });
+        const tmp = arr[index - 1];
+        arr[index - 1] = arr[index];
+        arr[index] = tmp;
         this.renderSelectedItems();
+    },
+
+    moveSelectedLineDown(index) {
+        if (!Auth.guardPerm("movements")) return;
+        const arr = this.selectedItems;
+        if (index < 0 || index >= arr.length - 1) return;
+        this.syncSelectedItemQuantitiesFromDom({ skipRender: true });
+        const tmp = arr[index + 1];
+        arr[index + 1] = arr[index];
+        arr[index] = tmp;
+        this.renderSelectedItems();
+    },
+
+    /** Asistente: un total + cola ordenada de cajas → varias líneas con reparto en cascada. */
+    _boxCascadeAssistantEnabled() {
+        if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return false;
+        const conf = MOVEMENT_TYPES[this.currentType];
+        if (!this.currentType || !conf || conf.specialForm === "recepcion") return false;
+        if (this.currentType === "COMPRA_STOCK" && this.isCompraConsumibleReceiptMode && this.isCompraConsumibleReceiptMode()) {
+            return false;
+        }
+        if (this.currentType === "TRANSFORMACION") return false;
+        const lineConf = this._getMovementFormConf();
+        if (!lineConf || lineConf.id === "TRANSFERENCIA" || lineConf.id === "TRANSFORMACION") return false;
+        if (lineConf.behavior !== "negative") return false;
+        const std = document.getElementById("mov-standard-item-search-wrap");
+        if (std && std.style.display === "none") return false;
+        return true;
+    },
+
+    _syncBoxCascadeActionWrapVisibility() {
+        const wrap = document.getElementById("mov-box-cascade-action-wrap");
+        if (!wrap) return;
+        wrap.style.display = this._boxCascadeAssistantEnabled() ? "" : "none";
+    },
+
+    _resetBoxCascadeModal() {
+        this._boxCascadeDraft = { itemId: null, queue: [] };
+        const s = document.getElementById("mov-cascade-item-search");
+        const r = document.getElementById("mov-cascade-item-search-results");
+        if (s) s.value = "";
+        if (r) {
+            r.innerHTML = "";
+            r.classList.remove("active");
+        }
+        const b = document.getElementById("mov-cascade-item-banner");
+        if (b) {
+            b.style.display = "none";
+            b.textContent = "";
+        }
+        const body = document.getElementById("mov-cascade-body");
+        if (body) body.style.display = "none";
+        const tq = document.getElementById("mov-cascade-total-qty");
+        if (tq) tq.value = "";
+        const mf = document.getElementById("mov-cascade-main-fill");
+        if (mf) mf.checked = false;
+        const pl = document.getElementById("mov-cascade-pool-list");
+        if (pl) pl.innerHTML = "";
+        const ql = document.getElementById("mov-cascade-queue-list");
+        if (ql) ql.innerHTML = "";
+        const pv = document.getElementById("mov-cascade-preview");
+        if (pv) pv.textContent = "";
+        const rw = document.getElementById("mov-cascade-recipient-wrap");
+        if (rw) rw.style.display = "none";
+        const rh = document.getElementById("mov-cascade-recipient-host");
+        if (rh) rh.innerHTML = "";
+    },
+
+    openBoxCascadeAssistant() {
+        if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return;
+        if (!this._boxCascadeAssistantEnabled()) return;
+        this._resetBoxCascadeModal();
+        const modal = document.getElementById("mov-box-cascade-modal");
+        if (modal) {
+            modal.classList.add("active");
+            if (typeof I18n !== "undefined" && I18n.apply) I18n.apply(modal);
+        }
+        setTimeout(() => document.getElementById("mov-cascade-item-search")?.focus(), 100);
+    },
+
+    closeBoxCascadeAssistant() {
+        const modal = document.getElementById("mov-box-cascade-modal");
+        if (modal) modal.classList.remove("active");
+        this._resetBoxCascadeModal();
+    },
+
+    _cascadeSetItem(item) {
+        if (!item || !item.id) return;
+        if (item.inventoryConsumable) {
+            Utils.showToast(I18n.t("msg.inventoryConsumableNoMovement"), "warning");
+            return;
+        }
+        this._boxCascadeDraft = { itemId: item.id, queue: [] };
+        const ban = document.getElementById("mov-cascade-item-banner");
+        if (ban) {
+            ban.style.display = "";
+            ban.innerHTML = `<strong>${this._escHtml(item.code)}</strong> — ${this._escHtml(item.description)}`;
+        }
+        const body = document.getElementById("mov-cascade-body");
+        if (body) body.style.display = "";
+        const rw = document.getElementById("mov-cascade-recipient-wrap");
+        const rh = document.getElementById("mov-cascade-recipient-host");
+        if (this.currentType === "CONSUMO_DIARIO" && rw && rh) {
+            rw.style.display = "";
+            rh.innerHTML = this._buildCascadeConsumoRecipientHtml();
+            if (typeof I18n !== "undefined" && I18n.apply) I18n.apply(rw);
+        } else if (rw) {
+            rw.style.display = "none";
+            if (rh) rh.innerHTML = "";
+        }
+        this._renderCascadePoolList();
+        this._renderCascadeQueueList();
+        this._syncCascadePreview();
+    },
+
+    _buildCascadeConsumoRecipientHtml() {
+        const staffNames =
+            typeof EmployeeManager !== "undefined" && EmployeeManager.getSortedNames ? EmployeeManager.getSortedNames() : [];
+        const occNames =
+            typeof EmployeeManager !== "undefined" && EmployeeManager.getOccasionalSortedNames
+                ? EmployeeManager.getOccasionalSortedNames()
+                : [];
+        const useEmployeeSelect = staffNames.length + occNames.length > 0;
+        const ph = this._escHtml(I18n.t("movements.recipientSelectPlaceholder"));
+        const OTHER = this.CONSUMO_RECIPIENT_OTHER;
+        if (useEmployeeSelect) {
+            const optParts = [`<option value="">${ph}</option>`];
+            const pushName = n => {
+                optParts.push(`<option value="${this._escAttr(n)}">${this._escHtml(n)}</option>`);
+            };
+            if (staffNames.length) {
+                optParts.push(`<optgroup label="${this._escHtml(I18n.t("employees.optgroupStaff"))}">`);
+                for (const n of staffNames) pushName(n);
+                optParts.push("</optgroup>");
+            }
+            if (occNames.length) {
+                optParts.push(`<optgroup label="${this._escHtml(I18n.t("employees.optgroupOccasional"))}">`);
+                for (const n of occNames) pushName(n);
+                optParts.push("</optgroup>");
+            }
+            optParts.push(
+                `<optgroup label="${this._escHtml(I18n.t("movements.recipientOtherGroup"))}"><option value="${this._escAttr(
+                    OTHER
+                )}">${this._escHtml(I18n.t("movements.recipientOptionOther"))}</option></optgroup>`
+            );
+            return `<select id="mov-cascade-recipient" class="target-select" style="max-width:100%;">${optParts.join("")}</select>
+<div id="mov-cascade-recipient-other-wrap" style="display:none;margin-top:6px;">
+<input type="text" id="mov-cascade-recipient-other-txt" class="form-input" data-i18n-placeholder="movements.recipientPlaceholder" placeholder="" autocomplete="name" />
+</div>`;
+        }
+        return `<input type="text" id="mov-cascade-recipient" class="form-input" list="consumo-recipient-datalist" data-i18n-placeholder="movements.recipientPlaceholder" placeholder="" autocomplete="name" />`;
+    },
+
+    _getCascadeRecipientValue() {
+        const el = document.getElementById("mov-cascade-recipient");
+        if (!el) return "";
+        if (el.tagName === "SELECT") {
+            const v = String(el.value || "").trim();
+            if (v === this.CONSUMO_RECIPIENT_OTHER) {
+                return String(document.getElementById("mov-cascade-recipient-other-txt")?.value || "").trim();
+            }
+            return v;
+        }
+        return String(el.value || "").trim();
+    },
+
+    _renderCascadePoolList() {
+        const itemId = this._boxCascadeDraft?.itemId;
+        const el = document.getElementById("mov-cascade-pool-list");
+        if (!el || !itemId) return;
+        const boxes =
+            typeof InventoryManager !== "undefined" && InventoryManager.getItemAvailableBoxes
+                ? InventoryManager.getItemAvailableBoxes(itemId)
+                : [];
+        const inQ = new Set((this._boxCascadeDraft.queue || []).map(e => String(e.boxId)));
+        if (!boxes.length) {
+            el.innerHTML = `<span class="muted">${this._escHtml(I18n.t("movements.boxCascadeNoBoxes"))}</span>`;
+            return;
+        }
+        boxes.sort((a, b) => (parseInt(a.boxNumber, 10) || 0) - (parseInt(b.boxNumber, 10) || 0));
+        el.innerHTML = boxes
+            .map(b => {
+                const bid = this._escAttr(String(b.boxId));
+                const n = parseInt(b.boxNumber, 10) || 0;
+                const q =
+                    typeof InventoryManager.getBoxStockQtyForMovement === "function"
+                        ? InventoryManager.getBoxStockQtyForMovement(itemId, b.boxId, b.boxNumber)
+                        : 0;
+                const qd = Utils.formatDecimalDisplay(q);
+                const inQueue = inQ.has(String(b.boxId));
+                const lab = this._escHtml(I18n.t("inventory.boxOptionWithQty").replace("{n}", String(n)).replace("{q}", qd));
+                return `<label style="display:flex;align-items:center;gap:0.35rem;margin:4px 0;${inQueue ? "opacity:0.55" : ""}">
+      <input type="checkbox" class="mov-cascade-pool-cb" data-box-id="${bid}" data-box-number="${n}" ${inQueue ? "disabled checked" : ""}/>
+      <span>${lab}</span>
+    </label>`;
+            })
+            .join("");
+    },
+
+    _renderCascadeQueueList() {
+        const el = document.getElementById("mov-cascade-queue-list");
+        const q = this._boxCascadeDraft?.queue || [];
+        if (!el) return;
+        if (!q.length) {
+            el.innerHTML = `<span class="muted">${this._escHtml(I18n.t("movements.boxCascadeQueueEmpty"))}</span>`;
+            return;
+        }
+        el.innerHTML = q
+            .map((row, idx) => {
+                const bid = this._escAttr(String(row.boxId));
+                const n = row.boxNumber;
+                const av =
+                    typeof InventoryManager.getBoxStockQtyForMovement === "function"
+                        ? InventoryManager.getBoxStockQtyForMovement(this._boxCascadeDraft.itemId, row.boxId, row.boxNumber)
+                        : 0;
+                const qd = Utils.formatDecimalDisplay(av);
+                const lab = this._escHtml(I18n.t("inventory.boxOptionWithQty").replace("{n}", String(n)).replace("{q}", qd));
+                return `<div class="mov-cascade-queue-row" style="display:flex;align-items:center;gap:0.35rem;margin:4px 0;flex-wrap:wrap;">
+      <span style="flex:1;min-width:0;">${idx + 1}. ${lab}</span>
+      <button type="button" class="btn btn-sm btn-secondary mov-cascade-queue-up" data-cq-idx="${idx}" ${idx === 0 ? "disabled" : ""}>↑</button>
+      <button type="button" class="btn btn-sm btn-secondary mov-cascade-queue-down" data-cq-idx="${idx}" ${
+          idx >= q.length - 1 ? "disabled" : ""
+      }>↓</button>
+      <button type="button" class="btn btn-sm btn-secondary mov-cascade-queue-remove" data-cq-idx="${idx}">✕</button>
+    </div>`;
+            })
+            .join("");
+    },
+
+    _cascadeQueueMove(idx, delta) {
+        const arr = this._boxCascadeDraft?.queue;
+        if (!arr || idx < 0 || idx >= arr.length) return;
+        const j = idx + delta;
+        if (j < 0 || j >= arr.length) return;
+        const t = arr[idx];
+        arr[idx] = arr[j];
+        arr[j] = t;
+        this._renderCascadePoolList();
+        this._renderCascadeQueueList();
+        this._syncCascadePreview();
+    },
+
+    _cascadeQueueRemove(idx) {
+        const arr = this._boxCascadeDraft?.queue;
+        if (!arr || idx < 0 || idx >= arr.length) return;
+        arr.splice(idx, 1);
+        this._renderCascadePoolList();
+        this._renderCascadeQueueList();
+        this._syncCascadePreview();
+    },
+
+    _cascadeAddCheckedFromPool() {
+        const itemId = this._boxCascadeDraft?.itemId;
+        if (!itemId) return;
+        const host = document.getElementById("mov-cascade-pool-list");
+        if (!host) return;
+        const cbs = host.querySelectorAll(".mov-cascade-pool-cb:checked:not(:disabled)");
+        const seen = new Set((this._boxCascadeDraft.queue || []).map(e => String(e.boxId)));
+        for (const cb of cbs) {
+            const bid = String(cb.getAttribute("data-box-id") || "").trim();
+            const n = parseInt(String(cb.getAttribute("data-box-number") || ""), 10);
+            if (!bid || seen.has(bid)) continue;
+            this._boxCascadeDraft.queue.push({ boxId: bid, boxNumber: n });
+            seen.add(bid);
+        }
+        this._renderCascadePoolList();
+        this._renderCascadeQueueList();
+        this._syncCascadePreview();
+    },
+
+    _computeBoxCascadePlan(itemId, orderedBoxes, totalWant, allowMain) {
+        const item = typeof InventoryManager !== "undefined" ? InventoryManager.getItemById(itemId) : null;
+        const lines = [];
+        if (!item || totalWant <= 0) return { lines, remainder: totalWant, mainTake: 0 };
+        let rem = totalWant;
+        for (const b of orderedBoxes) {
+            if (rem <= 1e-12) break;
+            const av =
+                typeof InventoryManager.getBoxStockQtyForMovement === "function"
+                    ? InventoryManager.getBoxStockQtyForMovement(itemId, b.boxId, b.boxNumber)
+                    : 0;
+            const take = Math.min(rem, av);
+            if (take > 1e-12) {
+                lines.push({ boxId: String(b.boxId), boxNumber: b.boxNumber, qty: Utils.roundDecimal(take) });
+                rem = Utils.roundDecimal(rem - take);
+            }
+        }
+        let mainTake = 0;
+        if (rem > 1e-9 && allowMain && typeof InventoryManager._getMainLocationPoolQty === "function") {
+            const pool = Math.max(0, InventoryManager._getMainLocationPoolQty(item));
+            mainTake = Utils.roundDecimal(Math.min(rem, pool));
+            rem = Utils.roundDecimal(rem - mainTake);
+        }
+        return { lines, remainder: rem > 1e-9 ? rem : 0, mainTake };
+    },
+
+    _signCascadeQtyPositive(qPos) {
+        const lineConf = this._getMovementFormConf();
+        let q = qPos;
+        if (lineConf.behavior === "negative") q = -Math.abs(q);
+        else if (lineConf.behavior === "positive") q = Math.abs(q);
+        return Utils.roundDecimal(q);
+    },
+
+    _makeCascadeMovementLine(item, qtySigned, stockSourceId) {
+        const base = {
+            itemId: item.id,
+            code: item.code,
+            description: item.description,
+            quantity: qtySigned,
+            target: this.getDefaultTarget(this.currentType),
+            location: item.location || "",
+            stockSourceId: stockSourceId || "",
+            boxId: "",
+            locationStockKey: ""
+        };
+        const sid = String(stockSourceId || "").trim();
+        if (sid.startsWith("box:")) {
+            base.boxId = sid.slice(4);
+            const b = (InventoryManager.getItemBoxStocks(item.id) || []).find(x => String(x.boxId) === String(base.boxId));
+            if (b && Number.isFinite(Number(b.boxNumber))) base.boxNumber = Number(b.boxNumber);
+        }
+        if (this.currentType === "CONSUMO_DIARIO") {
+            let rec = this._getCascadeRecipientValue();
+            const sel = document.getElementById("mov-cascade-recipient");
+            if (sel && sel.tagName === "SELECT" && String(sel.value || "").trim() === this.CONSUMO_RECIPIENT_OTHER) {
+                base.consumoRecipientEntry = "free";
+            } else if (sel && sel.tagName === "SELECT") {
+                base.consumoRecipientEntry = "list";
+            } else {
+                base.consumoRecipientEntry = "free";
+            }
+            if (
+                typeof EmployeeManager !== "undefined" &&
+                EmployeeManager.canonicalRecipientName &&
+                EmployeeManager.isEnforced &&
+                EmployeeManager.isEnforced()
+            ) {
+                rec = EmployeeManager.canonicalRecipientName(rec) || String(rec || "").trim();
+            }
+            base.recipientName = rec;
+            base.consumoAddedAt = new Date().toISOString();
+        }
+        if (this._movementTypeStockSourceDestMirror()) {
+            this._syncFerreteriaMermaTargetFromSource(base);
+        }
+        return base;
+    },
+
+    _syncCascadePreview() {
+        const pv = document.getElementById("mov-cascade-preview");
+        if (!pv) return;
+        const itemId = this._boxCascadeDraft?.itemId;
+        if (!itemId) {
+            pv.textContent = "";
+            return;
+        }
+        const item = InventoryManager.getItemById(itemId);
+        const total = this._parseQuantityInputValue(document.getElementById("mov-cascade-total-qty")?.value);
+        const allowMain = !!document.getElementById("mov-cascade-main-fill")?.checked;
+        const plan = this._computeBoxCascadePlan(itemId, this._boxCascadeDraft.queue || [], total, allowMain);
+        const parts = [];
+        for (const row of plan.lines) {
+            parts.push(
+                I18n.t("movements.boxCascadePreviewLine")
+                    .replace("{n}", String(row.boxNumber))
+                    .replace("{q}", Utils.formatDecimalDisplay(row.qty))
+            );
+        }
+        if (plan.mainTake > 1e-9) {
+            parts.push(
+                I18n.t("movements.boxCascadePreviewMain").replace("{q}", Utils.formatDecimalDisplay(plan.mainTake))
+            );
+        }
+        if (plan.remainder > 1e-9) {
+            parts.push(
+                I18n.t("movements.boxCascadePreviewShort").replace("{q}", Utils.formatDecimalDisplay(plan.remainder))
+            );
+        }
+        pv.textContent = parts.join("\n");
+    },
+
+    applyBoxCascadeFromModal() {
+        if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return;
+        const draft = this._boxCascadeDraft;
+        if (!draft?.itemId) {
+            Utils.showToast(I18n.t("movements.boxCascadePickItem"), "warning");
+            return;
+        }
+        if (!(draft.queue || []).length) {
+            Utils.showToast(I18n.t("movements.boxCascadeNeedQueue"), "warning");
+            return;
+        }
+        const item = InventoryManager.getItemById(draft.itemId);
+        if (!item) return;
+        const total = this._parseQuantityInputValue(document.getElementById("mov-cascade-total-qty")?.value);
+        if (!Number.isFinite(total) || total <= 0) {
+            Utils.showToast(I18n.t("movements.boxCascadeTotalInvalid"), "error");
+            return;
+        }
+        if (this.currentType === "CONSUMO_DIARIO") {
+            const sel = document.getElementById("mov-cascade-recipient");
+            if (sel && sel.tagName === "SELECT") {
+                const v = String(sel.value || "").trim();
+                if (v === this.CONSUMO_RECIPIENT_OTHER && !this._getCascadeRecipientValue()) {
+                    Utils.showToast(I18n.t("msg.consumoRecipientRequired"), "error");
+                    return;
+                }
+            }
+            const rec = this._getCascadeRecipientValue();
+            if (!String(rec || "").trim()) {
+                Utils.showToast(I18n.t("msg.consumoRecipientRequired"), "error");
+                return;
+            }
+        }
+        const allowMain = !!document.getElementById("mov-cascade-main-fill")?.checked;
+        const plan = this._computeBoxCascadePlan(draft.itemId, draft.queue, total, allowMain);
+        if (plan.remainder > 1e-9) {
+            Utils.showToast(I18n.t("movements.boxCascadeInsufficient"), "error");
+            return;
+        }
+        if (!plan.lines.length && plan.mainTake <= 1e-9) {
+            Utils.showToast(I18n.t("movements.boxCascadeNothingToAdd"), "warning");
+            return;
+        }
+        const newLines = [];
+        for (const row of plan.lines) {
+            newLines.push(this._makeCascadeMovementLine(item, this._signCascadeQtyPositive(row.qty), `box:${row.boxId}`));
+        }
+        if (plan.mainTake > 1e-9) {
+            newLines.push(this._makeCascadeMovementLine(item, this._signCascadeQtyPositive(plan.mainTake), ""));
+        }
+        if ((this.selectedItems || []).length) {
+            this.syncSelectedItemQuantitiesFromDom({ skipRender: true });
+        }
+        for (let i = newLines.length - 1; i >= 0; i--) {
+            this.selectedItems.unshift(newLines[i]);
+        }
+        this.closeBoxCascadeAssistant();
+        this.renderSelectedItems();
+        Utils.showToast(I18n.t("movements.boxCascadeDone").replace("{n}", String(newLines.length)), "success");
+    },
+
+    _installBoxCascadeModalListeners() {
+        if (this._boxCascadeModalListenersBound) return;
+        this._boxCascadeModalListenersBound = true;
+        const modal = document.getElementById("mov-box-cascade-modal");
+        const openBtn = document.getElementById("mov-box-cascade-open");
+        openBtn?.addEventListener("click", () => this.openBoxCascadeAssistant());
+        document.getElementById("mov-box-cascade-close")?.addEventListener("click", () => this.closeBoxCascadeAssistant());
+        document.getElementById("mov-cascade-cancel")?.addEventListener("click", () => this.closeBoxCascadeAssistant());
+        document.getElementById("mov-cascade-apply")?.addEventListener("click", () => this.applyBoxCascadeFromModal());
+        document.getElementById("mov-cascade-add-pool")?.addEventListener("click", () => this._cascadeAddCheckedFromPool());
+        const cs = document.getElementById("mov-cascade-item-search");
+        const csr = document.getElementById("mov-cascade-item-search-results");
+        if (cs && csr) {
+            cs.addEventListener(
+                "input",
+                Utils.debounce(e => {
+                    const query = String(e.target.value || "").trim();
+                    if (query.length < 2) {
+                        csr.innerHTML = "";
+                        csr.classList.remove("active");
+                        return;
+                    }
+                    const results = InventoryManager.search(query).slice(0, 12);
+                    if (results.length === 0) {
+                        csr.innerHTML = `<div class="search-result-item">${this._escHtml(I18n.t("msg.noResults"))}</div>`;
+                    } else {
+                        csr.innerHTML = results
+                            .map(
+                                it =>
+                                    `<div class="search-result-item mov-cascade-pick-item" data-id="${this._escAttr(it.id)}"><span class="result-code">${this._escHtml(
+                                        it.code
+                                    )}</span><span class="result-description">${this._escHtml(it.description)}</span></div>`
+                            )
+                            .join("");
+                    }
+                    csr.classList.add("active");
+                }, 200)
+            );
+            csr.addEventListener("click", e => {
+                const row = e.target.closest(".mov-cascade-pick-item");
+                if (!row || !row.dataset.id) return;
+                const it = InventoryManager.items.find(i => String(i.id) === String(row.dataset.id));
+                if (it) this._cascadeSetItem(it);
+                csr.innerHTML = "";
+                csr.classList.remove("active");
+                cs.value = "";
+            });
+        }
+        document.getElementById("mov-cascade-total-qty")?.addEventListener("input", () => this._syncCascadePreview());
+        document.getElementById("mov-cascade-main-fill")?.addEventListener("change", () => this._syncCascadePreview());
+        modal?.addEventListener("change", e => {
+            const t = e.target;
+            if (t && t.id === "mov-cascade-recipient" && t.tagName === "SELECT") {
+                const ow = document.getElementById("mov-cascade-recipient-other-wrap");
+                if (ow) ow.style.display = t.value === this.CONSUMO_RECIPIENT_OTHER ? "" : "none";
+            }
+        });
+        modal?.addEventListener("input", e => {
+            if (e.target && e.target.id === "mov-cascade-recipient-other-txt") this._syncCascadePreview();
+        });
+        modal?.addEventListener("click", e => {
+            const u = e.target.closest(".mov-cascade-queue-up");
+            if (u && modal.contains(u)) {
+                const idx = parseInt(String(u.getAttribute("data-cq-idx") || ""), 10);
+                if (Number.isFinite(idx)) this._cascadeQueueMove(idx, -1);
+                return;
+            }
+            const d = e.target.closest(".mov-cascade-queue-down");
+            if (d && modal.contains(d)) {
+                const idx = parseInt(String(d.getAttribute("data-cq-idx") || ""), 10);
+                if (Number.isFinite(idx)) this._cascadeQueueMove(idx, 1);
+                return;
+            }
+            const r = e.target.closest(".mov-cascade-queue-remove");
+            if (r && modal.contains(r)) {
+                const idx = parseInt(String(r.getAttribute("data-cq-idx") || ""), 10);
+                if (Number.isFinite(idx)) this._cascadeQueueRemove(idx);
+            }
+        });
+        document.addEventListener("click", e => {
+            if (!e.target.closest("#mov-box-cascade-modal .item-search-container")) {
+                document.getElementById("mov-cascade-item-search-results")?.classList.remove("active");
+            }
+        });
     },
 
     _parseQuantityInputValue(raw) {
@@ -2423,7 +3081,11 @@ const MovementManager = {
         if (this.currentType === "CONSUMO_DIARIO") this._syncConsumoRecipientsFromDom();
 
         const conf = MOVEMENT_TYPES[this.currentType];
-        if (this.currentType === 'TRANSFERENCIA') {
+        const lineConf = this.currentType === "STANDBY" ? this._getMovementFormConf() : conf;
+        const isTransferForm =
+            this.currentType === "TRANSFERENCIA" ||
+            (this.currentType === "STANDBY" && lineConf.id === "TRANSFERENCIA");
+        if (isTransferForm) {
             const qty = Utils.roundDecimal(Math.abs(this._parseQuantityInputValue(value)));
             this.selectedItems[index].quantity = qty;
             this.renderSelectedItems();
@@ -2433,9 +3095,9 @@ const MovementManager = {
         let qty = this._parseQuantityInputValue(value);
 
         // Aplicar comportamiento según tipo
-        if (conf.behavior === 'negative') {
+        if (lineConf.behavior === 'negative') {
             qty = -Math.abs(qty);
-        } else if (conf.behavior === 'positive') {
+        } else if (lineConf.behavior === 'positive') {
             qty = Math.abs(qty);
         }
 
@@ -2642,7 +3304,7 @@ const MovementManager = {
 
     /** Ferretería, Merma, consumo diario, M.E. producción, M.E. obra: destino de línea = origen de stock. */
     _movementTypeStockSourceDestMirror() {
-        const t = this.currentType;
+        const t = this._getMovementFormLogicalType();
         return (
             t === "FERRETERIA" ||
             t === "MERMA" ||
@@ -2869,7 +3531,7 @@ const MovementManager = {
         return { depot: d || 'main', boxId: '' };
     },
 
-    _buildTransferEndpointOptionsHtml(itemId, selectedDepot, selectedBoxId) {
+    _buildTransferEndpointOptionsHtml(itemId, selectedDepot, selectedBoxId, role = "from") {
         if (typeof InventoryManager === 'undefined' || !itemId) return '';
         const esc = s => this._escHtml(s);
         const fmt = v => Utils.formatDecimalDisplay(v);
@@ -2898,7 +3560,7 @@ const MovementManager = {
         const boxes = InventoryManager.getItemBoxStocks(itemId) || [];
         for (const b of boxes) {
             const qBox = Math.max(0, parseFloat(b.qty) || 0);
-            if (qBox <= 0) continue;
+            if (role !== "to" && qBox <= 0) continue;
             const v = `box:${b.boxId}`;
             const bSel = selDep === 'main' && String(selBox) === String(b.boxId);
             const label = I18n.t('inventory.boxOptionWithQty')
@@ -3039,6 +3701,21 @@ const MovementManager = {
             InventoryManager.updateStock(item.itemId, 'production', q);
             return;
         }
+        if (type === "AJUSTE" && item.metaBoxMgrAjuste && typeof item.metaBoxMgrAjuste.deltaBox === "number") {
+            const m = item.metaBoxMgrAjuste;
+            const d = Utils.roundDecimal(m.deltaBox);
+            if (Math.abs(d) < 1e-12) return;
+            const bid = String(m.boxId || "").trim();
+            if (!bid || typeof InventoryManager.restoreToBoxAndMain !== "function") return;
+            if (d > 0) {
+                const r0 = InventoryManager.restoreToBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
+                if (!r0 || !r0.ok) InventoryManager.updateStock(item.itemId, "main", d);
+            } else if (InventoryManager.consumeFromBoxAndMain) {
+                const r = InventoryManager.consumeFromBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
+                if (!r || !r.ok) InventoryManager.updateStock(item.itemId, "main", d);
+            }
+            return;
+        }
         const tgt = this._resolveStockTargetForLine(item);
         const qty = parseFloat(item.quantity) || 0;
         if (
@@ -3139,6 +3816,21 @@ const MovementManager = {
             if (q <= 0) return;
             InventoryManager.updateStock(item.itemId, 'main', q);
             InventoryManager.updateStock(item.itemId, 'production', -q);
+            return;
+        }
+        if (movementType === "AJUSTE" && item.metaBoxMgrAjuste && typeof item.metaBoxMgrAjuste.deltaBox === "number") {
+            const m = item.metaBoxMgrAjuste;
+            const d = Utils.roundDecimal(m.deltaBox);
+            if (Math.abs(d) < 1e-12) return;
+            const bid = String(m.boxId || "").trim();
+            if (!bid || typeof InventoryManager.consumeFromBoxAndMain !== "function") return;
+            if (d > 0) {
+                const r = InventoryManager.consumeFromBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
+                if (!r || !r.ok) InventoryManager.updateStock(item.itemId, "main", -d);
+            } else if (InventoryManager.restoreToBoxAndMain) {
+                const r = InventoryManager.restoreToBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
+                if (!r || !r.ok) InventoryManager.updateStock(item.itemId, "main", -d);
+            }
             return;
         }
         const tgt = this._resolveStockTargetForLine(item);
@@ -3292,10 +3984,11 @@ const MovementManager = {
         const fmt = v => Utils.formatDecimalDisplay(v);
 
         const conf = MOVEMENT_TYPES[this.currentType];
+        const lineConf = this._getMovementFormConf();
 
         if (conf.specialForm !== "recepcion" && this.selectedItems.length) {
             for (const item of this.selectedItems) {
-                if (!this._lineSupportsStockSourceSelect(item, conf)) continue;
+                if (!this._lineSupportsStockSourceSelect(item, lineConf)) continue;
                 if (String(item.stockSourceId || "").trim()) continue;
                 const inv = InventoryManager.getItemById(item.itemId);
                 if (!inv || typeof InventoryManager.getMovementLocationSourceOptions !== "function") continue;
@@ -3322,6 +4015,8 @@ const MovementManager = {
                     </td>
                 </tr>
             `;
+            this._syncLineOrderThVisibility();
+            this._syncBoxCascadeActionWrapVisibility();
             return;
         }
 
@@ -3350,6 +4045,8 @@ const MovementManager = {
             if (this.currentType === 'CONSUMO_DIARIO') {
                 this._persistConsumoCartFromForm();
             }
+            this._syncLineOrderThVisibility();
+            this._syncBoxCascadeActionWrapVisibility();
             return;
         }
 
@@ -3360,7 +4057,8 @@ const MovementManager = {
         }
 
         tbody.innerHTML = this.selectedItems.map((item, index) => {
-            if (conf.id === 'TRANSFERENCIA') {
+            const ord = this._renderLineOrderTd(index, this.selectedItems.length);
+            if (lineConf.id === 'TRANSFERENCIA') {
                 const from = item.transferFrom || 'main';
                 const to = item.transferTo || 'main';
                 const fromBox = item.transferFromBoxId || '';
@@ -3377,14 +4075,15 @@ const MovementManager = {
                 const newFrom = curFrom - q;
                 const newTo = curTo + q;
                 const exceedsStock = newFrom < 0;
-                const fromOpts = this._buildTransferEndpointOptionsHtml(item.itemId, from, fromBox);
-                const toOpts = this._buildTransferEndpointOptionsHtml(item.itemId, to, toBox);
+                const fromOpts = this._buildTransferEndpointOptionsHtml(item.itemId, from, fromBox, "from");
+                const toOpts = this._buildTransferEndpointOptionsHtml(item.itemId, to, toBox, "to");
                 const fromSelect = `
                     <select class="target-select" data-transfer-role="from" data-line-index="${index}">${fromOpts}</select>`;
                 const toSelect = `
                     <select class="target-select" data-transfer-role="to" data-line-index="${index}">${toOpts}</select>`;
                 return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
+                    ${ord}
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
                     <td>${this._renderQuantityInputWithCalc(index, q > 0 ? q : "", { min: 0, step: "any" })}</td>
@@ -3408,7 +4107,7 @@ const MovementManager = {
                     </td>
                 </tr>`;
             }
-            if (this._isMainToProductionMovement(conf.id)) {
+            if (this._isMainToProductionMovement(lineConf.id)) {
                 const q = Math.abs(parseFloat(item.quantity) || 0);
                 const curFrom = parseFloat(InventoryManager.getStock(item.itemId, 'main')) || 0;
                 const curTo = parseFloat(InventoryManager.getStock(item.itemId, 'production')) || 0;
@@ -3417,6 +4116,7 @@ const MovementManager = {
                 const exceedsStock = newFrom < 0;
                 return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
+                    ${ord}
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
                     <td>${this._renderQuantityInputWithCalc(index, q > 0 ? q : "", { min: 0, step: "any" })}</td>
@@ -3495,6 +4195,7 @@ const MovementManager = {
                 }
                 return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
+                    ${ord}
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
                     <td>
@@ -3578,6 +4279,7 @@ const MovementManager = {
                 const supVal = this._escAttr(String(item.compraLineSupplier || ''));
                 return `
                 <tr>
+                    ${ord}
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}${consBadge}</td>
                     <td><input type="text" class="form-input mov-compra-line-po" style="min-width:6rem;max-width:10rem;" value="${poVal}" autocomplete="off" oninput="MovementManager._setCompraLinePurchaseField(${index},'po',this.value)" onchange="MovementManager._setCompraLinePurchaseField(${index},'po',this.value)" /></td>
@@ -3597,13 +4299,14 @@ const MovementManager = {
                 const newStock = currentStock + item.quantity;
                 const exceedsStock = newStock < 0;
                 const destLabel = esc(this._formatStockSourceAsDestLabel(item));
-                const qtyUi = this._movementQtyInputUi(item, conf);
+                const qtyUi = this._movementQtyInputUi(item, lineConf);
                 return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
+                    ${ord}
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
                     <td>${this._renderQuantityInputWithCalc(index, qtyUi.value, { min: qtyUi.min, step: "any" })}</td>
-                    ${this._renderMovementStockSourceCell(item, index, conf)}
+                    ${this._renderMovementStockSourceCell(item, index, lineConf)}
                     <td><span class="mov-same-dest-mirror">${destLabel}</span></td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
                     <td>
@@ -3618,13 +4321,17 @@ const MovementManager = {
             }
 
             const currentStock = InventoryManager.getStock(item.itemId, this._resolveStockTargetForLine(item));
-            const newStock = currentStock + item.quantity;
-            const exceedsStock = conf.behavior === 'negative' && newStock < 0;
+            const signedQty =
+                this.currentType === "STANDBY"
+                    ? this.normalizeQuantityForType(item.quantity, lineConf.id)
+                    : item.quantity;
+            const newStock = currentStock + signedQty;
+            const exceedsStock = lineConf.behavior === 'negative' && newStock < 0;
 
             // Selector de destino solo si multiTarget es true
             let targetSelect = esc(I18n.t(`target.${item.target}`));
-            if (conf.multiTarget) {
-                if (conf.id === 'TRANSFORMACION') {
+            if (lineConf.multiTarget) {
+                if (lineConf.id === 'TRANSFORMACION') {
                     const depKey = item.target === 'production' ? 'production' : 'transformation';
                     targetSelect = `<span class="mov-tf-insumo-depot-label">${esc(I18n.t(`target.${depKey}`))}</span>`;
                 } else {
@@ -3641,13 +4348,14 @@ const MovementManager = {
 
             return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
+                    ${ord}
                     <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                     <td class="app-desc-copy-cell">${esc(item.description)}</td>
                     <td>${(() => {
-                        const qtyUi = this._movementQtyInputUi(item, conf);
+                        const qtyUi = this._movementQtyInputUi(item, lineConf);
                         return this._renderQuantityInputWithCalc(index, qtyUi.value, { min: qtyUi.min, step: "any" });
                     })()}</td>
-                    ${this._renderMovementStockSourceCell(item, index, conf)}
+                    ${this._renderMovementStockSourceCell(item, index, lineConf)}
                     <td>${targetSelect}</td>
                     <td>${fmt(currentStock)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newStock)}</strong></td>
                     <td>
@@ -3680,12 +4388,16 @@ const MovementManager = {
             Utils.installTableBodyArrowNav(tbody);
         }
 
+        this._syncLineOrderThVisibility();
+        this._syncBoxCascadeActionWrapVisibility();
+
     },
 
     validateMovement() {
         if (!this.currentType) return false;
         
         const conf = MOVEMENT_TYPES[this.currentType];
+        const lineConf = this._getMovementFormConf();
         const projectId = document.getElementById('project-id')?.value?.trim() || '';
 
         if (conf.specialForm === 'compra') {
@@ -3780,7 +4492,7 @@ const MovementManager = {
             return true;
         } else {
         // Validar proyecto obligatorio
-        if (conf.projectRequired && !projectId) {
+        if (lineConf.projectRequired && !projectId) {
             Utils.showToast(I18n.t('msg.projectIdRequired'), 'error');
             return false;
         }
@@ -3802,7 +4514,7 @@ const MovementManager = {
             }
         }
 
-        if (this.currentType === 'TRANSFERENCIA') {
+        if (this.currentType === 'TRANSFERENCIA' || (this.currentType === 'STANDBY' && lineConf.id === 'TRANSFERENCIA')) {
             for (const it of this.selectedItems) {
                 const from = it.transferFrom || 'main';
                 const to = it.transferTo || 'main';
@@ -3857,6 +4569,26 @@ const MovementManager = {
         if (conf.behavior === 'negative') return -Math.abs(qty);
         if (conf.behavior === 'positive') return Math.abs(qty);
         return qty;
+    },
+
+    /** Tipo de liberación Stand-by leído del selector (solo UI). */
+    _getStandbyReleaseTypeFromDom() {
+        if (this.currentType !== "STANDBY") return "AJUSTE";
+        const sel = document.getElementById("standby-release-type");
+        const v = String(sel?.value || "").trim();
+        return v && MOVEMENT_TYPES[v] ? v : "AJUSTE";
+    },
+
+    /**
+     * Tipo lógico para columnas de línea, cantidades y vista prevía: en Stand-by es el tipo de liberación elegido.
+     */
+    _getMovementFormLogicalType() {
+        return this.currentType === "STANDBY" ? this._getStandbyReleaseTypeFromDom() : this.currentType;
+    },
+
+    _getMovementFormConf() {
+        const lt = this._getMovementFormLogicalType();
+        return (lt && MOVEMENT_TYPES[lt]) || MOVEMENT_TYPES.AJUSTE;
     },
 
     /**
@@ -4124,8 +4856,9 @@ const MovementManager = {
         }
 
         const conf = MOVEMENT_TYPES[this.currentType];
+        const lt = this._getMovementFormLogicalType();
         const needsOverdraftConfirm =
-            this.linesWouldOverdraft(this.selectedItems) &&
+            this.linesWouldOverdraft(this.selectedItems, lt) &&
             conf.specialForm !== 'recepcion' &&
             conf.specialForm !== 'compra';
 
@@ -4164,8 +4897,9 @@ const MovementManager = {
         );
 
         const conf = MOVEMENT_TYPES[this.currentType];
+        const lt = this._getMovementFormLogicalType();
         const needsOverdraftConfirm =
-            this.linesWouldOverdraft(this.selectedItems) &&
+            this.linesWouldOverdraft(this.selectedItems, lt) &&
             conf.specialForm !== 'recepcion' &&
             conf.specialForm !== 'compra';
 
@@ -4182,6 +4916,7 @@ const MovementManager = {
     async _executeProcessMovement(overdraftReason, elecObraTotalBoxes) {
         this.syncSelectedItemQuantitiesFromDom();
         const conf = MOVEMENT_TYPES[this.currentType];
+        const lineConf = this._getMovementFormConf();
         let projectId = document.getElementById('project-id')?.value?.trim() || '';
         let notes = document.getElementById('movement-notes')?.value?.trim() || '';
         /** AAAA-MM-DD: fecha de recepción real (prioridad en registro de recepción, metadatos de compra y timeline de pedido). */
@@ -4215,8 +4950,8 @@ const MovementManager = {
         }
 
         // Auto-asignar proyecto antes del prompt de lista de chequeo (el ID efectivo debe existir al pedir fecha).
-        if (conf.projectAutoAssign && !projectId) {
-            projectId = conf.projectAutoAssign;
+        if (lineConf.projectAutoAssign && !projectId) {
+            projectId = lineConf.projectAutoAssign;
         }
 
         /** Lista de chequeo: fecha de expedición antes de aplicar stock (cancelar prompt = no procesar). */
@@ -4244,10 +4979,11 @@ const MovementManager = {
             ? (this.movements.find(m => m.id === this.editingStandbyId)?.reference || Utils.generateRef(this.currentType))
             : Utils.generateRef(this.currentType);
         
+        const ltOver = this._getMovementFormLogicalType();
         const hadOverdraft =
             conf.specialForm === 'recepcion' || conf.specialForm === 'compra'
                 ? false
-                : this.linesWouldOverdraft(this.selectedItems);
+                : this.linesWouldOverdraft(this.selectedItems, ltOver);
 
         let receptionId = null;
         let receptionSnapshot = null;
@@ -5040,6 +5776,8 @@ const MovementManager = {
             target: item.target || 'main',
             transferFrom: item.transferFrom,
             transferTo: item.transferTo,
+            transferFromBoxId: item.transferFromBoxId || '',
+            transferToBoxId: item.transferToBoxId || '',
             location: item.location || '',
             stockSourceId: item.stockSourceId || '',
             boxId: item.boxId || '',
@@ -5095,10 +5833,10 @@ const MovementManager = {
                     ReceptionsManager.revertAndRemoveReception(movement.receptionId);
                 }
             } else {
-                movement.items.forEach(item => {
-                    if (item.annulled) return;
-                    this._revertAppliedMovementLine(item, movement.type);
-                });
+                const activeLines = (movement.items || []).filter(it => it && !it.annulled);
+                for (let i = activeLines.length - 1; i >= 0; i--) {
+                    this._revertAppliedMovementLine(activeLines[i], movement.type);
+                }
                 // Transformación antigua: entrada a principal solo en metadatos (sin línea transformationOutput en items)
                 const hasTfOutLine = (movement.items || []).some(line => line && line.transformationOutput);
                 if (
@@ -5239,6 +5977,34 @@ const MovementManager = {
         if (typeof Auth !== "undefined" && Auth.logAudit) {
             Auth.logAudit("movement.attach.remove", `${m.reference}: ${att.fileName || attachmentId}`);
         }
+        return true;
+    },
+
+    /**
+     * Añade una nota al final del campo `notes` del movimiento (no modifica el texto ya guardado).
+     * @returns {boolean} false si no hay permiso, el movimiento no existe o el fragmento está vacío.
+     */
+    appendMovementNote(movementId, rawFragment) {
+        if (typeof Auth !== "undefined" && !Auth.guardPerm("movements")) return false;
+        const m = this.getMovementById(movementId);
+        if (!m) return false;
+        const fragment = String(rawFragment ?? "").trim();
+        if (!fragment) return false;
+        const when =
+            typeof Utils !== "undefined" && Utils.formatDateTime
+                ? Utils.formatDateTime(new Date().toISOString())
+                : new Date().toISOString();
+        const who =
+            typeof Auth !== "undefined" && Auth.getDisplayName ? String(Auth.getDisplayName()).trim() : "";
+        const header = who ? `[${when} — ${who}]` : `[${when}]`;
+        const block = `${header}\n${fragment}`;
+        const prev = String(m.notes ?? "").trim();
+        m.notes = prev ? `${prev}\n\n${block}` : block;
+        this.save();
+        if (typeof Auth !== "undefined" && Auth.logAudit) {
+            Auth.logAudit("movement.notes.append", `${m.reference || movementId}`);
+        }
+        if (typeof HistoryManager !== "undefined" && HistoryManager.render) HistoryManager.render();
         return true;
     },
 
@@ -5766,6 +6532,10 @@ const MovementManager = {
         if (thRecipient) thRecipient.style.display = 'none';
         const thBox = document.getElementById('mov-selected-box-th');
         if (thBox) thBox.style.display = 'none';
+        const thLineOrder = document.getElementById('mov-line-order-th');
+        if (thLineOrder) thLineOrder.style.display = 'none';
+        const casWrap = document.getElementById('mov-box-cascade-action-wrap');
+        if (casWrap) casWrap.style.display = 'none';
         this._syncMovementSearchPlaceholder(null);
         const searchLbl = document.getElementById('mov-item-search-label');
         if (searchLbl && typeof I18n !== 'undefined' && I18n.t) {
@@ -5778,6 +6548,7 @@ const MovementManager = {
     },
 
     setupEventListeners() {
+        this._installBoxCascadeModalListeners();
         // Selección de tipo de movimiento
         const grid = document.getElementById('movement-types-grid');
         if (grid) {
@@ -5813,6 +6584,8 @@ const MovementManager = {
                 if (movFormWin.classList.contains("active")) {
                     const od = document.getElementById("overdraft-confirm-modal");
                     if (od && od.classList.contains("active")) return;
+                    const bc = document.getElementById("mov-box-cascade-modal");
+                    if (bc && bc.classList.contains("active")) return;
                     e.preventDefault();
                     this.minimizeMovementFormWindow();
                 }
@@ -5967,6 +6740,20 @@ const MovementManager = {
         if (selectedItemsBody && !this._selectedItemsRemoveClickBound) {
             this._selectedItemsRemoveClickBound = true;
             selectedItemsBody.addEventListener("click", e => {
+                const up = e.target.closest(".mov-line-order-up");
+                if (up && !up.disabled && selectedItemsBody.contains(up)) {
+                    e.preventDefault();
+                    const idx = parseInt(String(up.getAttribute("data-line-order-up") || ""), 10);
+                    if (Number.isFinite(idx)) this.moveSelectedLineUp(idx);
+                    return;
+                }
+                const down = e.target.closest(".mov-line-order-down");
+                if (down && !down.disabled && selectedItemsBody.contains(down)) {
+                    e.preventDefault();
+                    const idx = parseInt(String(down.getAttribute("data-line-order-down") || ""), 10);
+                    if (Number.isFinite(idx)) this.moveSelectedLineDown(idx);
+                    return;
+                }
                 const calcBtn = e.target.closest(".mov-qty-calc-btn[data-calc-index]");
                 if (calcBtn && selectedItemsBody.contains(calcBtn)) {
                     e.preventDefault();
@@ -6208,6 +6995,37 @@ const MovementManager = {
                 });
             }
         });
+
+        if (!this._standbyReleaseTypeBound) {
+            this._standbyReleaseTypeBound = true;
+            document.getElementById("standby-release-type")?.addEventListener("change", () => {
+                if (this.currentType !== "STANDBY") return;
+                const effConf =
+                    MOVEMENT_TYPES[document.getElementById("standby-release-type")?.value] || MOVEMENT_TYPES.AJUSTE;
+                const thBox = document.getElementById("mov-selected-box-th");
+                if (thBox) {
+                    const showSrc =
+                        effConf.behavior === "negative" &&
+                        effConf.id !== "TRANSFERENCIA" &&
+                        effConf.id !== "TRANSFORMACION";
+                    thBox.style.display = showSrc ? "" : "none";
+                    if (showSrc && typeof I18n !== "undefined" && I18n.t) {
+                        thBox.textContent = I18n.t("movements.stockSourceColumn");
+                    }
+                }
+                const thTargetCol = document.getElementById("mov-selected-target-col");
+                if (thTargetCol && typeof I18n !== "undefined" && I18n.t) {
+                    const effDisp = document.getElementById("standby-release-type")?.value || "AJUSTE";
+                    thTargetCol.textContent =
+                        effDisp === "TRANSFERENCIA"
+                            ? I18n.t("movements.transferColumn")
+                            : effDisp === "TRANSFORMACION"
+                              ? I18n.t("movements.transformationInsumoDepotCol")
+                              : I18n.t("table.target");
+                }
+                this.renderSelectedItems();
+            });
+        }
 
         const projectInput = document.getElementById('project-id');
         if (projectInput) {

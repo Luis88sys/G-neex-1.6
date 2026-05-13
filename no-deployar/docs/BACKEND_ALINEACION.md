@@ -9,6 +9,7 @@ La SPA en la raíz del repositorio **sigue siendo 100 % navegador** (`localStora
 | Hash de contraseña | `Auth._hash` → `g-neex-v1\|salt\|password` SHA-256 hex | `src/hash.js` con el mismo esquema | ✅ idéntico |
 | Almacén de datos | `localStorage` con claves `phoenix-*` | SQLite, tabla `data(key, value)` con las mismas claves | ✅ forma compartida |
 | Respaldo JSON | Export con `format: "G-NEEX-backup"`, `data: {...stringified}` | `POST /api/v1/backup/import` consume el campo `data` | ✅ formato compatible |
+| Líneas de movimiento (`items[]`) | Objetos libres (código, cantidad, `stockSourceId`, metadatos opcionales p. ej. `metaBoxMgrAjuste`, notas en el **movimiento** como string `notes`) | Misma cadena JSON en SQLite (`phoenix-movements`) | ✅ campos extra ignorados por versiones viejas; respaldos sin nuevas claves siguen siendo válidos |
 | Usuarios integrados | `Auth._getBuiltinUser()` + plantillas `perfil_*` | `routes/auth.js` permite `bootstrap` + `login` | ⚠️ servidor no conoce plantillas; alta inicial requiere bootstrap + sync |
 | Permisos finos | `permissionMatrix` / `permissionActionMatrix` (cliente) | `SYNC_WRITE_ROLE` (`admin` o `all`) | ⚠️ cliente granular, servidor binario; ver §3 |
 | Cliente HTTP | `GneexApiClient` (`js/api-client.js`) — base URL + `ping`/`login` (stubs) | n/a | 🛠 hueco preparado, sin red activa |

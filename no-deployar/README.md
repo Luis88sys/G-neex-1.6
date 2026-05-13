@@ -30,6 +30,6 @@ La aplicación enlaza desde **Ayuda** los archivos `user-manual/MANUAL_DE_USUARI
 
 `powershell -NoProfile -ExecutionPolicy Bypass -File no-deployar\docs\sync-user-manual.ps1`
 
-Ese script copia los `.html` sustituyendo `../docs/app-screenshots/` por `./app-screenshots/`, actualiza capturas, `PlantillasPermisos.xlsx.csv` y los PDF generados bajo `no-deployar/` hacia `user-manual/`.
+Ese script copia los `.html` de manuales sustituyendo `../docs/app-screenshots/` por `./app-screenshots/`, copia las presentaciones sustituyendo `../docs/app-screenshots/` por `../app-screenshots/` (respecto a `user-manual/`), actualiza capturas, `PlantillasPermisos.xlsx.csv` y los PDF generados bajo `no-deployar/` hacia `user-manual/`.
 
 Lista previa a publicación: `docs/DEPLOY_CHECKLIST.md`.

@@ -136,6 +136,7 @@ Each movement automatically records:
 
 - **History**, **Transport**, and **Orders** include a **View** control for **tiles**, a compact **list**, and (where relevant) a **detailed table**; in **History**, a **Chronological carousel** is also available for horizontal card browsing. Minimized cards also show the **Project ID** when relevant.
 - In **History**, movements that are fully voided or **partial annulments** show a **diagonal stamp** (tilted dashed frame); filters also include annulment type.
+- New **Movement notes** filter; **Add note** in detail appends without erasing; **box stock management** saves also create **Adjustment (AJUSTE)** records.
 - **On-screen dates (app-wide):** day, 3-letter month, 4-digit year; with time, local **24-hour** clock.
 - In **History → Daily consumption by recipient**, the table now supports **editing recipients**, **saving changes**, and **clearing visible rows** using the current filters.
 - **Attachments (📎)** in movement detail and expanded transport: link files from any folder (no copy into the app); open with Chrome/Edge. JSON backups do not include file bytes—re-link on another PC.

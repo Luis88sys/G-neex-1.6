@@ -720,6 +720,10 @@
                         <input id="filter-desc" type="text" class="filter-input">
                     </div>
                     <div class="filter-group">
+                        <label for="filter-notes" data-i18n="history.filterNotes">Notas del movimiento:</label>
+                        <input id="filter-notes" type="text" class="filter-input" data-i18n-title="history.filterNotesTitle" title="">
+                    </div>
+                    <div class="filter-group">
                         <label data-i18n="history.filterRecipient">Destinatario (consumo diario):</label>
                         <input id="filter-recipient" type="text" class="filter-input" data-i18n-title="history.filterRecipientTitle" title="">
                     </div>
@@ -1811,6 +1815,9 @@
                                placeholder="Código o descripción...">
                         <div id="item-search-results" class="search-results"></div>
                     </div>
+                    <div id="mov-box-cascade-action-wrap" style="display:none;margin-top:0.35rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="mov-box-cascade-open" data-i18n="movements.boxCascadeOpenBtn">Consumo por cajas (orden)…</button>
+                    </div>
                 </div>
                 <div id="mov-tf-stock-tables-wrap" class="mov-tf-stock-tables-wrap" style="display:none;" aria-label="Stock transformación y producción">
                     <div class="mov-tf-stock-grid">
@@ -1855,6 +1862,7 @@
                         <table class="selected-items-table">
                             <thead>
                                 <tr>
+                                    <th id="mov-line-order-th" style="display:none;" data-i18n="movements.lineOrderCol">Orden</th>
                                     <th data-i18n="table.code">Código</th>
                                     <th data-i18n="table.description">Descripción</th>
                                     <th id="mov-compra-line-po-th" style="display:none;" data-i18n="movCompra.linePoCol">PO *</th>
@@ -1940,6 +1948,59 @@
             </div>
             </div>
             </div>
+
+<!-- Movimientos: consumo en cascada por cajas (total + orden de cajas) -->
+<div id="mov-box-cascade-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mov-box-cascade-title">
+  <div class="modal-content" style="max-width:640px">
+    <div class="modal-header">
+      <h2 id="mov-box-cascade-title" data-i18n="movements.boxCascadeTitle">Consumo por cajas en orden</h2>
+      <button type="button" id="mov-box-cascade-close" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" data-i18n="movements.boxCascadeIntro">Elija artículo, cantidad total y el orden de las cajas; se generarán líneas con el reparto en cascada.</p>
+      <div class="form-group">
+        <label for="mov-cascade-item-search" data-i18n="movements.boxCascadeSearchLabel">Artículo</label>
+        <div class="item-search-container">
+          <input type="search" id="mov-cascade-item-search" class="search-input" data-i18n-placeholder="movements.searchPlaceholder" placeholder="" autocomplete="off" />
+          <div id="mov-cascade-item-search-results" class="search-results"></div>
+        </div>
+      </div>
+      <div id="mov-cascade-item-banner" class="muted" style="display:none;margin-bottom:0.75rem;"></div>
+      <div id="mov-cascade-body" style="display:none;">
+        <div class="form-group">
+          <label for="mov-cascade-total-qty" data-i18n="movements.boxCascadeTotalQty">Cantidad total a consumir</label>
+          <input type="text" id="mov-cascade-total-qty" class="form-input" style="max-width:12rem;" autocomplete="off" />
+        </div>
+        <div id="mov-cascade-recipient-wrap" class="form-group" style="display:none;">
+          <label for="mov-cascade-recipient" data-i18n="movements.recipientName">Destinatario</label>
+          <div id="mov-cascade-recipient-host"></div>
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+            <input type="checkbox" id="mov-cascade-main-fill" />
+            <span data-i18n="movements.boxCascadeMainFill">Si falta stock en las cajas elegidas, completar con el restante en principal (pool)</span>
+          </label>
+        </div>
+        <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;">
+          <div style="flex:1;min-width:220px;">
+            <strong data-i18n="movements.boxCascadePool">Cajas con stock</strong>
+            <div id="mov-cascade-pool-list" style="margin-top:0.35rem;max-height:12rem;overflow:auto;border:1px solid var(--border-color, #ddd);border-radius:6px;padding:0.5rem;"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="mov-cascade-add-pool" style="margin-top:0.5rem;" data-i18n="movements.boxCascadeAddToQueue">Añadir marcadas al final de la cola</button>
+          </div>
+          <div style="flex:1;min-width:220px;">
+            <strong data-i18n="movements.boxCascadeQueue">Orden de consumo (arriba primero)</strong>
+            <div id="mov-cascade-queue-list" style="margin-top:0.35rem;max-height:12rem;overflow:auto;border:1px solid var(--border-color, #ddd);border-radius:6px;padding:0.5rem;"></div>
+          </div>
+        </div>
+        <div id="mov-cascade-preview" class="muted" style="margin-top:0.75rem;white-space:pre-wrap;font-size:0.9rem;"></div>
+        <div class="modal-actions" style="margin-top:1rem;">
+          <button type="button" class="btn btn-primary" id="mov-cascade-apply" data-i18n="movements.boxCascadeApply">Generar líneas en el movimiento</button>
+          <button type="button" class="btn btn-secondary" id="mov-cascade-cancel" data-i18n="buttons.cancel">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Sobregiro: confirmación + motivo (obligatorio) -->
 <div id="overdraft-confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="overdraft-modal-title">

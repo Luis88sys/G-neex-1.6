@@ -136,6 +136,7 @@ Cada movimiento registra automáticamente:
 
 - **Historial**, **Transporte** y **Pedidos** incluyen un selector **Vista** con disposición en **mosaico** (tarjetas o iconos), **lista compacta** y, donde aplica, **tabla detallada**; además, en **Historial** hay **Carrusel cronológico** para recorrer tarjetas en secuencia horizontal. Las tarjetas minimizadas muestran también el **ID Proyecto** cuando corresponde.
 - En **Historial**, movimientos anulados en total o con **anulado parcial** muestran un **sello diagonal** (marco discontinuo inclinado); también hay filtro por tipo de anulación.
+- Nuevo filtro **Notas del movimiento**; en el detalle se pueden **añadir notas** sin borrar las existentes; las cantidades por **gestión de caja** generan **AJUSTE** en historial.
 - **Fechas en pantalla (toda la app):** día, mes en tres letras, año en cuatro cifras; con hora, **24 h** hora local.
 - En **Historial → Consumo diario por destinatario**, la tabla permite **editar destinatarios**, **guardar cambios** y **limpiar las filas visibles** según filtros.
 - **Adjuntos (📎)** en el detalle de un movimiento y en el transporte expandido: enlazan archivos en cualquier carpeta del equipo (sin copiarlos a la app); se abren con Chrome/Edge. Los respaldos JSON no incluyen los archivos: en otro PC hay que volver a enlazar.
