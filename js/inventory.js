@@ -7594,8 +7594,7 @@ const InventoryManager = {
       document.getElementById("inventory-insight-modal")?.classList.remove("active");
     });
     document.getElementById("inventory-insight-modal")?.addEventListener("click", e => {
-      if (e.target.id === "inventory-insight-modal") e.currentTarget.classList.remove("active");
-      else if (e.target.id === "insight-export-csv") {
+      if (e.target.id === "insight-export-csv") {
         e.stopPropagation();
         void this.exportInsightList();
       } else if (e.target.id === "insight-print-list") {
@@ -7653,9 +7652,6 @@ const InventoryManager = {
     document.getElementById("inventory-export-csv")?.addEventListener("click", () => this.openInventoryExportModal());
     document.getElementById("close-inventory-export-modal")?.addEventListener("click", () => this.closeInventoryExportModal());
     document.getElementById("inventory-export-cancel")?.addEventListener("click", () => this.closeInventoryExportModal());
-    document.getElementById("inventory-export-modal")?.addEventListener("click", e => {
-      if (e.target.id === "inventory-export-modal") this.closeInventoryExportModal();
-    });
     document.getElementById("inventory-export-columns-all")?.addEventListener("click", () =>
       this._setAllInventoryExportColumns(true)
     );
@@ -7700,10 +7696,6 @@ const InventoryManager = {
       this.closeZeroTotalStockByBoxModal()
     );
     document.getElementById("inventory-box-zero-total-modal")?.addEventListener("click", e => {
-      if (e.target.id === "inventory-box-zero-total-modal") {
-        this.closeZeroTotalStockByBoxModal();
-        return;
-      }
       const tr = e.target.closest("tr.inv-box-zero-total-row[data-box-number]");
       if (!tr) return;
       const boxNum = parseInt(tr.getAttribute("data-box-number") || "", 10);
@@ -7730,10 +7722,6 @@ const InventoryManager = {
       document.getElementById("inventory-box-summary-modal")?.classList.remove("active");
     });
     document.getElementById("inventory-box-summary-modal")?.addEventListener("click", e => {
-      if (e.target.id === "inventory-box-summary-modal") {
-        e.currentTarget.classList.remove("active");
-        return;
-      }
       if (e.target.closest("#inventory-box-summary-export-content")) {
         void this.exportBoxContentListing();
         return;
@@ -7835,9 +7823,6 @@ const InventoryManager = {
     this._syncInventoryLowStockIgnoredMenuItemUi();
     this._syncInventoryHeaderFiltersCollapseBtn();
     document.getElementById("close-inventory-box-manager")?.addEventListener("click", () => this.closeBoxManagerModal());
-    document.getElementById("inventory-box-manager-modal")?.addEventListener("click", e => {
-      if (e.target.id === "inventory-box-manager-modal") this.closeBoxManagerModal();
-    });
     document.getElementById("inventory-box-item-search")?.addEventListener(
       "input",
       Utils.debounce(e => this._renderBoxManagerSearchResults(e.target.value), 180)
@@ -8009,9 +7994,6 @@ const InventoryManager = {
       document.getElementById("close-inv-notes-modal")?.addEventListener("click", () => this.closeItemNotesModal());
       document.getElementById("inv-notes-cancel")?.addEventListener("click", () => this.closeItemNotesModal());
       document.getElementById("inv-notes-save")?.addEventListener("click", () => this.saveItemNotesFromModal());
-      document.getElementById("inventory-item-notes-modal")?.addEventListener("click", e => {
-        if (e.target.id === "inventory-item-notes-modal") this.closeItemNotesModal();
-      });
     }
     if (!this._invQuickModalUiBound) {
       this._invQuickModalUiBound = true;
@@ -8019,9 +8001,6 @@ const InventoryManager = {
       document.getElementById("inv-quick-export-lots")?.addEventListener("click", () => this.exportQuickViewLotsTable());
       document.getElementById("inv-quick-print-lots")?.addEventListener("click", () => this.printQuickViewLotsTable());
       document.getElementById("inv-quick-close")?.addEventListener("click", () => this.closeItemQuickViewModal());
-      document.getElementById("inventory-item-quick-modal")?.addEventListener("click", e => {
-        if (e.target.id === "inventory-item-quick-modal") this.closeItemQuickViewModal();
-      });
     }
 
     this._setupInventoryHeaderToolsMenu();

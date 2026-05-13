@@ -322,7 +322,7 @@ Les fichiers incluent la plage de dates dans leur nom :
 
 ## Nouveautés 1.7 (mai 2026)
 
-- **Écran de bienvenue cinématique (9 s)** après connexion : séquence type « boot up » avec **scanner vert Matrix** lent, **anneaux orbitaux** autour du logo, **fort effet néon clignotant sur « G-neex »**, balayage révélant « BIENVENUE SUR », « PHOENIX EVOLUTION » et votre nom. Sert aussi de vraie marge de chargement pour l'application.
+- **Écran de bienvenue cinématique (~6 s)** après connexion : séquence type « boot up » avec **scanner vert Matrix** lent, **anneaux orbitaux** autour du logo, **fort effet néon clignotant sur « G-neex »**, balayage révélant « BIENVENUE SUR », « PHOENIX EVOLUTION » et votre nom. Sert aussi de vraie marge de chargement pour l'application.
 - **Logo comme raccourci de mise à jour** : un clic sur le logo de l'en-tête le fait tourner dans le sens antihoraire et déclenche l'action unifiée **Mettre à jour l'inventaire** (normalisation des emplacements / boîtes, réconciliation du stock principal avec boîtes et emplacements, rafraîchissement des péremptions de lots depuis la durée de vie).
 - **Boîtes intégrées au stock principal** : le principal correspond maintenant à `max(actuel, somme(boîtes + emplacements))` ; consommer depuis une boîte décrémente le principal. La nouvelle action répare les anciens backups où principal et conteneurs n'étaient pas alignés.
 - **Éditeur de lots dans l'article** : ajouter plusieurs lignes d'expédition / péremption explicite / quantité par article, avec calcul en direct de la péremption effective à partir de la **durée de vie en mois** déclarée.

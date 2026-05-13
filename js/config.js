@@ -223,9 +223,6 @@ const ConfigManager = {
     const close = () => this.closeUserPermissionMatrixModal();
     if (closeBtn) closeBtn.addEventListener("click", close);
     if (cancelBtn) cancelBtn.addEventListener("click", close);
-    modal.addEventListener("click", e => {
-      if (e.target === modal) close();
-    });
   },
 
   closeUserPermissionMatrixModal() {
@@ -1335,14 +1332,6 @@ const ConfigManager = {
       minCfg.addEventListener("click", () => this.minimizeConfigModal());
     }
 
-    const cfgModalWin = document.getElementById("config-modal");
-    if (cfgModalWin && !this._configModalBackdropDraftBound) {
-      this._configModalBackdropDraftBound = true;
-      cfgModalWin.addEventListener("click", e => {
-        if (e.target === cfgModalWin) this.minimizeConfigModal();
-      });
-    }
-
     if (!this._configModalEscapeDraftBound) {
       this._configModalEscapeDraftBound = true;
       document.addEventListener("keydown", e => {
@@ -1952,23 +1941,6 @@ const ConfigManager = {
       void this.importReceptionsFile(file);
       e.target.value = "";
     });
-    document.getElementById("receptions-config-print-btn")?.addEventListener("click", () => {
-      const filtered = this.getFilteredReceptions();
-      const q = (document.getElementById("receptions-adv-search")?.value || "").trim();
-      void this.printReceptionsFiltered(filtered, q || I18n.t("history.filterAll"));
-    });
-    document.getElementById("receptions-config-export-btn")?.addEventListener("click", async () => {
-      const filtered = this.getFilteredReceptions();
-      const q = (document.getElementById("receptions-adv-search")?.value || "").trim();
-      const headers = this._buildReceptionsPrintExportHeaders();
-      const selectedHeaders = await Utils.pickColumns(headers, I18n.t("config.exportReceptionsFiltered"));
-      if (!selectedHeaders || !selectedHeaders.length) return;
-      void Utils.exportReceptionsXlsx(filtered, {
-        scopeLabel: q || I18n.t("history.filterAll"),
-        selectedHeaders
-      });
-    });
-
     const recTable = document.getElementById("receptions-config-table");
     if (recTable) {
       recTable.addEventListener("click", e => {
@@ -2202,23 +2174,31 @@ const ConfigManager = {
       const cat = r.materialCategory || "OTRO";
       const catLabel = I18n.t(`reception.mat.${cat}`) !== `reception.mat.${cat}` ? I18n.t(`reception.mat.${cat}`) : cat;
       const unitDims = Array.isArray(r?.dimensionsItems) ? r.dimensionsItems : [];
-      const n = Math.max(unitDims.length, 1);
-      for (let i = 0; i < n; i++) {
-        const p = unitDims[i] || {};
-        const row = {
-          [I18n.t("reception.exportWhen")]: Utils.formatDateTime(r.dateReceived),
-          [I18n.t("reception.project")]: r.projectId,
-          [I18n.t("reception.item")]: r.itemName,
-          [I18n.t("reception.materialCategory")]: catLabel,
-          [I18n.t("reception.quantityShort")]: r.quantity,
-          [dimColKey]: this._formatReceptionDimensionsPrintHtml(r),
-          [I18n.t("reception.purchaseOrder")]: r.purchaseOrder || "—",
-          [I18n.t("reception.supplier")]: r.supplier || "—",
-          [colPkg]: unitDims.length ? String(i + 1) : "",
-          [colL]: unitDims.length ? p.L || 0 : "",
-          [colW]: unitDims.length ? p.W || 0 : "",
-          [colH]: unitDims.length ? p.H || 0 : ""
-        };
+      const baseDim = (r && r.dimensions) || {};
+      const baseHasDims =
+        (parseFloat(baseDim?.L) || 0) > 0 ||
+        (parseFloat(baseDim?.W) || 0) > 0 ||
+        (parseFloat(baseDim?.H) || 0) > 0;
+      const pkgList = unitDims.length
+        ? unitDims
+        : baseHasDims
+          ? [{ L: baseDim.L, W: baseDim.W, H: baseDim.H }]
+          : [];
+      const buildRow = (pkgIndex, pkg) => ({
+        [I18n.t("reception.exportWhen")]: Utils.formatDateTime(r.dateReceived),
+        [I18n.t("reception.project")]: r.projectId,
+        [I18n.t("reception.item")]: r.itemName,
+        [I18n.t("reception.materialCategory")]: catLabel,
+        [I18n.t("reception.quantityShort")]: r.quantity,
+        [dimColKey]: this._formatReceptionDimensionsPrintHtml(r),
+        [I18n.t("reception.purchaseOrder")]: r.purchaseOrder || "—",
+        [I18n.t("reception.supplier")]: r.supplier || "—",
+        [colPkg]: pkgIndex == null ? "" : String(pkgIndex + 1),
+        [colL]: pkg ? pkg.L || 0 : "",
+        [colW]: pkg ? pkg.W || 0 : "",
+        [colH]: pkg ? pkg.H || 0 : ""
+      });
+      const pushRow = row =>
         rows.push(
           `<tr>${selectedHeaders
             .map(h => {
@@ -2228,6 +2208,12 @@ const ConfigManager = {
             })
             .join("")}</tr>`
         );
+      if (pkgList.length) {
+        for (let i = 0; i < pkgList.length; i++) {
+          pushRow(buildRow(i, pkgList[i] || {}));
+        }
+      } else {
+        pushRow(buildRow(null, null));
       }
     }
     const rowsHtml = rows.join("");

@@ -2917,11 +2917,6 @@ const Auth = {
       });
     }
     if (closeBtn) closeBtn.addEventListener("click", close);
-    if (modal) {
-      modal.addEventListener("click", e => {
-        if (e.target === modal) close();
-      });
-    }
     if (form) {
       form.addEventListener("submit", async e => {
         e.preventDefault();
@@ -2998,11 +2993,6 @@ const Auth = {
     }
     if (closeRecovery && recoveryModal) {
       closeRecovery.addEventListener("click", () => recoveryModal.classList.remove("active"));
-    }
-    if (recoveryModal) {
-      recoveryModal.addEventListener("click", e => {
-        if (e.target === recoveryModal) recoveryModal.classList.remove("active");
-      });
     }
 
     if (btnOut) btnOut.addEventListener("click", () => this.logout());
@@ -3121,6 +3111,9 @@ const Auth = {
 
   enterApp() {
     const gate = document.getElementById("login-gate");
+    /* Splash primero (encima del login, z-index mayor): evita un frame de la
+       app visible antes de la cinemática. Luego se oculta el gate e inicia la app debajo. */
+    this.showWelcomeSplash();
     if (gate) gate.classList.add("login-gate--hidden");
     /* Paramos el carrusel de fondos del login: ya no se ve y mantenerlo
        activo cada 12 s es CPU/IO desperdiciada que además impide al
@@ -3130,36 +3123,22 @@ const Auth = {
       this._bgTimer = null;
     }
     /* La inicialización pesada (Inventory, Movements, History…) corre en
-       segundo plano detrás del splash. No la bloqueamos: si tarda más de
-       3 s, el splash se cierra igual y la app queda lista o casi lista. */
+       segundo plano detrás del splash. No la bloqueamos: el splash dura
+       lo que marque `--welcome-duration` en CSS y entonces se oculta. */
     App.initApplication();
     this.applyPermissions();
-    this.showWelcomeSplash();
   },
 
   /**
-   * Pantalla de bienvenida cinemática (~5 s) que saluda al usuario con su
-   * nombre (`displayName` o `username`) y va revelando elementos uno a uno
-   * con scanline + neón + barra de progreso. La duración la lee el JS desde
-   * la variable CSS `--welcome-duration` para mantener una sola fuente de
-   * verdad: si cambias el CSS a 4 s o 6 s, este timer se ajusta solo.
+   * Pantalla de bienvenida cinemática: saluda al usuario (`displayName` o
+   * `username`) con scanline + neón + barra de progreso. La duración la lee
+   * el JS desde `--welcome-duration` en CSS (una sola fuente de verdad).
+   * Debe llamarse **antes** de ocultar `#login-gate` en `enterApp()` para que
+   * no se vea un destello de la app detrás.
    *
-   * Decisiones:
-   * - **No bloquea**: la app ya está iniciada; el splash es feedback visual.
-   * - **Idempotente**: si se llama dos veces (p. ej. reanudar sesión vs
-   *   login manual) la segunda vez no se reapila, simplemente se reinicia
-   *   la animación borrando y volviendo a aplicar la clase de animación
-   *   mediante reflujo del nodo.
-   * - **Skip por sesionStorage** (`gneex-welcome-splash-shown`): evita que
-   *   recargar la página repita el saludo en la misma pestaña. Se borra al
-   *   cerrar sesión para que el próximo login lo muestre de nuevo.
-   * - **Sin foco**: durante los 3 s el splash cubre la app pero
-   *   `pointer-events: auto` permitiría capturar clics si bloqueáramos
-   *   teclado. Lo mantenemos visible sin trampear el foco para no perder
-   *   pulsaciones que el usuario inicie justo al entrar.
-   * - **Cleanup garantizado**: ocultamos por `setTimeout` (no `animationend`,
-   *   porque depende del valor del CSS `--welcome-duration`). Si el usuario
-   *   navega rápido (cambio de pestaña), el timer sigue válido al volver.
+   * - **No bloquea** la carga: `App.initApplication()` corre después, bajo el splash.
+   * - **Skip** si `sessionStorage` `gneex-welcome-splash-shown` (misma pestaña).
+   * - **Cleanup**: `setTimeout` según `--welcome-duration` (+ margen breve).
    */
   showWelcomeSplash() {
     if (typeof document === "undefined") return;
@@ -3201,10 +3180,10 @@ const Auth = {
       try {
         const raw = getComputedStyle(node).getPropertyValue("--welcome-duration").trim();
         const n = parseFloat(raw);
-        if (!Number.isFinite(n)) return 5000;
+        if (!Number.isFinite(n)) return 6000;
         return raw.endsWith("ms") ? n : n * 1000;
       } catch {
-        return 5000;
+        return 6000;
       }
     })();
     setTimeout(() => {

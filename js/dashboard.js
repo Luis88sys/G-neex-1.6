@@ -370,10 +370,6 @@ const Dashboard = {
     }
     if (modal) {
       modal.addEventListener("click", e => {
-        if (e.target === modal) {
-          modal.classList.remove("active");
-          return;
-        }
         const lowTg = e.target.closest(".dash-low-ignore-toggle[data-item-id]");
         if (lowTg) {
           e.stopPropagation();

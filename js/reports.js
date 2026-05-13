@@ -6,9 +6,6 @@ const ReportExporter = {
     document.getElementById("transport-export-summary-btn")?.addEventListener("click", () => void this.exportTransportsQuick());
     document.getElementById("transport-print-summary-btn")?.addEventListener("click", () => this.printTransportsQuick());
     document.getElementById("close-report-modal")?.addEventListener("click", () => this.closeModal());
-    document.getElementById("report-modal")?.addEventListener("click", e => {
-      if (e.target.id === "report-modal") this.closeModal();
-    });
     document.getElementById("report-export-btn")?.addEventListener("click", () => void this.runExport());
     document.getElementById("report-type")?.addEventListener("change", () => this.syncItemWrap());
     document.getElementById("report-columns-all")?.addEventListener("click", () => this._setAllColumnsChecked(true));

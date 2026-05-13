@@ -1880,7 +1880,6 @@ const HistoryManager = {
             this.openConsumoLedgerExpandedView();
         });
         document.getElementById('consumo-ledger-fs-close')?.addEventListener('click', () => this.closeConsumoLedgerExpandedView());
-        document.getElementById('consumo-ledger-fs-backdrop')?.addEventListener('click', () => this.closeConsumoLedgerExpandedView());
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
             if (!this._isConsumoLedgerExpandedOpen()) return;

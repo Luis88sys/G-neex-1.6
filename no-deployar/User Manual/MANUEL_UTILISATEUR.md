@@ -7,7 +7,7 @@
 
 > Si vous arrivez de la 1.6, les points ci-dessous sont les seules nouveautés. Le reste du manuel reste valable.
 
-- **Écran de bienvenue cinématique (9 s) :** après la connexion, une séquence type « boot up » de 9 secondes démarre, qui sert aussi de **marge de chargement réelle** pour l'application. Un **scanner vert Matrix** (`#00ff41`) traverse lentement l'écran, les **anneaux orbitaux** se referment autour du logo, **« BIENVENUE SUR »** se révèle par balayage, **« G-neex »** clignote avec un **fort effet néon** avant de rester allumé, puis apparaissent **« PHOENIX EVOLUTION »** et **votre nom**. Une barre de progression linéaire couvre les 8.7 secondes utiles. L'écran ne se répète pas au rechargement de l'onglet ; il réapparaît à la prochaine connexion.
+- **Écran de bienvenue cinématique (~6 s) :** après la connexion, une séquence type « boot up » démarre ; la durée totale est pilotée par **`--welcome-duration`** dans le CSS (par défaut **6 s**) et sert aussi de **marge de chargement réelle** pour l'application. Un **scanner vert Matrix** (`#00ff41`) traverse lentement l'écran, les **anneaux orbitaux** se referment autour du logo, **« BIENVENUE SUR »** se révèle par balayage, **« G-neex »** clignote avec un **fort effet néon** avant de rester allumé, puis apparaissent **« PHOENIX EVOLUTION »** et **votre nom**. Une barre de progression linéaire couvre presque tout ce temps utile. L'écran ne se répète pas au rechargement de l'onglet ; il réapparaît à la prochaine connexion.
 - **Logo de l'en-tête comme raccourci « Mettre à jour l'inventaire » :** un clic sur le logo (en-tête, en haut à gauche) le fait tourner dans le sens antihoraire et déclenche l'action unifiée **Mettre à jour l'inventaire**, dans cet ordre :
   1. **Normaliser les emplacements et les boîtes** (texte libre des anciens backups → catalogue canonique ; synchronise `boxStocks` et `locationStocks`).
   2. **Réconcilier le stock principal :** ajuste `stockPrincipal = max(actuel, somme(boîtes) + somme(emplacements))`. **Ne réduit jamais** le principal ; il ne fait que monter si les boîtes/emplacements totalisent plus.
@@ -67,6 +67,10 @@ L’onglet **Import/Export** est réservé au **compte administrateur**. Les aut
 - **Importer la sauvegarde** : choisissez le JSON, confirmez et suivez l’alerte affichée ; cela remplace les données de travail de cette instance. Les clés **absentes** du JSON **ne** suppriment pas les autres données locales (par exemple le catalogue d’unités).
 
 > La sauvegarde complète sert d’abord de copie de sécurité ou de clonage d’un poste. Pour n’échanger que l’activité opérationnelle, utilisez aussi le flux **exporter / importer uniquement les mouvements** ci-dessous.
+
+### Même site web sur un autre PC, une tablette ou un téléphone
+
+Ouvrez l’application déployée (par exemple en **HTTPS**) dans n’importe quel navigateur, à la **même URL**. Les données résident dans le **`localStorage` de chaque appareil** : rien ne se synchronise tout seul entre le PC et le mobile. Pour reporter la même copie de travail, l’administrateur doit **exporter** le JSON sur un poste puis **l’importer** sur l’autre (courriel, cloud, câble, etc.). La connexion et d’autres fonctions qui s’appuient sur la cryptographie du navigateur exigent **HTTPS** ou **`localhost`** ; si une erreur apparaît en ouvrant seulement une IP locale en `http://`, utilisez l’URL publique de déploiement ou le message affiché à l’écran.
 
 **Mouvements seuls (fusion d’activité) :** **Exporter uniquement les mouvements** (`GNEEX_Movements_….json`) et **Importer et fusionner** échangent l’activité entre copies. La fusion **ajoute** seulement les mouvements dont l’**id** est absent sur la cible et **applique** le stock (réceptions matière recréées si le fichier le permet). Si l’**id** existe déjà, le mouvement local est conservé. Cela n’actualise ni les listes, ni les transports, ni le reste : les catalogues d’articles doivent rester cohérents ; des dates mêlées entre copies peuvent perturber l’ordre logique des stocks. Confirmez toujours la boîte de dialogue de l’application.
 
@@ -217,7 +221,7 @@ Colonnes : Code, Description, Catégorie, Prix par défaut, Stock Principal, Sto
 
 Dans la colonne **Description**, l’icône **📝** (plus discrète si l’article n’a pas encore de notes) ouvre, lorsqu’elle est active, une fenêtre pour **voir et modifier les notes** ; **Enregistrer** enregistre les changements. Si l’édition n’est pas proposée mais l’article **a** des notes, la même fenêtre s’ouvre souvent en **lecture seule** ; sans notes, la cellule reste du texte simple.
 
-Les couleurs des lignes indiquent l'état de l'article (rouge = négatif, jaune = bas, orange = bientôt expiré, etc.).
+Les couleurs des lignes et des cellules indiquent l'état de l'article (rouge = négatif, jaune = bas, orange = bientôt expiré, vert = correct, etc.). En outre : un **léger surlignage violet/indigo avec contour sur toute la ligne** correspond à la ligne **sélectionnée au clavier** (flèches haut/bas dans le tableau). Une **barre verticale violette** sur la **première cellule (code)** seule indique un article **consommable d'inventaire**. Dans la cellule **stock principal**, un **encadré violet** peut signifier un **surstock** (au-dessus du maximum configuré).
 
 Si la fenêtre est étroite, faites **défiler le tableau horizontalement** pour voir toutes les colonnes sans comprimer les en-têtes.
 

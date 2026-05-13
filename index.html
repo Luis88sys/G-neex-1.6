@@ -140,13 +140,12 @@
     </div>
 </div>
 
-<!-- ========== PANTALLA DE BIENVENIDA (5 s post-login) ==========
-     Estilo "boot up" tipo intro de juego/película: fondo entra, scanline
-     recorre la pantalla, logo arranca con anillo orbital, título se revela
-     por barrido y "G-neex" hace flicker tipo neón antes de quedar fijo.
-     Da 5 s para que la app termine de cargar tras `App.initApplication()`.
-     Honra `prefers-reduced-motion`: en ese modo todo aparece estático sin
-     animación. Montado/desmontado desde `Auth.showWelcomeSplash()`. -->
+<!-- ========== PANTALLA DE BIENVENIDA (6 s post-login) ==========
+     Estilo "boot up": scanline, logo, título, neón "G-neex", subtítulo y nombre.
+     Se muestra **antes** de ocultar el login (`Auth.enterApp`) para no destellar
+     la app. La duración es `--welcome-duration` en CSS (~6 s). Tras eso se
+     oculta el overlay; `App.initApplication()` corre debajo durante la intro.
+     Honra `prefers-reduced-motion`. Control: `Auth.showWelcomeSplash()`. -->
 <div id="welcome-splash" class="welcome-splash" hidden aria-hidden="true">
     <div class="welcome-splash__bg" aria-hidden="true"></div>
     <div class="welcome-splash__grid" aria-hidden="true"></div>
@@ -1657,7 +1656,7 @@
 </div>
 
 <!-- Ayuda por tipo de movimiento -->
-<div id="mov-type-help-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mov-type-help-title">
+<div id="mov-type-help-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mov-type-help-title" data-close-on-backdrop="1">
   <div class="modal-content mov-type-help-modal-content">
     <div class="modal-header">
       <h2 id="mov-type-help-title"></h2>
@@ -1982,7 +1981,7 @@
 </div>
 
 <!-- ========== DASHBOARD: todas las alertas ========== -->
-<div id="dashboard-alerts-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-alerts-title">
+<div id="dashboard-alerts-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-alerts-title" data-close-on-backdrop="1">
   <div class="modal-content modal-large">
     <div class="modal-header">
       <h2 id="dashboard-alerts-title" data-i18n="dashboard.alertsModalTitle">Todas las alertas activas</h2>
@@ -2243,7 +2242,7 @@
 <p class="app-creator-credit" data-i18n="app.creatorCredit" data-i18n-title="app.creatorCreditTitle" title="">Luis Goire</p>
 
 <!-- ========== INFORMES XLSX ========== -->
-<div id="report-modal" class="modal">
+<div id="report-modal" class="modal" data-close-on-backdrop="1">
   <div class="modal-content">
     <div class="modal-header">
       <h2 data-i18n="reports.title">Informes XLSX</h2>

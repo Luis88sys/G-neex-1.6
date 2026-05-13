@@ -495,6 +495,27 @@ const App = {
         }
         return;
       }
+      if (slug === "receptions") {
+        if (
+          typeof ConfigManager !== "undefined" &&
+          ConfigManager.getFilteredReceptions &&
+          ConfigManager._buildReceptionsPrintExportHeaders &&
+          typeof Utils.exportReceptionsXlsx === "function"
+        ) {
+          const filtered = ConfigManager.getFilteredReceptions();
+          const q = (document.getElementById("receptions-adv-search")?.value || "").trim();
+          void (async () => {
+            const headers = ConfigManager._buildReceptionsPrintExportHeaders();
+            const selectedHeaders = await Utils.pickColumns(headers, I18n.t("config.exportReceptionsFiltered"));
+            if (!selectedHeaders || !selectedHeaders.length) return;
+            void Utils.exportReceptionsXlsx(filtered, {
+              scopeLabel: q || I18n.t("history.filterAll"),
+              selectedHeaders
+            });
+          })();
+          return;
+        }
+      }
       const tbl = this.pickPrimaryExportTable(panel);
       if (!tbl || !tbl.querySelector("tr")) {
         Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
@@ -526,6 +547,18 @@ const App = {
       if (slug === "orderlines") {
         if (typeof OrderLinesManager !== "undefined" && OrderLinesManager.printFilteredTable) {
           void OrderLinesManager.printFilteredTable();
+          return;
+        }
+      }
+      if (slug === "receptions") {
+        if (
+          typeof ConfigManager !== "undefined" &&
+          ConfigManager.getFilteredReceptions &&
+          ConfigManager.printReceptionsFiltered
+        ) {
+          const filtered = ConfigManager.getFilteredReceptions();
+          const q = (document.getElementById("receptions-adv-search")?.value || "").trim();
+          void ConfigManager.printReceptionsFiltered(filtered, q || I18n.t("history.filterAll"));
           return;
         }
       }
@@ -977,13 +1010,18 @@ const App = {
         }
       });
 
-    // cerrar modales clic fuera (confirmación / prompt resuelven estado)
+    // Clic en el fondo del overlay: solo si el modal lo permite (`data-close-on-backdrop`).
+    // Nunca en confirmación / prompt / sobregiro (evita cierre al soltar selección de texto fuera).
     document.querySelectorAll(".modal").forEach(m =>
       m.addEventListener("click", e => {
         if (e.target !== m) return;
-        if (m.id === "confirm-modal") this.hideConfirm();
-        else if (m.id === "app-prompt-modal") this.cancelPrompt();
-        else m.classList.remove("active");
+        if (m.id === "confirm-modal" || m.id === "app-prompt-modal" || m.id === "overdraft-confirm-modal") return;
+        if (!m.dataset.closeOnBackdrop) return;
+        if (m.id === "report-modal" && typeof ReportExporter !== "undefined" && ReportExporter.closeModal) {
+          ReportExporter.closeModal();
+          return;
+        }
+        m.classList.remove("active");
       })
     );
 

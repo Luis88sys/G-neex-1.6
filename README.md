@@ -68,8 +68,8 @@ Si tiene Node.js, una alternativa es `npx --yes serve -l 8765` en la misma carpe
 
 ## Novedades 1.7 (mayo 2026)
 
-### Pantalla de bienvenida cinemática (9 s)
-Tras autenticarse, antes de mostrar el panel, arranca una secuencia tipo «boot up» de 9 segundos que sirve también como **margen de carga real de la app** (la inicialización pesada corre por detrás).
+### Pantalla de bienvenida cinemática (~6 s)
+Tras autenticarse, antes de mostrar el panel, arranca una secuencia tipo «boot up» cuya duración la define **`--welcome-duration`** en CSS (por defecto **6 s**). Sirve también como **margen de carga real de la app** (la inicialización pesada corre por detrás).
 
 Coreografía:
 1. **Fondo + grid HUD** entran en ~0.5 s (vignette naranja + rejilla técnica sutil).
@@ -79,7 +79,7 @@ Coreografía:
 5. **«G-neex»** hace **flicker fuerte tipo neón** (cuatro apagones bruscos a opacity 0, picos de glow a 48 px) antes de quedar encendido sostenido.
 6. **«PHOENIX EVOLUTION»** entra expandiendo el `letter-spacing` (efecto «tracking out»).
 7. **Nombre del usuario** se revela con sweep.
-8. **Barra de progreso** lineal cubre los 8.7 s útiles.
+8. **Barra de progreso** lineal cubre casi toda la duración útil definida por `--welcome-duration` (p. ej. ~5,7 s en un total de 6 s).
 9. **Fade-out** y entrada al panel.
 
 Implementado en `Auth.showWelcomeSplash()` (`js/auth.js`) y bloque `#welcome-splash` (`index.html`). Estilo en `css/styles.css` (`@keyframes gneex-ws-*`). La duración es **una sola fuente de verdad** vía `--welcome-duration`: el JS la lee con `getComputedStyle()` para programar el cleanup. Cambias el CSS y todo se ajusta. Respeta `prefers-reduced-motion`. Se omite al recargar la pestaña (`sessionStorage`) y vuelve a salir tras `logout()`.

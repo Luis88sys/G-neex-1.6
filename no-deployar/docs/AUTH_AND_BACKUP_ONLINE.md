@@ -5,6 +5,7 @@
 - La aplicación funciona como **SPA en el navegador** con **inicio de sesión por usuario y contraseña** almacenados de forma **derivada** (sal + hash SHA-256); **no hay contraseñas en texto plano en el código fuente**.
 - Las **cuentas integradas** (mismos usuarios que antes) se crean automáticamente en `localStorage` la primera vez que hace falta, con los mismos accesos que antes del cambio; el **administrador** puede **cambiar contraseñas** y datos desde **Configuración → Usuarios** (perfil / contraseña).
 - Cualquier usuario **con sesión iniciada** puede usar la pestaña **Import/Export**: **importar/exportar respaldo JSON**, **respaldos ZIP**, **fusionar movimientos/transportes**, **CSV/XLSX de inventario inicial**, **exportar solo movimientos**, **exportar transportes expedidos**, archivar/reimportar, etc. **Solo el administrador**: pestaña **Usuarios**, **códigos de elevación**, bloque **Destinatarios (vista rápida)** en Import/Export y **borrar base de datos**.
+- **Varios dispositivos (misma URL en la nube):** cada navegador conserva su propio `localStorage`. Abrir la app en el móvil con la misma URL **no** copia sola los datos del PC; para alinear dos equipos hay que **exportar** el JSON en uno e **importarlo** en el otro (o usar en el futuro un backend de sincronización si se despliega). El acceso por **`http://` + IP local** puede impedir el inicio de sesión en algunos navegadores; la URL **HTTPS** del despliegue evita ese problema.
 
 ## Fondo de la pantalla de login
 

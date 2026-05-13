@@ -59,9 +59,6 @@
       });
     }
     if (!r) return;
-    r.addEventListener("click", function (ev) {
-      if (ev.target === r) close();
-    });
     var closers = r.querySelectorAll("[data-gneex-help-close]");
     for (var i = 0; i < closers.length; i++) {
       closers[i].addEventListener("click", function (ev) {

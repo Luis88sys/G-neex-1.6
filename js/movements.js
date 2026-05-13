@@ -4074,7 +4074,6 @@ const MovementManager = {
                 confirmBtn?.removeEventListener('click', onConfirm);
                 cancelBtn?.removeEventListener('click', finishCancel);
                 closeBtn?.removeEventListener('click', finishCancel);
-                modal.removeEventListener('click', onBackdrop);
             };
 
             const finishCancel = () => {
@@ -4094,10 +4093,6 @@ const MovementManager = {
                 resolve(reason);
             };
 
-            const onBackdrop = e => {
-                if (e.target === modal) finishCancel();
-            };
-
             const onKey = e => {
                 if (e.key === 'Escape') finishCancel();
             };
@@ -4105,7 +4100,6 @@ const MovementManager = {
             cancelBtn?.addEventListener('click', finishCancel);
             closeBtn?.addEventListener('click', finishCancel);
             confirmBtn?.addEventListener('click', onConfirm);
-            modal.addEventListener('click', onBackdrop);
             document.addEventListener('keydown', onKey, true);
             modal.classList.add('active');
             setTimeout(() => ta.focus(), 50);
@@ -5814,9 +5808,6 @@ const MovementManager = {
             document.getElementById("movement-form-window-close")?.addEventListener("click", () =>
                 this.promptDiscardMovementForm()
             );
-            movFormWin.addEventListener("click", e => {
-                if (e.target === movFormWin) this.minimizeMovementFormWindow();
-            });
             document.addEventListener("keydown", e => {
                 if (e.key !== "Escape") return;
                 if (movFormWin.classList.contains("active")) {

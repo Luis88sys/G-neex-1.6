@@ -7,7 +7,7 @@
 
 > If you're coming from 1.6, the points below are the only new pieces. The rest of the manual still applies.
 
-- **Cinematic welcome splash (9 s):** after login a 9-second "boot up" sequence runs that also acts as a **real loading buffer** for the app. A **Matrix-green scanner** (`#00ff41`) sweeps slowly down the screen, **orbital rings** close around the logo, **"WELCOME TO"** is revealed via clip-path wipe, **"G-neex"** flashes with a **strong neon flicker** before staying lit, and finally **"PHOENIX EVOLUTION"** and **your name** appear. A linear progress bar covers the 8.7 useful seconds. It does not repeat on tab reload; it shows again on the next login.
+- **Cinematic welcome splash (~6 s):** after login a "boot up" sequence runs; total length is driven by **`--welcome-duration`** in CSS (default **6 s**) and also acts as a **real loading buffer** for the app. A **Matrix-green scanner** (`#00ff41`) sweeps slowly down the screen, **orbital rings** close around the logo, **"WELCOME TO"** is revealed via clip-path wipe, **"G-neex"** flashes with a **strong neon flicker** before staying lit, and finally **"PHOENIX EVOLUTION"** and **your name** appear. A linear progress bar spans almost all of that useful time. It does not repeat on tab reload; it shows again on the next login.
 - **Header logo as the "Update inventory" shortcut:** clicking the logo (header, top left) spins it counter-clockwise and triggers the unified **Update inventory** action, in this order:
   1. **Normalize locations and boxes** (free-text from older backups → canonical catalog; syncs `boxStocks` and `locationStocks`).
   2. **Reconcile main stock:** adjusts `mainStock = max(current, sum(boxes) + sum(locations))`. **Never reduces** main stock; it only raises it if your boxes/locations add up to more.
@@ -67,6 +67,10 @@ The **Import/Export** tab is available only to the **administrator account**. Ot
 - **Import backup:** Choose the JSON file, confirm, and follow the on-screen notice; it replaces the working data for this copy. Keys **missing** from that JSON do **not** erase unrelated local data (for example, the units catalog).
 
 > Typical use for a full backup: a safety net or moving an entire working copy. To share only day-to-day activity with another copy, also use the **export / import movements only** flow below.
+
+### Same web app on another PC, tablet, or phone
+
+Open the deployed site (e.g. **HTTPS**) in any browser at the **same URL**. Data lives in each device's **`localStorage`** — nothing syncs automatically between your PC and phone. To carry the same working copy, an administrator **exports** the JSON on one device and **imports** it on the other (email, cloud, cable, etc.). Sign-in and other flows that rely on browser crypto need **HTTPS** or **`localhost`**; if something fails when you only use `http://` and a LAN IP, use your public deploy URL or read the on-screen error.
 
 **Movements only (merging work):** In the same place, **Export movements only** (`GNEEX_Movements_….json`) and **Import and merge movements** exchange activity between copies. The merge **adds** only movements whose **id** is not already in the target copy and **applies** quantities to inventory (material receptions are recreated when the file has enough data). If the **id** already exists, the local movement is kept. It does not replace user lists, transports, or other data; item catalogs should match, and interleaved dates between copies can make stock order look inconsistent. Always confirm the dialog the app shows.
 
@@ -217,7 +221,7 @@ Columns: Code, Description, Category, Default price, Main Stock, Production Stoc
 
 In the **Description** column, the **📝** control (faded more when the item has no notes yet) opens a dialog to **view and edit** notes when it is active; **Save** persists changes. If editing is not offered but the item **has** notes, you can often open the same dialog in **read-only** mode; if there are no notes, the cell is plain text.
 
-Row colors indicate the article's status (red = negative, yellow = low, orange = expiring, etc.).
+Row and cell colors indicate the article's status (red = negative, yellow = low, orange = expiring, green = OK, etc.). Additionally: a **soft violet/indigo highlight with outline on the whole row** means the row is **keyboard-selected** (Up/Down in the table). A **vertical violet bar** on the **first cell (code)** only marks **inventory consumable** items. In the **main stock** cell, a **violet badge** can mean **overstock** (above the configured maximum).
 
 If the window is narrow, **scroll the table horizontally** to see all columns without squashing the headers.
 

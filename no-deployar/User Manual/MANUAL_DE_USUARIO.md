@@ -7,7 +7,7 @@
 
 > Si vienes de la 1.6, los puntos abajo son lo único nuevo. El resto del manual aplica igual.
 
-- **Pantalla de bienvenida cinemática (9 s):** al iniciar sesión arranca una secuencia tipo «boot up» de 9 segundos que sirve también como **margen de carga** de la app. El **scanner verde Matrix** (`#00ff41`) cruza despacio la pantalla, los **anillos orbitales** se cierran alrededor del logo, **«BIENVENIDO A»** se revela por barrido, **«G-neex»** parpadea con **flicker fuerte tipo neón** y queda encendido, y por último aparecen **«PHOENIX EVOLUTION»** y **tu nombre**. La barra de progreso inferior cubre los 8.7 s útiles. No se repite al recargar la pestaña; vuelve a salir al volver a iniciar sesión.
+- **Pantalla de bienvenida cinemática (~6 s):** al iniciar sesión arranca una secuencia tipo «boot up»; la duración total la marca **`--welcome-duration`** en CSS (por defecto **6 s**) y sirve también como **margen de carga** de la app. El **scanner verde Matrix** (`#00ff41`) cruza despacio la pantalla, los **anillos orbitales** se cierran alrededor del logo, **«BIENVENIDO A»** se revela por barrido, **«G-neex»** parpadea con **flicker fuerte tipo neón** y queda encendido, y por último aparecen **«PHOENIX EVOLUTION»** y **tu nombre**. La barra de progreso cubre casi toda esa duración útil. No se repite al recargar la pestaña; vuelve a salir al volver a iniciar sesión.
 - **Logo del header como atajo «Actualizar inventario»:** un clic en el logo (header arriba a la izquierda) da una vuelta antihoraria y dispara la acción unificada **Actualizar inventario**, que en este orden:
   1. **Normaliza ubicaciones y cajas** (texto libre importado de respaldos antiguos → catálogo canónico; sincroniza `boxStocks` y `locationStocks`).
   2. **Reconcilia stock principal:** ajusta `stockPrincipal = máx(actual, suma(cajas) + suma(ubicaciones))`. **Nunca reduce** el principal; solo lo sube si tus cajas/ubicaciones suman más.
@@ -67,6 +67,10 @@ La pestaña **Import/Export** solo está disponible para la **cuenta con rol adm
 - **Importar respaldo:** Elija el JSON recibido, confirme y siga el aviso en pantalla; sustituye los datos de trabajo de esta instancia. Las claves que **no aparezcan** en ese JSON **no** borran datos locales no relacionados (por ejemplo, el catálogo de unidades).
 
 > Uso habitual del respaldo completo: copia de seguridad o traslado de un entero a otro equipo. Para aportar solo la actividad operativa a otra copia suele usarse además el flujo **exportar / importar solo movimientos** descrito a continuación.
+
+### Mismo sitio web en otro equipo, tableta o teléfono
+
+La aplicación desplegada (por ejemplo en **HTTPS**) se abre en cualquier navegador con la **misma URL**. Los datos viven en el **`localStorage` de cada dispositivo**: no se sincronizan solos entre PC y móvil. Para llevar la misma copia de trabajo a otro aparato, el administrador debe **exportar** el JSON en un equipo y **importarlo** en el otro (correo, nube, cable, etc.). El inicio de sesión y otras funciones que usan criptografía del navegador requieren **HTTPS** o **`localhost`**; si algo falla al abrir solo por IP y `http://` en la red local, use la URL pública de despliegue o consulte el mensaje de error en pantalla.
 
 **Solo movimientos (fusionar actividad):** En el mismo apartado, **Exportar solo movimientos** (`GNEEX_Movements_…json`) e **Importar y fusionar movimientos** intercambian movimientos entre instancias. La **fusión** **añade** únicamente movimientos cuyo **id** no exista ya en la copia de destino y **aplica** las cantidades al inventario (recepciones de material se recrean si el archivo trae datos suficientes). Si el **id** ya existe, se conserva el movimiento local. No sustituye listas, transportes ni el resto de datos; conviene partir de catálogos alineados (mismos artículos) y saber que fechas muy entremezcladas entre copias pueden desajustar el orden lógico del stock. Confirme siempre en el diálogo que muestre la aplicación.
 
@@ -217,7 +221,7 @@ Columnas: Código, Descripción, Categoría, Precio por defecto, Stock Principal
 
 En la columna **Descripción**, el icono **📝** (más suave si el artículo aún no tiene notas) abre, cuando esté activo, un cuadro para **ver y editar las notas**; **Guardar** persiste los cambios. Si el control no ofrece edición pero el artículo **sí tiene notas**, a menudo puede abrirse el cuadro en **solo lectura**; si no hay notas, la celda se muestra como texto normal.
 
-Los colores de las filas indican el estado del artículo (rojo = negativo, amarillo = bajo, naranja = expirando, etc.).
+Los colores de las filas y celdas indican el estado del artículo (rojo = negativo, amarillo = bajo, naranja = expirando, verde = bien, etc.). Además: si **toda la fila** muestra un **resaltado violeta/indigo suave con borde**, es la fila **seleccionada con el teclado** (flechas arriba/abajo en la tabla). Si solo la **primera celda (código)** tiene una **banda vertical violeta**, el artículo está marcado como **consumible de inventario**. En la celda de **stock principal**, un **recuadro violeta** puede indicar **sobre-stock** (por encima del máximo configurado).
 
 Si la ventana es estrecha, puede **desplazar la tabla horizontalmente** para ver todas las columnas sin comprimir los encabezados.
 

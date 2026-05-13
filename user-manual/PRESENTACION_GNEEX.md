@@ -322,7 +322,7 @@ Los archivos incluyen rango de fechas en el nombre:
 
 ## Novedades 1.7 (mayo 2026)
 
-- **Pantalla de bienvenida cinemática (9 s)** tras iniciar sesión: secuencia tipo «boot up» con **scanner verde Matrix** lento, **anillos orbitales** alrededor del logo, **«G-neex» con flicker fuerte tipo neón**, sweep de «BIENVENIDO A», «PHOENIX EVOLUTION» y tu nombre. Sirve también como margen de carga real de la app.
+- **Pantalla de bienvenida cinemática (~6 s)** tras iniciar sesión: secuencia tipo «boot up» con **scanner verde Matrix** lento, **anillos orbitales** alrededor del logo, **«G-neex» con flicker fuerte tipo neón**, sweep de «BIENVENIDO A», «PHOENIX EVOLUTION» y tu nombre. Sirve también como margen de carga real de la app.
 - **Logo como atajo de actualización**: clic en el logo del header → giro antihorario y se dispara la acción unificada **Actualizar inventario** (normaliza ubicaciones / cajas, reconcilia el stock principal con cajas y ubicaciones, refresca caducidades de lotes). Mismo acceso desde el menú herramientas.
 - **Cajas en stock principal**: el principal ahora cuadra automáticamente con la suma de cajas + ubicaciones; al consumir desde una caja el principal baja igual. La acción «Actualizar inventario» repara respaldos antiguos donde el principal y los contenedores no estaban alineados.
 - **Editor de lotes en el artículo**: añadir varias fechas de expedición / caducidad / cantidad por artículo, con cálculo en vivo de la caducidad efectiva según la **vida útil en meses** declarada. La compra de stock añade un lote por fila automáticamente.

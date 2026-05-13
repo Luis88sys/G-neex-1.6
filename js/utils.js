@@ -1525,7 +1525,6 @@ th.print-cell-code,td.print-cell-code{
             };
             overlay.addEventListener("click", e => {
                 const t = e.target;
-                if (t === overlay) return cleanup(null);
                 if (t.closest("[data-cols-cancel='1']")) return cleanup(null);
                 if (t.closest("[data-cols-all='1']")) {
                     overlay.querySelectorAll("input[data-col-idx]").forEach(cb => (cb.checked = true));
@@ -2206,15 +2205,33 @@ th.print-cell-code,td.print-cell-code{
                 [colProv]: r?.provisional ? I18n.t("history.yes") : I18n.t("history.no"),
                 [colGlass]: glassPacking
             };
-            const n = Math.max(unitDims.length, 1);
-            for (let i = 0; i < n; i++) {
-                const p = unitDims[i] || {};
+            const baseHasDims =
+                (parseFloat(d?.L) || 0) > 0 ||
+                (parseFloat(d?.W) || 0) > 0 ||
+                (parseFloat(d?.H) || 0) > 0;
+            const pkgList = unitDims.length
+                ? unitDims
+                : baseHasDims
+                    ? [{ L: d?.L, W: d?.W, H: d?.H }]
+                    : [];
+            if (pkgList.length) {
+                for (let i = 0; i < pkgList.length; i++) {
+                    const p = pkgList[i] || {};
+                    rows.push({
+                        ...base,
+                        [colPkg]: String(i + 1),
+                        [colL]: fmtDim(p?.L),
+                        [colW]: fmtDim(p?.W),
+                        [colH]: fmtDim(p?.H)
+                    });
+                }
+            } else {
                 rows.push({
                     ...base,
-                    [colPkg]: unitDims.length ? String(i + 1) : "",
-                    [colL]: unitDims.length ? fmtDim(p?.L) : "",
-                    [colW]: unitDims.length ? fmtDim(p?.W) : "",
-                    [colH]: unitDims.length ? fmtDim(p?.H) : ""
+                    [colPkg]: "",
+                    [colL]: "",
+                    [colW]: "",
+                    [colH]: ""
                 });
             }
         }

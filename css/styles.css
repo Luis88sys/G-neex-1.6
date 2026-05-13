@@ -66,6 +66,19 @@
     --font-size-md: clamp(0.9rem, 0.18vw + 0.86rem, 1rem);
     --font-size-lg: clamp(1rem, 0.24vw + 0.95rem, 1.14rem);
     --font-size-xl: clamp(1.12rem, 0.3vw + 1.05rem, 1.32rem);
+
+    /* Scrollbars: mismo acento que la app + acabado metálico tipo pedidos (bronce); en modo prueba el acento ya es azul */
+    --sb-met-angle: 165deg;
+    --sb-met-deep: color-mix(in srgb, var(--accent-primary) 44%, var(--bg-primary) 56%);
+    --sb-met-shadow: color-mix(in srgb, var(--accent-primary) 72%, var(--bg-primary) 28%);
+    --sb-met-core: var(--accent-primary);
+    --sb-met-face: color-mix(in srgb, var(--accent-primary) 52%, var(--accent-secondary) 48%);
+    --sb-met-shine: color-mix(in srgb, var(--accent-secondary) 48%, #ffffff 52%);
+    --sb-track-a: color-mix(in srgb, var(--bg-secondary) 88%, var(--accent-primary) 12%);
+    --sb-track-b: color-mix(in srgb, var(--bg-tertiary) 74%, var(--accent-primary) 26%);
+    --sb-track-gleam: color-mix(in srgb, var(--sb-track-b) 65%, var(--accent-secondary) 35%);
+    --sb-rail-line: color-mix(in srgb, var(--border-color) 68%, var(--accent-primary) 32%);
+    --sb-thumb-rim: color-mix(in srgb, var(--accent-secondary) 42%, rgba(255, 255, 255, 0.45) 58%);
 }
 
 /* Light Theme */
@@ -83,7 +96,7 @@
     --table-sticky-header-edge: rgba(0, 0, 0, 0.08);
 }
 
-/* Modo prueba: acentos azules (misma estructura que producción) */
+/* Modo prueba: acentos azules (los scrollbars siguen las mismas variables --sb-met-* derivadas del acento) */
 html[data-test-mode="on"] {
     --accent-primary: #2563eb;
     --accent-secondary: #3b82f6;
@@ -139,23 +152,54 @@ body {
     transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* ===== Scrollbar ===== */
+/* ===== Scrollbar metálico (mismo acento que la app; brillo tipo .orderlines-add-form--bronze) ===== */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 13px;
+    height: 13px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+    background: linear-gradient(
+        var(--sb-met-angle),
+        var(--sb-track-a) 0%,
+        var(--sb-track-b) 42%,
+        var(--sb-track-gleam) 52%,
+        var(--sb-track-b) 62%,
+        var(--sb-track-a) 100%
+    );
+    border-radius: 7px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--accent-primary);
-    border-radius: var(--radius-sm);
+    border-radius: 8px;
+    border: 1px solid var(--sb-thumb-rim);
+    background-clip: padding-box;
+    min-height: 36px;
+    background: linear-gradient(
+        var(--sb-met-angle),
+        var(--sb-met-deep) 0%,
+        var(--sb-met-shadow) 18%,
+        var(--sb-met-core) 34%,
+        var(--sb-met-face) 48%,
+        var(--sb-met-shine) 56%,
+        var(--sb-met-face) 65%,
+        var(--sb-met-core) 78%,
+        var(--sb-met-shadow) 90%,
+        var(--sb-met-deep) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.26),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+        0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-secondary);
+    filter: brightness(1.07) saturate(1.05);
+}
+
+::-webkit-scrollbar-corner {
+    background: var(--sb-track-b);
 }
 
 /* ===== Header ===== */
@@ -799,6 +843,53 @@ html.help-coach-on body {
     display: block;
     height: 100%;
     overflow: auto;
+    scrollbar-width: auto;
+    scrollbar-color: var(--sb-met-core) var(--sb-track-b);
+}
+
+.tab-content.active::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+}
+
+.tab-content.active::-webkit-scrollbar-track {
+    background: linear-gradient(
+        var(--sb-met-angle),
+        var(--sb-track-a) 0%,
+        var(--sb-track-b) 42%,
+        var(--sb-track-gleam) 52%,
+        var(--sb-track-b) 62%,
+        var(--sb-track-a) 100%
+    );
+    border-left: 1px solid var(--sb-rail-line);
+    border-radius: 8px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.tab-content.active::-webkit-scrollbar-thumb {
+    border-radius: 9px;
+    border: 1px solid var(--sb-thumb-rim);
+    background-clip: padding-box;
+    background: linear-gradient(
+        var(--sb-met-angle),
+        var(--sb-met-deep) 0%,
+        var(--sb-met-shadow) 16%,
+        var(--sb-met-core) 32%,
+        var(--sb-met-face) 46%,
+        var(--sb-met-shine) 55%,
+        var(--sb-met-face) 64%,
+        var(--sb-met-core) 76%,
+        var(--sb-met-shadow) 88%,
+        var(--sb-met-deep) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+        0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.tab-content.active::-webkit-scrollbar-thumb:hover {
+    filter: brightness(1.08) saturate(1.06);
 }
 
 /* Inventario conserva su comportamiento propio: no scroll del tab completo. */
@@ -5309,6 +5400,54 @@ body.auth-no-movements #consumo-cart-float-wrap {
     overflow-y: auto;
     box-shadow: 0 10px 50px var(--shadow-color);
     animation: slideUp 0.3s ease;
+    scrollbar-width: auto;
+    scrollbar-color: var(--sb-met-core) var(--sb-track-b);
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: linear-gradient(
+        var(--sb-met-angle),
+        var(--sb-track-a) 0%,
+        var(--sb-track-b) 42%,
+        var(--sb-track-gleam) 52%,
+        var(--sb-track-b) 62%,
+        var(--sb-track-a) 100%
+    );
+    border-left: 1px solid var(--sb-rail-line);
+    border-radius: 7px;
+    margin: 4px 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    border: 1px solid var(--sb-thumb-rim);
+    background-clip: padding-box;
+    background: linear-gradient(
+        var(--sb-met-angle),
+        var(--sb-met-deep) 0%,
+        var(--sb-met-shadow) 18%,
+        var(--sb-met-core) 34%,
+        var(--sb-met-face) 48%,
+        var(--sb-met-shine) 56%,
+        var(--sb-met-face) 65%,
+        var(--sb-met-core) 78%,
+        var(--sb-met-shadow) 90%,
+        var(--sb-met-deep) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.24),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+        0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    filter: brightness(1.07) saturate(1.05);
 }
 
 /* Redimensionado manual global de ventanas/modales */
@@ -7842,22 +7981,24 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     white-space: nowrap;
 }
 
-/* ===== Welcome Splash (9 s post-login, "boot up" cinemático) ============
-   Coreografía orquestada por la duración global `--welcome-duration` (9 s):
-     0.0–0.5s   Fondo + grid sutil entran.
-     0.3–1.4s   Scanline horizontal cruza toda la pantalla (luz de "barrido").
-     0.6–1.5s   Logo materializa con escala + dos anillos orbitales que se cierran.
-     1.0–1.9s   "BIENVENIDO A" se revela por barrido (clip-path) con borde brillante.
-     1.6–3.4s   "G-neex" hace flicker fuerte tipo neón (apagones bruscos) y queda encendido.
-     3.4–4.1s   "PHOENIX EVOLUTION" expande tracking + fade-in.
-     4.0–4.9s   Nombre del usuario se revela con sweep.
-     4.9–8.5s   Estado sostenido: el usuario contempla la pantalla mientras la app termina.
-     0.0–8.7s   Barra de progreso lineal (cubre toda la duración útil).
-     8.7–9.0s   Fade-out completo del overlay.
+/* ===== Welcome Splash (6 s post-login, "boot up" cinemático) =============
+   Coreografía orquestada por `--welcome-duration` (6 s). El overlay va
+   opaco desde el primer frame (sin destello de la app). Tras validar
+   usuario/contraseña el splash se monta antes de ocultar el login-gate.
+     0.0–0.4s   Fondo + grid sutil.
+     0.33–2.0s  Scanline Matrix (cruce vertical).
+     0.13–0.53s Panel central.
+     0.4–1.0s   Logo + anillos.
+     0.67–1.27s "Bienvenido a" (wipe).
+     1.07–2.27s "G-neex" neón.
+     2.3–2.8s   PHOENIX EVOLUTION.
+     2.65–3.25s Nombre de usuario.
+     0.0–5.7s   Barra de progreso.
+     5.7–6.0s   Fade-out del overlay.
    `prefers-reduced-motion` desactiva animaciones manteniendo todo legible.
    Las claves se prefijan con `gneex-ws-` para no chocar con el resto. */
 .welcome-splash {
-    --welcome-duration: 9000ms;
+    --welcome-duration: 6000ms;
     /* Naranja del proyecto: lo seguimos usando para el filo brillante de los
        wipes ("Bienvenido a", nombre de usuario) — coherente con el branding. */
     --welcome-scanline-color: rgba(var(--accent-rgb), 0.85);
@@ -7876,7 +8017,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     justify-content: center;
     background-color: #060606;
     color: var(--text-primary);
-    opacity: 0;
+    opacity: 1;
     pointer-events: auto;
     overflow: hidden;
     animation: gneex-ws-cycle var(--welcome-duration) ease-in-out forwards;
@@ -7896,7 +8037,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
         radial-gradient(ellipse 95% 75% at 50% 30%, rgba(var(--accent-rgb), 0.32) 0%, transparent 55%),
         radial-gradient(ellipse 75% 60% at 50% 92%, rgba(var(--accent-rgb-mid), 0.18) 0%, transparent 60%),
         linear-gradient(155deg, rgba(8, 8, 8, 0.96) 0%, rgba(26, 26, 26, 0.62) 48%, rgba(8, 8, 8, 0.96) 100%);
-    animation: gneex-ws-bg-in 600ms ease-out 0ms both;
+    animation: gneex-ws-bg-in 400ms ease-out 0ms both;
 }
 
 /* Rejilla muy sutil de "interfaz tech" (líneas finas en perspectiva).
@@ -7912,14 +8053,12 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     background-size: 64px 64px, 64px 64px;
     mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 35%, transparent 80%);
     -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 35%, transparent 80%);
-    animation: gneex-ws-grid-in 900ms ease-out 200ms both;
+    animation: gneex-ws-grid-in 600ms ease-out 130ms both;
 }
 
 /* Scanline horizontal: barra ancha de luz verde Matrix (fósforo CRT) que
-   recorre la pantalla de arriba abajo una vez, despacio (2.6 s). Es el
-   "escaneo" deliberadamente lento — debe leerse como "el sistema te está
-   reconociendo". El degradado central es verde puro y se desvanece a los
-   extremos para que parezca un haz, no una banda sólida. */
+   recorre la pantalla de arriba abajo una vez (~1.7 s). Empieza un poco
+   más tarde (330 ms) para no pisar el fade-in del fondo. */
 .welcome-splash__scanline {
     position: absolute;
     left: 0;
@@ -7942,9 +8081,8 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
         0 0 200px 30px rgba(var(--welcome-matrix-green-rgb), 0.18);
     opacity: 0;
     transform: translateY(-100%);
-    /* Linear: velocidad constante (un scanner real no acelera ni frena).
-       Empieza un poco más tarde (500 ms) para no pisar el fade-in del fondo. */
-    animation: gneex-ws-scanline 2600ms linear 500ms both;
+    /* Linear: velocidad constante. Delay 330 ms respecto al fondo. */
+    animation: gneex-ws-scanline 1700ms linear 330ms both;
 }
 
 .welcome-splash__panel {
@@ -7965,7 +8103,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
         0 0 56px rgba(var(--accent-rgb), 0.22);
     opacity: 0;
     transform: translateY(8px) scale(0.97);
-    animation: gneex-ws-panel-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1.05) 200ms forwards;
+    animation: gneex-ws-panel-in 400ms cubic-bezier(0.2, 0.7, 0.2, 1.05) 130ms forwards;
 }
 
 /* Contenedor del logo: posiciona los anillos orbitales sin que afecten
@@ -7990,8 +8128,8 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     opacity: 0;
     transform: scale(0.4);
     animation:
-        gneex-ws-logo-boot 900ms cubic-bezier(0.2, 0.85, 0.25, 1.1) 600ms forwards,
-        gneex-ws-logo-pulse 2.2s ease-in-out 1500ms infinite alternate;
+        gneex-ws-logo-boot 600ms cubic-bezier(0.2, 0.85, 0.25, 1.1) 400ms forwards,
+        gneex-ws-logo-pulse 1.5s ease-in-out 1000ms infinite alternate;
 }
 
 /* Anillos: dos rings que arrancan grandes y "se cierran" alrededor del logo. */
@@ -8005,7 +8143,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     box-shadow:
         0 0 18px rgba(var(--accent-rgb), 0.45),
         inset 0 0 12px rgba(var(--accent-rgb), 0.25);
-    animation: gneex-ws-ring 900ms cubic-bezier(0.2, 0.7, 0.25, 1) 500ms forwards;
+    animation: gneex-ws-ring 600ms cubic-bezier(0.2, 0.7, 0.25, 1) 330ms forwards;
 }
 
 .welcome-splash__logo-ring--inner {
@@ -8013,8 +8151,8 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     border-color: rgba(var(--accent-rgb), 0.45);
     border-style: dashed;
     animation:
-        gneex-ws-ring 900ms cubic-bezier(0.2, 0.7, 0.25, 1) 700ms forwards,
-        gneex-ws-ring-spin 8s linear 1600ms infinite;
+        gneex-ws-ring 600ms cubic-bezier(0.2, 0.7, 0.25, 1) 470ms forwards,
+        gneex-ws-ring-spin 5s linear 1070ms infinite;
 }
 
 .welcome-splash__brand {
@@ -8049,7 +8187,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     color: var(--text-secondary);
     clip-path: inset(0 100% 0 0);
     -webkit-clip-path: inset(0 100% 0 0);
-    animation: gneex-ws-hello-wipe 900ms cubic-bezier(0.45, 0, 0.25, 1) 1000ms forwards;
+    animation: gneex-ws-hello-wipe 600ms cubic-bezier(0.45, 0, 0.25, 1) 670ms forwards;
 }
 
 .welcome-splash__hello::after {
@@ -8061,14 +8199,10 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     background: var(--welcome-scanline-color);
     box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.9);
     opacity: 0;
-    animation: gneex-ws-hello-scan 900ms ease 1000ms forwards;
+    animation: gneex-ws-hello-scan 600ms ease 670ms forwards;
 }
 
-/* "G-neex": neón con flicker fuerte. El gradiente del texto se mantiene
-   siempre gracias a `background-clip: text`; lo que animamos es opacity y
-   glow. La duración (1.8 s) y los apagones a 0 dan el efecto de tubo
-   neón antes de estabilizarse. `steps()` no — usamos transiciones rápidas
-   pero animadas para mantener el halo "respirando" entre apagones. */
+/* "G-neex": neón con flicker. Duración ~1.2 s a partir de ~1.07 s. */
 .welcome-splash__app {
     position: relative;
     display: inline-block;
@@ -8079,7 +8213,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 24px rgba(var(--accent-rgb), 0);
     opacity: 0;
-    animation: gneex-ws-neon 1800ms cubic-bezier(0.45, 0.05, 0.55, 0.95) 1600ms forwards;
+    animation: gneex-ws-neon 1200ms cubic-bezier(0.45, 0.05, 0.55, 0.95) 1070ms forwards;
 }
 
 .welcome-splash__subtitle {
@@ -8091,7 +8225,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     color: rgba(var(--accent-rgb), 0.92);
     opacity: 0;
     transform: translateY(4px);
-    animation: gneex-ws-subtitle-in 700ms ease 3500ms forwards;
+    animation: gneex-ws-subtitle-in 500ms ease 2300ms forwards;
 }
 
 /* Nombre del usuario: revelado por barrido con clip-path. */
@@ -8103,7 +8237,7 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     color: var(--text-primary);
     clip-path: inset(0 100% 0 0);
     -webkit-clip-path: inset(0 100% 0 0);
-    animation: gneex-ws-user-wipe 900ms cubic-bezier(0.45, 0, 0.25, 1) 4000ms forwards;
+    animation: gneex-ws-user-wipe 600ms cubic-bezier(0.45, 0, 0.25, 1) 2650ms forwards;
 }
 
 .welcome-splash__user::after {
@@ -8115,14 +8249,14 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     background: var(--welcome-scanline-color);
     box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.9);
     opacity: 0;
-    animation: gneex-ws-user-scan 900ms ease 4000ms forwards;
+    animation: gneex-ws-user-scan 600ms ease 2650ms forwards;
 }
 
 .welcome-splash__user:empty {
     display: none;
 }
 
-/* Barra de progreso: ahora cubre los 5 s para que sirva como timer real. */
+/* Barra de progreso: cubre casi toda la duración útil (hasta ~5.7 s en 6 s). */
 .welcome-splash__progress {
     position: relative;
     height: 3px;
@@ -8145,12 +8279,10 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
 
 /* ----- Keyframes ----------------------------------------------------- */
 
-/* Fade-in al entrar, mantener visible, fade-out al final.
-   Porcentajes calculados sobre 9000 ms: 5% ≈ 450 ms fade-in, 96% ≈ 360 ms fade-out. */
+/* Overlay opaco todo el tramo; solo fade-out final (~7% ≈ 420 ms en 6 s). */
 @keyframes gneex-ws-cycle {
-    0%   { opacity: 0; }
-    5%   { opacity: 1; }
-    96%  { opacity: 1; }
+    0%   { opacity: 1; }
+    93%  { opacity: 1; }
     100% { opacity: 0; }
 }
 
