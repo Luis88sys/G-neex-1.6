@@ -868,13 +868,6 @@
     <div class="transport-tab-header">
       <h2 data-i18n="transport.title">Gestión de transporte</h2>
       <div class="transport-tab-actions" data-auth-act="trnToolbar" data-auth-act-level="view">
-        <div class="section-view-toolbar section-view-toolbar--transport" role="toolbar" data-i18n-aria-label="viewSwitcher.toolbarAriaTransport">
-          <span class="section-view-toolbar-label muted" data-i18n="viewSwitcher.label">Vista</span>
-          <div class="segmented-control" role="radiogroup" data-i18n-aria-label="viewSwitcher.radioGroupTransport">
-            <button type="button" class="btn btn-sm btn-segment" data-transport-view="tiles" data-i18n-title="viewSwitcher.tilesTitle" title="" aria-pressed="true">▦</button>
-            <button type="button" class="btn btn-sm btn-segment" data-transport-view="list" data-i18n-title="viewSwitcher.listTitle" title="" aria-pressed="false">☰</button>
-          </div>
-        </div>
         <button type="button" id="transport-create-btn" class="btn btn-primary btn-sm" data-auth-act="trnToolbar" data-auth-act-level="edit" data-i18n="transport.createManual">+ Nuevo transporte</button>
       </div>
     </div>
@@ -2325,12 +2318,14 @@
 
 <!-- ========== INFORMES XLSX ========== -->
 <div id="report-modal" class="modal" data-close-on-backdrop="1">
-  <div class="modal-content">
+  <div class="modal-content gneex-resizable-modal report-modal-shell">
     <div class="modal-header">
       <h2 data-i18n="reports.title">Informes XLSX</h2>
       <button type="button" id="close-report-modal" class="modal-close" aria-label="Close">&times;</button>
     </div>
-    <div class="modal-body report-modal-body">
+    <div class="modal-body report-modal-body report-modal-body--wide">
+      <div class="report-modal-layout">
+        <div class="report-modal-col report-modal-col--filters">
       <div class="form-group">
         <label for="report-type" data-i18n="reports.typeLabel">Tipo de informe</label>
         <select id="report-type" class="filter-select">
@@ -2340,16 +2335,25 @@
           <option value="movements_filtered" data-i18n="reports.typeMovementsFiltered">Movimientos (filtros del historial)</option>
           <option value="movements_lines_filtered" data-i18n="reports.typeMovementsLinesFiltered">Movimientos filtrados (una fila por artículo)</option>
           <option value="movements_all" data-i18n="reports.typeMovementsAll">Movimientos (todos)</option>
-          <option value="item_consumption" data-i18n="reports.typeItemConsumption">Líneas por artículo (código o texto)</option>
+          <option value="item_consumption" data-i18n="reports.typeItemConsumption">Historial por artículo(s) y/o proyecto(s)</option>
         </select>
       </div>
       <div id="report-item-wrap" class="form-group" style="display:none;">
-        <label for="report-item-needle" data-i18n="reports.itemNeedleLabel">Código o descripción contiene</label>
+        <label for="report-item-needle" data-i18n="reports.itemNeedleLabel">Artículos (código, texto o id)</label>
         <div class="item-search-container report-item-search-wrap">
-          <input id="report-item-needle" type="text" class="form-input" autocomplete="off" data-i18n-placeholder="reports.itemNeedlePh" placeholder="Ej. ABC-12 o tornillo">
+          <textarea id="report-item-needle" class="form-input" rows="3" autocomplete="off" data-i18n-placeholder="reports.itemNeedlePh" placeholder=""></textarea>
           <div id="report-item-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
         </div>
+        <p class="muted report-modal-hint" data-i18n="reports.itemNeedleHint"></p>
+        <label for="report-item-project-ids" data-i18n="reports.projectIdsLabel">Proyectos (ID)</label>
+        <div class="item-search-container report-project-search-wrap">
+          <textarea id="report-item-project-ids" class="form-input" rows="2" autocomplete="off" data-i18n-placeholder="reports.projectIdsPh" placeholder=""></textarea>
+          <div id="report-project-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+        </div>
+        <p class="muted report-modal-hint" data-i18n="reports.projectIdsHint"></p>
       </div>
+        </div>
+        <div class="report-modal-col report-modal-col--columns">
       <div id="report-columns-wrap" class="form-group">
         <label data-i18n="reports.columnsLabel">Columnas a exportar</label>
         <div id="report-columns-actions" class="filter-actions" style="margin:.35rem 0 .4rem;">
@@ -2358,8 +2362,10 @@
         </div>
         <div id="report-columns-list" class="report-columns-list"></div>
       </div>
-      <div class="filter-actions" style="margin-top:1rem;">
+      <div class="filter-actions report-modal-export-actions" style="margin-top:1rem;">
         <button type="button" id="report-export-btn" class="btn inventory-asof-icon-btn" data-i18n-title="reports.download" data-i18n-aria-label="reports.download"><svg class="inv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></button>
+      </div>
+        </div>
       </div>
     </div>
   </div>

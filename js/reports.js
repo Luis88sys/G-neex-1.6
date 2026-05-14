@@ -12,6 +12,7 @@ const ReportExporter = {
     document.getElementById("report-columns-none")?.addEventListener("click", () => this._setAllColumnsChecked(false));
     this.syncItemWrap();
     this._setupReportItemSuggestions();
+    this._setupReportProjectSuggestions();
   },
 
   _setColumnPickerHeaders(headers) {
@@ -57,6 +58,14 @@ const ReportExporter = {
     return [];
   },
 
+  _hideReportProjectSuggestions() {
+    const res = document.getElementById("report-project-suggestions");
+    if (!res) return;
+    res.innerHTML = "";
+    res.classList.remove("active");
+    res.setAttribute("aria-hidden", "true");
+  },
+
   _hideReportItemSuggestions() {
     const res = document.getElementById("report-item-suggestions");
     if (!res) return;
@@ -82,15 +91,15 @@ const ReportExporter = {
         this._hideReportItemSuggestions();
         return;
       }
-      const q = inp.value.trim();
-      if (q.length < 1) {
+      const q0 = this._firstReportItemTokenForSuggest(inp.value);
+      if (q0.length < 1) {
         this._hideReportItemSuggestions();
         return;
       }
       if (typeof InventoryManager === "undefined" || !InventoryManager.search) {
         return;
       }
-      const found = InventoryManager.search(q).slice(0, 25);
+      const found = InventoryManager.search(q0).slice(0, 25);
       if (!found.length) {
         res.innerHTML = `<div class="search-result-item muted">${esc(I18n.t("msg.noResults"))}</div>`;
       } else {
@@ -122,22 +131,29 @@ const ReportExporter = {
     res.addEventListener("click", e => {
       const hit = e.target.closest(".report-item-suggestion-hit");
       if (!hit || hit.dataset.code == null) return;
-      inp.value = hit.dataset.code;
+      const code = hit.dataset.code;
+      const cur = String(inp.value || "").trim();
+      inp.value = cur ? `${cur.replace(/[\s,;]+$/, "")}, ${code}` : code;
       this._hideReportItemSuggestions();
       inp.focus();
     });
 
     document.addEventListener("click", e => {
       if (!e.target.closest(".report-item-search-wrap")) this._hideReportItemSuggestions();
+      if (!e.target.closest(".report-project-search-wrap")) this._hideReportProjectSuggestions();
     });
 
     inp.addEventListener("keydown", e => {
-      if (e.key === "Escape") this._hideReportItemSuggestions();
+      if (e.key === "Escape") {
+        this._hideReportItemSuggestions();
+        this._hideReportProjectSuggestions();
+      }
     });
   },
 
   closeModal() {
     this._hideReportItemSuggestions();
+    this._hideReportProjectSuggestions();
     document.getElementById("report-modal")?.classList.remove("active");
   },
 
@@ -155,12 +171,160 @@ const ReportExporter = {
     const v = document.getElementById("report-type")?.value || "";
     const wrap = document.getElementById("report-item-wrap");
     if (wrap) wrap.style.display = v === "item_consumption" ? "block" : "none";
-    if (v !== "item_consumption") this._hideReportItemSuggestions();
+    if (v !== "item_consumption") {
+      this._hideReportItemSuggestions();
+      this._hideReportProjectSuggestions();
+    }
     this._setColumnPickerHeaders(this._headersForKind(v));
   },
 
   fileStamp() {
     return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  },
+
+  /** Separa términos de búsqueda de artículo (coma, punto y coma o salto de línea). */
+  _parseReportItemTokens(raw) {
+    return String(raw || "")
+      .split(/[\n,;]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+  },
+
+  /** Separa IDs de proyecto; la comparación ignora mayúsculas. */
+  _parseReportProjectIds(raw) {
+    return String(raw || "")
+      .split(/[\n,;]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+  },
+
+  /** Primer término no vacío para sugerencias de inventario mientras escribe. */
+  _firstReportItemTokenForSuggest(raw) {
+    const t = this._parseReportItemTokens(raw);
+    return t.length ? t[0] : String(raw || "").trim().toLowerCase();
+  },
+
+  /** Fragmento tras el último separador (para filtrar sugerencias de proyecto). */
+  _lastReportProjectSegmentLower(raw) {
+    const s = String(raw || "");
+    const cut = Math.max(s.lastIndexOf(","), s.lastIndexOf(";"), s.lastIndexOf("\n"));
+    return (cut >= 0 ? s.slice(cut + 1) : s).trim().toLowerCase();
+  },
+
+  _applyPickedReportProjectId(textarea, canonicalId) {
+    const raw = String(textarea.value || "");
+    const cut = Math.max(raw.lastIndexOf(","), raw.lastIndexOf(";"), raw.lastIndexOf("\n"));
+    if (cut < 0) {
+      textarea.value = canonicalId;
+      return;
+    }
+    const left = raw.slice(0, cut + 1).replace(/\s+$/, "");
+    textarea.value = `${left} ${canonicalId}`.replace(/\s+/g, " ").trim();
+  },
+
+  /** IDs de proyecto ya vistos en historial (movimientos, transportes, recepciones). */
+  _collectReportHistoryProjectIds() {
+    const seen = new Map();
+    const add = pid => {
+      const t = String(pid || "").trim();
+      if (!t) return;
+      const k = t.toLowerCase();
+      if (!seen.has(k)) seen.set(k, t);
+    };
+    if (typeof MovementManager !== "undefined" && Array.isArray(MovementManager.movements)) {
+      MovementManager.movements.forEach(m => add(m && m.projectId));
+    }
+    if (typeof TransportManager !== "undefined" && Array.isArray(TransportManager.transports)) {
+      TransportManager.transports.forEach(t => add(t && t.projectId));
+    }
+    if (typeof ReceptionsManager !== "undefined" && Array.isArray(ReceptionsManager.receptions)) {
+      ReceptionsManager.receptions.forEach(r => add(r && r.projectId));
+    }
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  },
+
+  _setupReportProjectSuggestions() {
+    if (this._reportProjectSuggestBound) return;
+    const ta = document.getElementById("report-item-project-ids");
+    const res = document.getElementById("report-project-suggestions");
+    if (!ta || !res) return;
+    this._reportProjectSuggestBound = true;
+
+    const esc = s => (typeof Utils !== "undefined" && Utils.escapeHtml ? Utils.escapeHtml(s) : String(s ?? ""));
+    const escAttr = s => (typeof Utils !== "undefined" && Utils.escapeAttr ? Utils.escapeAttr(s) : String(s ?? ""));
+
+    const refresh = () => {
+      const wrap = document.getElementById("report-item-wrap");
+      if (!wrap || wrap.style.display === "none") {
+        this._hideReportProjectSuggestions();
+        return;
+      }
+      const all = this._collectReportHistoryProjectIds();
+      const needle = this._lastReportProjectSegmentLower(ta.value);
+      let list = all;
+      if (needle) list = all.filter(id => id.toLowerCase().includes(needle));
+      if (!all.length) {
+        res.innerHTML = `<div class="search-result-item muted">${esc(I18n.t("reports.projectPredictEmpty"))}</div>`;
+      } else if (!list.length) {
+        res.innerHTML = `<div class="search-result-item muted">${esc(I18n.t("msg.noResults"))}</div>`;
+      } else {
+        const cap = needle ? 45 : 40;
+        res.innerHTML = list
+          .slice(0, cap)
+          .map(
+            id => `
+            <div class="search-result-item report-project-suggestion-hit" role="option" tabindex="-1"
+              data-project-id="${escAttr(id)}">
+              <span class="result-code">${esc(id)}</span>
+            </div>`
+          )
+          .join("");
+      }
+      res.classList.add("active");
+      res.setAttribute("aria-hidden", "false");
+    };
+
+    ta.addEventListener("input", Utils.debounce(refresh, 180));
+    ta.addEventListener("focus", () => refresh());
+
+    res.addEventListener("click", e => {
+      const hit = e.target.closest(".report-project-suggestion-hit");
+      if (!hit || hit.dataset.projectId == null) return;
+      this._applyPickedReportProjectId(ta, hit.dataset.projectId);
+      this._hideReportProjectSuggestions();
+      ta.focus();
+    });
+
+    ta.addEventListener("keydown", e => {
+      if (e.key === "Escape") this._hideReportProjectSuggestions();
+    });
+  },
+
+  _movementMatchesReportProjectSet(m, projectSet) {
+    if (!projectSet.size) return true;
+    if (m && m.type === "CONSUMO_DIARIO") return false;
+    const pid = String((m && m.projectId) || "")
+      .trim()
+      .toLowerCase();
+    return projectSet.has(pid);
+  },
+
+  _lineMatchesReportItemTokens(it, tokensLower) {
+    if (!tokensLower.length) return true;
+    const code = (it.code || "").toLowerCase();
+    const desc = (it.description || "").toLowerCase();
+    const recipient = (it.recipientName || "").toLowerCase();
+    const iid = String(it.itemId || "").toLowerCase();
+    const name = (it.itemName || it.name || "").toLowerCase();
+    return tokensLower.some(
+      tok =>
+        tok &&
+        (code.includes(tok) ||
+          desc.includes(tok) ||
+          recipient.includes(tok) ||
+          iid.includes(tok) ||
+          name.includes(tok))
+    );
   },
 
   async exportTransportsQuick() {
@@ -321,29 +485,40 @@ const ReportExporter = {
             details: [`${I18n.t("export.manifest.rows")}: ${built.rows.length}`]
           };
         } else if (kind === "item_consumption") {
-          const needle = (document.getElementById("report-item-needle")?.value || "").trim().toLowerCase();
-          if (!needle) {
-            Utils.showToast(I18n.t("msg.reportItemNeedleRequired"), "warning");
+          const rawNeedle = document.getElementById("report-item-needle")?.value || "";
+          const rawProjects = document.getElementById("report-item-project-ids")?.value || "";
+          const itemTokens = this._parseReportItemTokens(rawNeedle);
+          const projectIds = this._parseReportProjectIds(rawProjects);
+          if (!itemTokens.length && !projectIds.length) {
+            Utils.showToast(I18n.t("msg.reportExportNeedleOrProject"), "warning");
             return;
           }
-          const built = this.buildItemConsumption(needle);
+          const built = this.buildItemConsumption({ itemTokens, projectIds });
           if (!built.rows.length) {
             Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
             return;
           }
           headers = built.headers;
           tableRows = built.rows;
-          const allMov = (MovementManager.movements || []).filter(m =>
-            (m.items || []).some(it => (it.itemName || it.name || "").toLowerCase().includes(needle))
-          );
-          name = `GNEEX_Item_Consumption_${needle}_${this.dateRange(allMov) || this.fileStamp()}.xlsx`;
+          const allMov = (MovementManager.movements || []).filter(m => {
+            const pset = new Set(projectIds);
+            if (!this._movementMatchesReportProjectSet(m, pset)) return false;
+            if (!itemTokens.length) return true;
+            return (m.items || []).some(it => this._lineMatchesReportItemTokens(it, itemTokens));
+          });
+          const slug = [itemTokens.slice(0, 3).join("-") || "all", projectIds.slice(0, 3).join("-") || "all"]
+            .join("_")
+            .replace(/[^\w\-]+/g, "")
+            .slice(0, 80);
+          name = `GNEEX_Item_Consumption_${slug || "export"}_${this.dateRange(allMov) || this.fileStamp()}.xlsx`;
           manifest = {
             kind: `report:${kind}`,
             title: I18n.t("export.manifest.report.itemConsumption"),
             details: [
-              `${I18n.t("export.manifest.searchNeedle")}: ${needle}`,
+              itemTokens.length ? `${I18n.t("export.manifest.searchNeedle")}: ${itemTokens.join(", ")}` : "",
+              projectIds.length ? `${I18n.t("movements.projectId")}: ${projectIds.join(", ")}` : "",
               `${I18n.t("export.manifest.rows")}: ${built.rows.length}`
-            ]
+            ].filter(Boolean)
           };
         } else if (kind === "consumo_recipient_all") {
           if (
@@ -532,7 +707,9 @@ const ReportExporter = {
     return { headers, rows };
   },
 
-  buildItemConsumption(needleLower) {
+  buildItemConsumption({ itemTokens, projectIds }) {
+    const tokensLower = Array.isArray(itemTokens) ? itemTokens.map(t => String(t).trim().toLowerCase()).filter(Boolean) : [];
+    const projectSet = new Set((projectIds || []).map(p => String(p).trim().toLowerCase()).filter(Boolean));
     const movements = [...(MovementManager.movements || [])].reverse();
     const headers = [
       I18n.t("standby.date"),
@@ -550,6 +727,7 @@ const ReportExporter = {
     ];
     const rows = [];
     for (const m of movements) {
+      if (!this._movementMatchesReportProjectSet(m, projectSet)) continue;
       const items = m.items || [];
       const pair =
         typeof MovementManager !== "undefined" && MovementManager.computeMovementLineStockBeforeAfter
@@ -559,16 +737,7 @@ const ReportExporter = {
       const stockAfterList = pair.after;
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
-        const code = (it.code || "").toLowerCase();
-        const desc = (it.description || "").toLowerCase();
-        const recipient = (it.recipientName || "").toLowerCase();
-        if (
-          !code.includes(needleLower) &&
-          !desc.includes(needleLower) &&
-          !recipient.includes(needleLower)
-        ) {
-          continue;
-        }
+        if (!this._lineMatchesReportItemTokens(it, tokensLower)) continue;
         const o = {};
         o[headers[0]] = m.date ? Utils.formatDateTime(m.date) : "";
         o[headers[1]] = m.reference || "";

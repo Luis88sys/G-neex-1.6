@@ -3195,8 +3195,48 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     overflow: visible;
 }
 
+/* Informes XLSX: modal ancho por defecto + redimensionar (esquina inferior derecha) */
+#report-modal .modal-content.report-modal-shell {
+    width: min(96vw, 1080px);
+    min-width: min(96vw, 720px);
+    min-height: 320px;
+    max-height: min(88vh, 640px);
+    resize: both;
+    overflow: auto;
+}
+
+#report-modal .report-modal-body--wide {
+    min-height: 0;
+}
+
+#report-modal .report-modal-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(280px, 1fr);
+    gap: 1rem 1.25rem;
+    align-items: start;
+}
+
+@media (max-width: 720px) {
+    #report-modal .report-modal-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+#report-modal .report-modal-hint {
+    margin: 0.35rem 0 0.55rem;
+    font-size: 0.85rem;
+}
+
+#report-modal .report-modal-export-actions {
+    justify-content: flex-end;
+}
+
 #report-modal .search-results {
     z-index: 5;
+}
+
+#report-modal .report-project-search-wrap .search-results {
+    z-index: 7;
 }
 
 .report-columns-list {

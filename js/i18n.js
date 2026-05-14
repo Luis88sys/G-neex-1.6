@@ -361,7 +361,7 @@ const I18n = {
             'welcome.hello': 'Bienvenido a',
             'welcome.userGreeting': 'Hola, {name}',
             'inventory.refreshDataConfirmHead': 'Se actualizará el inventario con tres pasadas de mantenimiento:',
-            'inventory.refreshDataConfirmTail': '\n\nNo se reducirá ningún stock principal y las caducidades personalizadas se conservan. ¿Continuar?',
+            'inventory.refreshDataConfirmTail': '\n\nNo se reducirá ningún stock principal. Si el principal está en negativo (p. ej. tras un sobregiro aceptado), no se modifica: «Actualizar inventario» no reescribe movimientos. Las caducidades personalizadas se conservan. ¿Continuar?',
             'inventory.refreshDataNormalizeHead': '• Ubicaciones / cajas: {n} artículo(s) se normalizarán al formato canónico (texto → catálogo)',
             'inventory.refreshDataNormalizeSkip': 'Ubicaciones / cajas: ya están normalizadas.',
             'inventory.refreshDataReconcileHead': '• Stock principal: {n} artículo(s), Δ total = +{d}',
@@ -857,9 +857,16 @@ const I18n = {
             'reports.typeMovementsFiltered': 'Movimientos (filtros del historial)',
             'reports.typeMovementsLinesFiltered': 'Movimientos filtrados (una fila por artículo)',
             'reports.typeMovementsAll': 'Movimientos (todos)',
-            'reports.typeItemConsumption': 'Historial de un artículo (código o texto)',
-            'reports.itemNeedleLabel': 'Código, descripción o destinatario contiene',
-            'reports.itemNeedlePh': 'Ej. código, descripción o nombre de quien recibe',
+            'reports.typeItemConsumption': 'Historial por artículo(s) y/o proyecto(s)',
+            'reports.itemNeedleLabel': 'Artículos (código, descripción, destinatario o id de ítem)',
+            'reports.itemNeedlePh': 'Uno por línea o separados por coma o punto y coma. Vacío = todos los artículos si indicó proyecto(s).',
+            'reports.itemNeedleHint':
+                'Cada término se busca en código, descripción, nombre de destinatario (consumo), nombre en recepción o id de ítem. Varios términos = filas que coincidan con cualquiera.',
+            'reports.projectIdsLabel': 'Proyectos (solo movimientos con este ID de proyecto)',
+            'reports.projectIdsPh': 'Un ID por línea o separados por coma. Vacío = todos los proyectos.',
+            'reports.projectIdsHint':
+                'Sugerencias según proyectos ya usados en movimientos, transportes o recepciones. Si indica proyectos, no se incluyen líneas de «Consumo diario». Combine con términos de artículo para acotar.',
+            'reports.projectPredictEmpty': 'No hay IDs de proyecto en movimientos, transportes ni recepciones.',
             'reports.columnsLabel': 'Columnas a exportar',
             'reports.columnsAll': 'Seleccionar todo',
             'reports.columnsNone': 'Quitar todo',
@@ -1069,6 +1076,7 @@ const I18n = {
             'msg.dataExported': 'Datos exportados',
             'msg.reportEmpty': 'No hay datos para este informe.',
             'msg.descriptionCopied': 'Descripción copiada al portapapeles.',
+            'msg.reportExportNeedleOrProject': 'Indique al menos un término de artículo o un ID de proyecto.',
             'msg.reportItemNeedleRequired': 'Indique código o texto del artículo.',
             'msg.errorExportingReport': 'Error al generar el informe.',
             'msg.dataImported': 'Datos importados',
@@ -2056,7 +2064,7 @@ const I18n = {
             'perm.expirationConfig.short': 'Caduc.',
             'auth.newPasswordPrompt': 'Nueva contraseña (mín. 4 caracteres):',
             'auth.userDuplicate': 'Ya existe un usuario con ese nombre.',
-            'reports.typeItemConsumptionFriendly': 'Historial de artículo específico'
+            'reports.typeItemConsumptionFriendly': 'Historial de uno o varios artículos (y opcionalmente proyectos)'
         },
 
         en: {
@@ -2413,7 +2421,7 @@ const I18n = {
             'welcome.hello': 'Welcome to',
             'welcome.userGreeting': 'Hi, {name}',
             'inventory.refreshDataConfirmHead': 'Inventory will be updated with three maintenance passes:',
-            'inventory.refreshDataConfirmTail': '\n\nNo main stock will be reduced and custom expiry dates are preserved. Continue?',
+            'inventory.refreshDataConfirmTail': '\n\nMain stock will not be reduced. If main stock is negative (e.g. after an accepted overdraft), it is left unchanged: this action does not rewrite movements. Custom lot expiry values are preserved. Continue?',
             'inventory.refreshDataNormalizeHead': '• Locations / boxes: {n} item(s) will be normalized to the canonical format (text → catalog)',
             'inventory.refreshDataNormalizeSkip': 'Locations / boxes: already normalized.',
             'inventory.refreshDataReconcileHead': '• Main stock: {n} item(s), total Δ = +{d}',
@@ -2912,9 +2920,16 @@ const I18n = {
             'reports.typeMovementsFiltered': 'Movements (history filters)',
             'reports.typeMovementsLinesFiltered': 'Filtered movements (one row per item)',
             'reports.typeMovementsAll': 'Movements (all)',
-            'reports.typeItemConsumption': 'Item history (code or text)',
-            'reports.itemNeedleLabel': 'Code, description or recipient contains',
-            'reports.itemNeedlePh': 'e.g. SKU, description or recipient name',
+            'reports.typeItemConsumption': 'History by item(s) and/or project(s)',
+            'reports.itemNeedleLabel': 'Items (code, description, recipient or item id)',
+            'reports.itemNeedlePh': 'One per line or separated by comma or semicolon. Leave empty for all items if you set project(s).',
+            'reports.itemNeedleHint':
+                'Each term matches code, description, recipient name (daily consumption), reception line name or item id. Multiple terms = rows matching any term.',
+            'reports.projectIdsLabel': 'Projects (only movements with this project id)',
+            'reports.projectIdsPh': 'One id per line or comma-separated. Empty = all projects.',
+            'reports.projectIdsHint':
+                'Suggestions from project IDs already used in movements, transports or receptions. When set, “Daily consumption” lines are excluded. Combine with item terms to narrow down.',
+            'reports.projectPredictEmpty': 'No project IDs found in movements, transports or receptions.',
             'reports.columnsLabel': 'Columns to export',
             'reports.columnsAll': 'Select all',
             'reports.columnsNone': 'Clear all',
@@ -3112,6 +3127,7 @@ const I18n = {
             'msg.dataExported': 'Data exported',
             'msg.reportEmpty': 'No data for this report.',
             'msg.descriptionCopied': 'Description copied to clipboard.',
+            'msg.reportExportNeedleOrProject': 'Enter at least one item term or a project id.',
             'msg.reportItemNeedleRequired': 'Enter an item code or text.',
             'msg.errorExportingReport': 'Error generating the report.',
             'msg.dataImported': 'Data imported',
@@ -4098,7 +4114,7 @@ const I18n = {
             'perm.expirationConfig.short': 'Exp.',
             'auth.newPasswordPrompt': 'New password (min. 4 characters):',
             'auth.userDuplicate': 'A user with that name already exists.',
-            'reports.typeItemConsumptionFriendly': 'History of a specific item'
+            'reports.typeItemConsumptionFriendly': 'History for one or more items (and optional projects)'
         },
 
         fr: {
@@ -4457,7 +4473,7 @@ const I18n = {
             'welcome.hello': 'Bienvenue sur',
             'welcome.userGreeting': 'Bonjour, {name}',
             'inventory.refreshDataConfirmHead': 'L’inventaire sera mis à jour avec trois passes de maintenance :',
-            'inventory.refreshDataConfirmTail': '\n\nAucun stock principal ne sera réduit et les péremptions personnalisées sont préservées. Continuer ?',
+            'inventory.refreshDataConfirmTail': '\n\nLe stock principal ne sera pas réduit. S’il est négatif (p. ex. après un découvert accepté), il n’est pas modifié : cette action ne réécrit pas les mouvements. Les dates de péremption personnalisées sont conservées. Continuer ?',
             'inventory.refreshDataNormalizeHead': '• Emplacements / caisses : {n} article(s) seront normalisés au format canonique (texte → catalogue)',
             'inventory.refreshDataNormalizeSkip': 'Emplacements / caisses : déjà normalisés.',
             'inventory.refreshDataReconcileHead': '• Stock principal : {n} article(s), Δ total = +{d}',
@@ -4957,9 +4973,16 @@ const I18n = {
             'reports.typeMovementsFiltered': 'Mouvements (filtres de l’historique)',
             'reports.typeMovementsLinesFiltered': 'Mouvements filtrés (une ligne par article)',
             'reports.typeMovementsAll': 'Mouvements (tous)',
-            'reports.typeItemConsumption': 'Historique d\'un article (code ou texte)',
-            'reports.itemNeedleLabel': 'Code, description ou destinataire contient',
-            'reports.itemNeedlePh': 'ex. code, description ou nom du destinataire',
+            'reports.typeItemConsumption': 'Historique par article(s) et/ou projet(s)',
+            'reports.itemNeedleLabel': 'Articles (code, description, destinataire ou id article)',
+            'reports.itemNeedlePh': 'Un par ligne ou séparés par virgule ou point-virgule. Vide = tous les articles si vous indiquez des projet(s).',
+            'reports.itemNeedleHint':
+                'Chaque terme est cherché dans le code, la description, le destinataire (conso.), le nom en réception ou l’id article. Plusieurs termes = lignes correspondant à l’un d’eux.',
+            'reports.projectIdsLabel': 'Projets (seulement les mouvements avec cet id de projet)',
+            'reports.projectIdsPh': 'Un id par ligne ou séparés par des virgules. Vide = tous les projets.',
+            'reports.projectIdsHint':
+                'Suggestions d’après les projets déjà présents dans mouvements, transports ou réceptions. Les lignes « Consommation quotidienne » sont exclues si vous filtrez par projet. Combinez avec des termes article pour affiner.',
+            'reports.projectPredictEmpty': 'Aucun id de projet dans mouvements, transports ni réceptions.',
             'reports.columnsLabel': 'Colonnes a exporter',
             'reports.columnsAll': 'Tout selectionner',
             'reports.columnsNone': 'Tout retirer',
@@ -5157,6 +5180,7 @@ const I18n = {
             'msg.dataExported': 'Données exportées',
             'msg.reportEmpty': 'Aucune donnée pour ce rapport.',
             'msg.descriptionCopied': 'Description copiée dans le presse-papiers.',
+            'msg.reportExportNeedleOrProject': 'Indiquez au moins un terme article ou un id de projet.',
             'msg.reportItemNeedleRequired': 'Indiquez le code ou le texte de l’article.',
             'msg.errorExportingReport': 'Erreur lors de la génération du rapport.',
             'msg.dataImported': 'Données importées',
@@ -6144,7 +6168,7 @@ const I18n = {
             'perm.expirationConfig.short': 'Exp.',
             'auth.newPasswordPrompt': 'Nouveau mot de passe (min. 4 caractères) :',
             'auth.userDuplicate': 'Un utilisateur avec ce nom existe déjà.',
-            'reports.typeItemConsumptionFriendly': 'Historique d\'un article spécifique'
+            'reports.typeItemConsumptionFriendly': 'Historique pour un ou plusieurs articles (et projets optionnels)'
         }
     },
 

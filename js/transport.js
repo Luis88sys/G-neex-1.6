@@ -12,28 +12,19 @@ const TransportManager = {
   /** Id del transporte con el panel de detalle abierto (null = todos plegados). */
   _expandedTransportId: null,
 
-  _TRANSPORT_VIEWS: ["tiles", "list"],
+  _TRANSPORT_VIEWS: ["tiles"],
 
   _getTransportView() {
-    let v = localStorage.getItem(STORAGE_KEYS.VIEW_TRANSPORT_UI);
-    if (!this._TRANSPORT_VIEWS.includes(v)) v = "tiles";
-    return v;
+    return "tiles";
   },
 
   _setTransportView(mode) {
     if (!this._TRANSPORT_VIEWS.includes(mode)) return;
-    localStorage.setItem(STORAGE_KEYS.VIEW_TRANSPORT_UI, mode);
+    localStorage.setItem(STORAGE_KEYS.VIEW_TRANSPORT_UI, "tiles");
     this.render();
   },
 
-  _syncTransportViewToolbar() {
-    const mode = this._getTransportView();
-    document.querySelectorAll("[data-transport-view]").forEach(btn => {
-      const active = btn.getAttribute("data-transport-view") === mode;
-      btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-  },
+  _syncTransportViewToolbar() {},
 
   esc(s) {
     return Utils.escapeHtml(s);
@@ -721,6 +712,7 @@ const TransportManager = {
   init() {
     try {
       this.loadPending();
+      localStorage.setItem(STORAGE_KEYS.VIEW_TRANSPORT_UI, "tiles");
       this.transports = JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSPORT) || "[]");
       if (!Array.isArray(this.transports)) this.transports = [];
       this.transports = this.transports.map(t => this.migrateTransport(t));
@@ -755,13 +747,6 @@ const TransportManager = {
 
     const createBtn = document.getElementById("transport-create-btn");
     if (createBtn) createBtn.addEventListener("click", () => this.createManualTransport());
-
-    document.getElementById("transport-tab")?.addEventListener("click", e => {
-      const btn = e.target.closest("[data-transport-view]");
-      if (!btn) return;
-      e.preventDefault();
-      this._setTransportView(btn.getAttribute("data-transport-view"));
-    });
   },
 
   async createManualTransport() {

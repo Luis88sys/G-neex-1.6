@@ -925,7 +925,10 @@ const InventoryManager = {
   /**
    * Vista previa (sin aplicar) de la reconciliación: lista artículos cuyo
    * `mainStock` está por debajo de la **suma real** de cajas + ubicaciones.
-   * Incluye el detalle por artículo para mostrarlo en la confirmación.
+   * No incluye artículos con **principal negativo**: ese saldo suele reflejar
+   * un sobregiro aceptado al procesar un movimiento; subir el principal hasta
+   * la suma de cajas/ubicaciones borraría esa deuda y desalinearía el inventario
+   * respecto al historial (los movimientos no deben reinterpretarse aquí).
    * @returns {{items: Array<{id:string, code:string, description:string, main:number, boxes:number, locs:number, sum:number, delta:number}>, totalDelta:number}}
    */
   previewReconcileMainStock() {
@@ -937,6 +940,8 @@ const InventoryManager = {
       const locs = this._sumLocationStockQtyForItem(it);
       const sum = Utils.roundDecimal(boxes + locs);
       const main = Utils.roundDecimal(parseFloat(it.mainStock) || 0);
+      /* Principal negativo: no reconciliar (preserva sobregiro / coherencia con movimientos). */
+      if (main < 0) continue;
       if (sum > main) {
         const delta = Utils.roundDecimal(sum - main);
         out.push({
@@ -962,7 +967,8 @@ const InventoryManager = {
    * se editaron sin sincronizar con el total y el principal aparece por debajo
    * de la suma real. **No reduce** el principal en ningún caso: solo lo lleva al
    * alza cuando hace falta (porque el principal puede incluir además un sobrante
-   * no asignado a cajas/ubicaciones).
+   * no asignado a cajas/ubicaciones). **Omite** artículos cuyo principal es
+   * **negativo** (no toca deudas / sobregiros reflejados en `mainStock`).
    * @returns {{changed:number, totalDelta:number, items:Array<object>}}
    */
   reconcileMainStockFromContainers() {
@@ -1142,8 +1148,10 @@ const InventoryManager = {
    *    `BOXn` huérfanos, sincroniza `boxStocks`/`locationStocks` y limpia
    *    cualquier residuo heredado de respaldos antiguos.
    * 2. **Reconciliación de stock principal** (`reconcileMainStockFromContainers`):
-   *    eleva `mainStock` a la suma de cajas + ubicaciones cuando esté por debajo.
-   *    Solo sube, nunca baja.
+   *    eleva `mainStock` a la suma de cajas + ubicaciones cuando esté por debajo,
+   *    **solo si el principal actual es ≥ 0**. Con principal negativo (deuda /
+   *    sobregiro reflejado en inventario) no se toca, para no desmentir el historial
+   *    de movimientos. Solo sube, nunca baja.
    * 3. **Migración de caducidades por lote** (`refreshLotExpiriesFromShelfLife`):
    *    libera `lot.date` solo cuando es redundante con `expDate + vidaUtil`.
    *    Caducidades personalizadas del envase se preservan.
