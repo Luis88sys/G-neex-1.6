@@ -5580,12 +5580,38 @@ const InventoryManager = {
     this._openBoxManagerAtItemBox(itemId, boxNumber);
   },
 
+  /** Restaura un artículo tras un guardado de caja deshecho (p. ej. cancelar el motivo del ajuste). */
+  _restoreItemSnapshot(itemId, snap) {
+    if (!itemId || !snap) return false;
+    const idx = (this.items || []).findIndex(i => String(i.id) === String(itemId));
+    if (idx < 0) return false;
+    try {
+      this.items[idx] = JSON.parse(JSON.stringify(snap));
+    } catch (e) {
+      return false;
+    }
+    this.save();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return true;
+  },
+
   async saveBoxManagerBoxFromForm() {
     if (!this._canManageBoxMutations()) {
       Utils.showToast(I18n.t("auth.noPermission"), "warning");
       return;
     }
     const itemId = this._boxMgrItemId;
+    let itemUndoSnap = null;
+    if (itemId) {
+      const it0 = this.getItemById(itemId);
+      if (it0) {
+        try {
+          itemUndoSnap = JSON.parse(JSON.stringify(it0));
+        } catch (e) {
+          itemUndoSnap = null;
+        }
+      }
+    }
     const boxNumber = parseInt(document.getElementById("inventory-box-number")?.value, 10);
     const qty = parseFloat(document.getElementById("inventory-box-qty")?.value) || 0;
     const qtyBoxes = parseInt(document.getElementById("inventory-box-qty-boxes")?.value, 10) || 0;
@@ -5639,7 +5665,24 @@ const InventoryManager = {
               defaultValue: "",
               inputType: "text"
             });
-            if (reason != null && String(reason).trim()) reasonExtra = String(reason).trim();
+            if (reason === null) {
+              if (!this._restoreItemSnapshot(itemId, itemUndoSnap)) {
+                Utils.showToast(I18n.t("inventory.boxMgrCancelFailed"), "error");
+              } else {
+                const it2 = this.getItemById(itemId);
+                const preferId = this._boxMgrEditBoxId || res?.box?.boxId;
+                const row =
+                  it2 && preferId
+                    ? (it2.boxStocks || []).find(b => String(b.boxId) === String(preferId))
+                    : null;
+                if (row) this._loadBoxIntoManagerForm(row);
+                else this._resetBoxManagerBoxForm();
+                this._applyBoxManagerItemSelection();
+                Utils.showToast(I18n.t("inventory.boxMgrCancelled"), "info");
+              }
+              return;
+            }
+            if (String(reason).trim()) reasonExtra = String(reason).trim();
           }
           const baseNote = I18n.t("movements.boxMgrAjusteNote");
           const movNotes = reasonExtra
