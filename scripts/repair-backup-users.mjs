@@ -7,7 +7,7 @@
  *
  * Compatibilidad: los objetos de movimiento y de cada línea (`items[]`) pueden traer propiedades nuevas
  * o ausentes según la versión que generó el respaldo (p. ej. metadatos de ajuste por caja, notas
- * ampliadas). La fusión no las elimina; solo elige qué copia de cada `id` conservar por «plenitud».
+ * ampliadas, `salesOrder` / `prNumber` en la raíz para venta directa y expedición de stock). La fusión no las elimina; solo elige qué copia de cada `id` conservar por «plenitud».
  */
 import fs from "fs";
 import path from "path";

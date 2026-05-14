@@ -47,13 +47,13 @@ Elle gère tout le cycle de vie du matériel :
 
 *Captures réelles v1.6 (Playwright). Régénération : `docs/app-screenshots/README.md`.*
 
-![Écran de connexion](../app-screenshots/capture-fr-01-login.png)
+![Écran de connexion](../docs/app-screenshots/capture-fr-01-login.png)
 
 ---
 
 ## Inventaire en Temps Réel
 
-![Onglet Inventaire](../app-screenshots/capture-fr-inventario.png)
+![Onglet Inventaire](../docs/app-screenshots/capture-fr-inventario.png)
 
 | Fonction | Description |
 |----------|-------------|
@@ -73,16 +73,19 @@ Elle gère tout le cycle de vie du matériel :
 
 ---
 
-## 16 Types de Mouvement
+## 18 Types de Mouvement
 
-![Onglet Mouvements (grille des types)](../app-screenshots/capture-fr-movimientos.png)
+![Onglet Mouvements (grille des types)](../docs/app-screenshots/capture-fr-movimientos.png)
 
-G-NEEX supporte **16 types de mouvement** couvrant toutes les opérations d'un entrepôt industriel :
+G-NEEX supporte **18 types de mouvement** couvrant toutes les opérations d'un entrepôt industriel :
+
+La grille des boutons est toujours en **6 colonnes × 3 lignes** ; sur un écran étroit la zone permet un **défilement horizontal** sans perdre l’alignement.
 
 | Catégorie | Types |
 |-----------|-------|
 | **Opérations quotidiennes** | Consommation Quotidienne, Ajustement, Quincaillerie, Spécial |
 | **Projets / Chantier** | Checklist, M.E. Chantier, M.E. Production, Perte |
+| **Vente / envoi chantier** | Vente directe (SO obligatoire), Expédition de stock (projet et PR obligatoires) |
 | **Logistique inverse** | Retour, Démantèlement |
 | **Production** | Envoi en Production, Transformation, Transfert |
 | **Approvisionnement** | Achat de Stock, Réception de Matériel |
@@ -90,7 +93,7 @@ G-NEEX supporte **16 types de mouvement** couvrant toutes les opérations d'un e
 
 Dans l'onglet **Mouvements**, le choix d'un type ouvre le formulaire dans une **fenêtre superposée dans l'application** (la grille des types reste visible derrière).
 
-Pour les types qui **soustrent du stock**, la colonne **Origine stock** permet de choisir **depuis quel dépôt** la quantité est prélevée : **principal** (Entrepôt général), **caisses**, **emplacements** (étiquette seule dans la liste), **stock de production** et **stock de transformation** (quantité affichée si applicable) ; la même référence peut figurer sur **plusieurs lignes**. Lorsqu’une colonne **Destination** s’ajoute à l’origine, l’**origine** correspond au prélèvement physique et la **destination** peut différer.
+Pour les types qui **soustrent du stock**, la colonne **Origine stock** permet de choisir **depuis quel dépôt** la quantité est prélevée : **principal** (Entrepôt général), **caisses**, **emplacements** (étiquette seule dans la liste), **stock de production** et **stock de transformation** (quantité affichée si applicable) ; la même référence peut figurer sur **plusieurs lignes**. Lorsqu’une colonne **Destination** s’ajoute à l’origine, l’**origine** correspond au prélèvement physique et la **destination** peut différer. **Vente directe** et **Expédition de stock** : uniquement **principal, caisses ou emplacements** (pas production ni transformation) ; la vente exige un **SO** (`SO` + 4 à 6 chiffres) ; l’expédition exige **projet** et **PR** (`PR` + 4 à 6 chiffres). Références : préfixes **VDT** et **EXP** + 6 chiffres par type.
 
 **M.É. chantier :** les **quantités** par ligne sont du stock ; au **Traiter le mouvement**, on saisit le **total de caisses** pour l'envoi (réparti entre les lignes selon les quantités).
 
@@ -116,7 +119,7 @@ Chaque mouvement enregistre automatiquement :
 
 ## Commandes fournisseur (lignes de commande)
 
-![Onglet Commandes](../app-screenshots/capture-fr-pedidos.png)
+![Onglet Commandes](../docs/app-screenshots/capture-fr-pedidos.png)
 
 - Onglet **Commandes** : lignes liées à l'inventaire (fournisseur, quantité) ; le **BC/PO** est enregistré à la **réception** dans Achat de stock.
 - Filtres du panneau : recherche texte (référence/code/description/fournisseur/quantités), statut, date clé (du/au) et préréglage d'historique (avec/sans réception, commandée, annulée).
@@ -132,11 +135,11 @@ Chaque mouvement enregistre automatiquement :
 
 ## Dispositions de liste (style Explorateur)
 
-![Onglet Historique (mosaïque / tableau / carrousel)](../app-screenshots/capture-fr-historial.png)
+![Onglet Historique (mosaïque / tableau / carrousel)](../docs/app-screenshots/capture-fr-historial.png)
 
 - **Historique**, **Transport** et **Commandes** proposent un sélecteur **Affichage** : **mosaïque**, **liste compacte** et, selon l’écran, **tableau détaillé** ; dans **Historique**, un **Carrousel chronologique** est aussi disponible pour parcourir les cartes à l’horizontale. Les cartes minimisées affichent aussi l’**ID projet** quand pertinent.
 - Dans **Historique**, les mouvements entièrement annulés ou avec **annulation partielle** affichent un **tampon diagonal** (cadre en pointillés incliné) ; les filtres incluent aussi le type d’annulation.
-- Nouveau filtre **Notes du mouvement** ; **Ajouter une note** dans le détail s’ajoute sans effacer l’existant ; les changements **gestion par caisse** créent un **ajustement (AJUSTE)** dans l’historique.
+- Nouveau filtre **Notes du mouvement** ; filtres **SO (vente directe)** et **PR (expédition)** ; **Ajouter une note** dans le détail s’ajoute sans effacer l’existant ; les changements **gestion par caisse** créent un **ajustement (AJUSTE)** dans l’historique.
 - **Dates à l’écran (toute l’app) :** jour, mois en trois lettres, année sur quatre chiffres ; avec l’heure, **24 h** locale.
 - Dans **Historique → Consommation quotidienne par destinataire**, le tableau permet désormais de **modifier les destinataires**, **enregistrer les changements** et **nettoyer les lignes visibles** selon les filtres.
 - **Pièces jointes (📎)** dans le détail d’un mouvement et le transport déplié : lient des fichiers dans n’importe quel dossier (sans copie dans l’app) ; ouverture avec Chrome/Edge. Les sauvegardes JSON n’incluent pas les fichiers : relier sur un autre PC.
@@ -147,7 +150,7 @@ Chaque mouvement enregistre automatiquement :
 
 ## Transport Intelligent
 
-![Onglet Transport](../app-screenshots/capture-fr-transporte.png)
+![Onglet Transport](../docs/app-screenshots/capture-fr-transporte.png)
 
 Le module transport automatise la logistique d'envoi vers le chantier :
 
@@ -164,7 +167,7 @@ Le module transport automatise la logistique d'envoi vers le chantier :
 
 ## Tableau de Bord — Vue d'Ensemble Instantanée
 
-![Tableau de bord après connexion](../app-screenshots/capture-fr-panel.png)
+![Tableau de bord après connexion](../docs/app-screenshots/capture-fr-panel.png)
 
 À la connexion, un panneau affiche l'état actuel des opérations :
 
@@ -185,7 +188,7 @@ Des indicateurs visuels alertent en cas de stock critique ou de sauvegarde de pl
 
 ## Rappels (Admin)
 
-![Onglet Rappels](../app-screenshots/capture-fr-recordatorios.png)
+![Onglet Rappels](../docs/app-screenshots/capture-fr-recordatorios.png)
 
 - Onglet dédié pour les rappels opérationnels avec date cible et priorité.
 - Les priorités peuvent monter automatiquement selon les jours ouvrables.
@@ -195,7 +198,7 @@ Des indicateurs visuels alertent en cas de stock critique ou de sauvegarde de pl
 
 ## L’application à l’écran (usage)
 
-![Tableau de bord (G-NEEX)](../app-screenshots/capture-fr-panel.png)
+![Tableau de bord (G-NEEX)](../docs/app-screenshots/capture-fr-panel.png)
 
 - G-NEEX regroupe le travail quotidien en modules accessibles depuis la barre : inventaire, mouvements, historique, transport, commandes, rappels et paramètres.
 - Le manuel décrit chaque écran et parcours. **Comment** l’accès et les copies sont gérés sur votre site relève de l’exploitation ; l’accent est mis ici sur l’**usage** de l’interface et des fonctions d’inventaire.
@@ -297,7 +300,7 @@ Les fichiers incluent la plage de dates dans leur nom :
     ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
     │ INVENTAIRE  │    │ MOUVEMENTS  │    │ COMMANDES   │    │ TRANSPORT   │
     │             │    │             │    │ (fournis.)  │    │             │
-    │ • Articles  │    │ • 16 types  │    │ • Lignes BC │    │ • Automati. │
+    │ • Articles  │    │ • 18 types  │    │ • Lignes BC │    │ • Automati. │
     │ • 3 stocks  │    │ • Stand-By  │    │ • Réc. →    │    │ • Manuel    │
     │ • Alertes   │    │ • Dépassem. │    │   achat     │    │ • Expédit.  │
     │ • Recherche │    │ • Référence │    │ • XLSX      │    │ • Tableau   │

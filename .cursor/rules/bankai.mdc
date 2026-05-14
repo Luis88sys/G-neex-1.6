@@ -1,0 +1,38 @@
+---
+description: Protocolo pre-deploy cuando el usuario dice «Bankai» (ayuda, capturas, docs, backend, código, bugs)
+alwaysApply: true
+---
+
+# Bankai — checklist pre-deploy G-NEEX
+
+Cuando el usuario escribe **`Bankai`** (sin importar mayúsculas), ejecutar el protocolo de alineación y limpieza antes de desplegar: coherencia entre la **SPA** (`index.html` + `js/`), la **ayuda embebida** (`user-manual/`), **presentaciones**, **capturas PNG**, **documentación / contrato backend**, **código muerto o roto** y **bugs** evidentes. Mantener el alcance enfocado en “listo para deploy” salvo que el usuario pida un subconjunto.
+
+## Orden de trabajo (ejecutar en la raíz del repo salvo que se indique otra ruta)
+
+1. **Capturas Playwright** (misma UI que al abrir `index.html` en archivo):
+   - `py no-deployar/scripts/capture_app_screenshots.py`
+   - Credenciales opcionales: `GNEEX_CAPTURE_USER`, `GNEEX_CAPTURE_PASS`; depuración: `GNEEX_CAPTURE_HEADLESS=0`.
+   - Salida canónica: `no-deployar/docs/app-screenshots/`.
+
+2. **Sincronizar paquete Ayuda** (lo que abre la app desde `index.html` → `user-manual/*.html`):
+   - `powershell -NoProfile -ExecutionPolicy Bypass -File no-deployar\docs\sync-user-manual.ps1`
+   - Copia PNG a `user-manual/app-screenshots/`, reescribe rutas a **`./app-screenshots/`** (manuales y presentaciones; no usar `../` desde `user-manual/` — apuntaría fuera de la carpeta) y **añade `?v=`** a las URLs de capturas.
+
+3. **PDF** (si cambió el HTML de manuales o presentaciones y se quieren PDF al día):
+   - `powershell -NoProfile -ExecutionPolicy Bypass -File no-deployar\docs\export-user-docs-pdf.ps1`
+   - Volver a ejecutar `sync-user-manual.ps1` para copiar los PDF a `user-manual/`.
+
+4. **Backend y migración** (contrato vivo, sin inventar API):
+   - `no-deployar/docs/BACKEND_ALINEACION.md`, `no-deployar/migration/README_PHOENIX_TO_GNEEX.md`, `README.md`.
+   - Revisar `gneex-hosted-api/` si hay cambios de forma de datos o sync.
+
+5. **Textos y manuales**: `no-deployar/User Manual/`, `no-deployar/Presentation/`, `js/i18n.js` — mismos conceptos que la UI (tipos de movimiento, filtros, SO/PR, etc.).
+
+6. **Código y bugs**: búsqueda acotada (rutas rotas, duplicados, TODO bloqueante); reparar solo lo necesario para deploy estable.
+
+7. **Respaldo madre** — **no** forma parte automática de Bankai. Si el usuario escribe **«Madre mía»** / **«Madre mia»**, seguir la regla **`madre-backup.mdc`** (`node scripts/repair-backup-users.mjs GNEEX_Backup_Madre.json`). Si en el mismo mensaje de Bankai pide explícitamente reparar el respaldo madre, ejecutar también ese comando.
+
+## Recordatorio
+
+- Si “las capturas en la app no coinciden” tras un sync, un **recarga forzada** (Ctrl+F5) en la pestaña del manual suele bastar; con `?v=` en las URLs el problema debería ser raro.
+- Los enlaces de **Ayuda** a manuales y presentaciones HTML abren con **`_cb=`** (timestamp) para evitar **bfCache** / documento HTML en caché (sobre todo en presentaciones largas).

@@ -227,14 +227,15 @@
     <div class="watermark">G-NEEX</div>
 </div>
 
-<!-- Slide 5: 16 Movement Types -->
+<!-- Slide 5: 18 Movement Types -->
 <div class="slide">
-    <h2>16 Movement Types</h2>
+    <h2>18 Movement Types</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
         <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-en-movimientos.png" alt="Movements tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Movements</strong> tab — type grid</figcaption>
     </figure>
-    <p>G-NEEX supports <strong>16 movement types</strong> covering all operations in an industrial warehouse:</p>
+    <p>G-NEEX supports <strong>18 movement types</strong> covering all operations in an industrial warehouse:</p>
+    <p>The type buttons use a fixed <strong>6 columns × 3 rows</strong> layout; on narrow viewports the area supports <strong>horizontal scrolling</strong> without losing alignment.</p>
     <table>
         <thead>
             <tr><th>Category</th><th>Types</th></tr>
@@ -242,6 +243,7 @@
         <tbody>
             <tr><td><strong>Daily operations</strong></td><td>Daily Consumption, Adjustment, Hardware, Special</td></tr>
             <tr><td><strong>Projects / Job site</strong></td><td>Checklist, E.M. Job Site, E.M. Production, Waste</td></tr>
+            <tr><td><strong>Sales / site shipment</strong></td><td>Direct sale (SO required), Stock dispatch (project &amp; PR required)</td></tr>
             <tr><td><strong>Reverse logistics</strong></td><td>Return, Dismantle</td></tr>
             <tr><td><strong>Production</strong></td><td>Send to Production, Transformation, Transfer</td></tr>
             <tr><td><strong>Supply</strong></td><td>Stock Purchase, Material Reception</td></tr>
@@ -249,7 +251,7 @@
         </tbody>
     </table>
     <p>On the <strong>Movements</strong> tab, choosing a type opens the form in an <strong>in-app overlay window</strong> (the type grid stays visible behind it).</p>
-    <p>For types that <strong>subtract stock</strong>, <strong>Stock source</strong> lets you choose <strong>which depot</strong> the quantity comes from: <strong>main</strong> (General warehouse), <strong>boxes</strong>, <strong>locations</strong> (labels only in the list), <strong>production stock</strong>, and <strong>transformation stock</strong> (quantity shown when applicable); the same SKU can appear on <strong>multiple lines</strong> with different sources. When both <strong>Destination</strong> and source appear, <strong>source</strong> drives the physical deduction and <strong>destination</strong> may differ.</p>
+    <p>For types that <strong>subtract stock</strong>, <strong>Stock source</strong> lets you choose <strong>which depot</strong> the quantity comes from: <strong>main</strong> (General warehouse), <strong>boxes</strong>, <strong>locations</strong> (labels only in the list), <strong>production stock</strong>, and <strong>transformation stock</strong> (quantity shown when applicable); the same SKU can appear on <strong>multiple lines</strong> with different sources. When both <strong>Destination</strong> and source appear, <strong>source</strong> drives the physical deduction and <strong>destination</strong> may differ. <strong>Direct sale</strong> and <strong>Stock dispatch</strong> allow <strong>main, boxes, or locations only</strong> (not production or transformation); direct sale requires <strong>SO</strong> (<code>SO</code> + 4–6 digits); dispatch requires <strong>project</strong> and <strong>PR</strong> (<code>PR</code> + 4–6 digits). Movement refs: <strong>VDT</strong> and <strong>EXP</strong> prefixes + 6 digits per type.</p>
     <p><strong>Site E.M.:</strong> line <strong>quantities</strong> are inventory; <strong>Process movement</strong> asks for <strong>total boxes</strong> for the shipment (allocated across lines by quantity).</p>
     <p>Each movement automatically records:</p>
     <ul>
@@ -307,7 +309,7 @@
     </figure>
     <p><strong>History</strong>, <strong>Transport</strong>, and <strong>Orders</strong> include a <strong>View</strong> control for <strong>tiles</strong>, a compact <strong>list</strong>, and (where relevant) a <strong>detailed table</strong>; in <strong>History</strong>, a <strong>Chronological carousel</strong> is also available for horizontal card browsing. Minimized cards also show the <strong>Project ID</strong> when relevant.</p>
     <p>In <strong>History</strong>, movements that are fully voided or <strong>partial annulments</strong> show a <strong>diagonal stamp</strong> (tilted dashed frame); filters also include annulment type.</p>
-    <p>New <strong>Movement notes</strong> filter (text in the notes field only). In detail, with movements permission, <strong>Add note</strong> appends without erasing existing text (each block has date and user). <strong>Box stock management</strong> quantity saves also create an <strong>Adjustment (AJUSTE)</strong> in history.</p>
+    <p>New <strong>Movement notes</strong> filter (text in the notes field only); <strong>SO (direct sale)</strong> and <strong>PR (dispatch)</strong> filters. In detail, with movements permission, <strong>Add note</strong> appends without erasing existing text (each block has date and user). <strong>Box stock management</strong> quantity saves also create an <strong>Adjustment (AJUSTE)</strong> in history.</p>
     <p><strong>On-screen dates (app-wide):</strong> day, 3-letter month, 4-digit year; with time, local <strong>24-hour</strong> clock.</p>
     <p>In <strong>History → Daily consumption by recipient</strong>, the table now supports <strong>editing recipients</strong>, <strong>saving changes</strong>, and <strong>clearing visible rows</strong> using current filters.</p>
     <p><strong>Attachments (📎)</strong> in movement detail and expanded transport: link files from any folder (no copy into the app); open with Chrome/Edge. JSON backups do not include file bytes—re-link on another PC.</p>
@@ -508,7 +510,7 @@
     ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
     │  INVENTORY  │    │  MOVEMENTS  │    │   ORDERS    │    │  TRANSPORT  │
     │             │    │             │    │ (supplier)  │    │             │
-    │ • Items     │    │ • 16 types  │    │ • PO lines  │    │ • Automatic │
+    │ • Items     │    │ • 18 types  │    │ • PO lines  │    │ • Automatic │
     │ • 3 stocks  │    │ • Stand-By  │    │ • Receipt → │    │ • Manual    │
     │ • Alerts    │    │ • Overdraft │    │   purchase  │    │ • Shipping  │
     │ • Search    │    │ • Reference │    │ • XLSX      │    │ • Board     │

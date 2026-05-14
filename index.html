@@ -206,7 +206,7 @@
                 📋 <span data-i18n="nav.orderlines">Pedidos</span>
             </button>
             <button type="button" class="nav-btn" data-tab="receptions" data-auth-act="cfgTabReceptions" data-auth-act-level="view" data-i18n-title="nav.receptions" title="Recepciones">
-                📥 <span data-i18n="nav.receptions">Recepciones</span>
+                🧱 <span data-i18n="nav.receptions">Recepciones</span>
             </button>
 
         </nav>
@@ -674,7 +674,7 @@
     <section id="movements-tab" class="tab-content">
         <div class="movements-container">
             <h2 data-i18n="movements.title">Crear Movimiento</h2>
-            <div data-auth-act="movPicker" data-auth-act-level="edit">
+            <div class="movement-types-grid-scroll" data-auth-act="movPicker" data-auth-act-level="edit">
             <div id="movement-types-grid" class="movement-types-grid"></div>
             </div>
             <div class="movements-recent-block" id="movements-recent-block" data-auth-act="movRecent" data-auth-act-level="view">
@@ -754,6 +754,14 @@
                     <div class="filter-group">
                         <label data-i18n="movements.projectId">ID Proyecto:</label>
                         <input id="filter-project-id" type="text" class="filter-input">
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-sales-order" data-i18n="history.filterSalesOrder">SO (venta directa):</label>
+                        <input id="filter-sales-order" type="text" class="filter-input" maxlength="16" data-i18n-title="history.filterSalesOrderTitle" title="" spellcheck="false" autocomplete="off">
+                    </div>
+                    <div class="filter-group">
+                        <label for="filter-pr-number" data-i18n="history.filterPrNumber">PR (expedición):</label>
+                        <input id="filter-pr-number" type="text" class="filter-input" maxlength="16" data-i18n-title="history.filterPrNumberTitle" title="" spellcheck="false" autocomplete="off">
                     </div>
                     <div class="filter-group">
                         <label data-i18n="history.createdBy">Realizado por:</label>
@@ -1702,6 +1710,19 @@
                     <div class="form-group">
                         <label data-i18n="movements.standbyReleaseAs">Liberar Stand-By como:</label>
                         <select id="standby-release-type" class="filter-select"></select>
+                    </div>
+                </div>
+
+                <div id="movement-so-pr-fields" class="form-row" style="display:none;">
+                    <div class="form-group" id="movement-sales-order-wrap" style="display:none;">
+                        <label for="mov-sales-order" data-i18n="movements.salesOrder">Sales order (SO)</label>
+                        <input id="mov-sales-order" type="text" class="form-input" maxlength="8" autocomplete="off" spellcheck="false" />
+                        <span id="mov-sales-order-hint" class="field-hint optional" data-i18n="movements.salesOrderHint"></span>
+                    </div>
+                    <div class="form-group" id="movement-pr-wrap" style="display:none;">
+                        <label for="mov-pr-number" data-i18n="movements.prNumber">PR</label>
+                        <input id="mov-pr-number" type="text" class="form-input" maxlength="8" autocomplete="off" spellcheck="false" />
+                        <span id="mov-pr-hint" class="field-hint required" data-i18n="movements.prNumberHint"></span>
                     </div>
                 </div>
 

@@ -229,14 +229,15 @@
     <div class="watermark">G-NEEX</div>
 </div>
 
-<!-- Slide 5: 16 Tipos de Movimiento -->
+<!-- Slide 5: 18 Tipos de Movimiento -->
 <div class="slide">
-    <h2>16 Tipos de Movimiento</h2>
+    <h2>18 Tipos de Movimiento</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
         <img class="pres-shot" style="max-height:28vh" src="../docs/app-screenshots/capture-es-movimientos.png" alt="Pestaña Movimientos" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Pestaña <strong>Movimientos</strong> — rejilla de tipos</figcaption>
     </figure>
-    <p>G-NEEX soporta <strong>16 tipos de movimiento</strong> que cubren todas las operaciones de un almacén industrial:</p>
+    <p>G-NEEX soporta <strong>18 tipos de movimiento</strong> que cubren todas las operaciones de un almacén industrial:</p>
+    <p>La rejilla de botones usa siempre <strong>6 columnas × 3 filas</strong>; si el ancho no alcanza, la zona permite <strong>desplazamiento horizontal</strong> sin perder la alineación.</p>
     <table>
         <thead>
             <tr><th>Categoría</th><th>Tipos</th></tr>
@@ -244,6 +245,7 @@
         <tbody>
             <tr><td><strong>Operaciones diarias</strong></td><td>Consumo Diario, Ajuste, Ferretería, Especial</td></tr>
             <tr><td><strong>Proyectos / Obra</strong></td><td>Lista de Chequeo, M.E. Obra, M.E. Producción, Merma</td></tr>
+            <tr><td><strong>Venta / envío a obra</strong></td><td>Venta directa (SO obligatorio), Expedición de stock (proyecto y PR obligatorios)</td></tr>
             <tr><td><strong>Logística inversa</strong></td><td>Retorno, Desmantelar</td></tr>
             <tr><td><strong>Producción</strong></td><td>Enviar a Producción, Transformación, Transferencia</td></tr>
             <tr><td><strong>Abastecimiento</strong></td><td>Compra de Stock, Recepción de Material</td></tr>
@@ -251,7 +253,7 @@
         </tbody>
     </table>
     <p>En la pestaña <strong>Movimientos</strong>, al pulsar un tipo se abre el formulario en una <strong>ventana superpuesta dentro de la aplicación</strong> (la cuadrícula de tipos sigue visible detrás).</p>
-    <p>En los tipos que <strong>restan inventario</strong>, la columna <strong>Origen stock</strong> permite elegir <strong>de qué depósito</strong> sale la cantidad: <strong>principal</strong> (Almacén general), <strong>cajas</strong>, <strong>ubicaciones</strong> (solo etiqueta en la lista), <strong>stock de producción</strong> y <strong>stock de transformación</strong> (con cantidad cuando aplica); la misma referencia puede ir en <strong>varias líneas</strong> con orígenes distintos. Si el formulario incluye columna <strong>Destino</strong> además del origen, el <strong>origen</strong> define el descuento físico y el <strong>destino</strong> puede ser distinto.</p>
+    <p>En los tipos que <strong>restan inventario</strong>, la columna <strong>Origen stock</strong> permite elegir <strong>de qué depósito</strong> sale la cantidad: <strong>principal</strong> (Almacén general), <strong>cajas</strong>, <strong>ubicaciones</strong> (solo etiqueta en la lista), <strong>stock de producción</strong> y <strong>stock de transformación</strong> (con cantidad cuando aplica); la misma referencia puede ir en <strong>varias líneas</strong> con orígenes distintos. Si el formulario incluye columna <strong>Destino</strong> además del origen, el <strong>origen</strong> define el descuento físico y el <strong>destino</strong> puede ser distinto. <strong>Venta directa</strong> y <strong>Expedición de stock</strong> solo permiten <strong>principal, cajas o ubicaciones</strong> (no producción ni transformación); la venta exige <strong>SO</strong> (<code>SO</code> + 4–6 dígitos); la expedición exige <strong>proyecto</strong> y <strong>PR</strong> (<code>PR</code> + 4–6 dígitos). Referencias de movimiento: prefijos <strong>VDT</strong> y <strong>EXP</strong> + 6 dígitos por tipo.</p>
     <p><strong>M.E. obra:</strong> las <strong>cantidades</strong> en cada línea son de inventario; al <strong>Procesar movimiento</strong> se introduce el <strong>total de cajas</strong> del envío (se distribuyen entre líneas según las cantidades).</p>
     <p>Cada movimiento registra automáticamente:</p>
     <ul>
@@ -309,7 +311,7 @@
     </figure>
     <p><strong>Historial</strong>, <strong>Transporte</strong> y <strong>Pedidos</strong> incluyen un selector <strong>Vista</strong> con disposición en <strong>mosaico</strong> (tarjetas o iconos), <strong>lista compacta</strong> y, donde aplica, <strong>tabla detallada</strong>; además, en <strong>Historial</strong> hay <strong>Carrusel cronológico</strong> para recorrer tarjetas en secuencia horizontal. Las tarjetas minimizadas muestran también el <strong>ID Proyecto</strong> cuando corresponde.</p>
     <p>En <strong>Historial</strong>, los movimientos anulados en total o con <strong>anulado parcial</strong> muestran un <strong>sello diagonal</strong> (marco discontinuo inclinado); también hay filtro por tipo de anulación.</p>
-    <p>Nuevo filtro <strong>Notas del movimiento</strong> (texto en el campo de notas). En el detalle, con permiso de movimientos, puede <strong>añadir nota</strong> al final sin borrar el texto ya guardado (cada bloque lleva fecha y usuario). Las ediciones de <strong>cantidad por caja</strong> en gestión por caja generan un <strong>AJUSTE</strong> en historial.</p>
+    <p>Nuevo filtro <strong>Notas del movimiento</strong> (texto en el campo de notas); filtros <strong>SO (venta directa)</strong> y <strong>PR (expedición)</strong>. En el detalle, con permiso de movimientos, puede <strong>añadir nota</strong> al final sin borrar el texto ya guardado (cada bloque lleva fecha y usuario). Las ediciones de <strong>cantidad por caja</strong> en gestión por caja generan un <strong>AJUSTE</strong> en historial.</p>
     <p><strong>Fechas en pantalla (toda la app):</strong> día, mes en tres letras, año en cuatro cifras; con hora, <strong>24 h</strong> hora local.</p>
     <p>En <strong>Historial → Consumo diario por destinatario</strong>, la tabla permite <strong>editar destinatarios</strong>, <strong>guardar cambios</strong> y <strong>limpiar las filas visibles</strong> según filtros.</p>
     <p><strong>Adjuntos (📎)</strong> en el detalle de un movimiento y en el transporte expandido: enlazan archivos en cualquier carpeta del equipo (sin copiarlos a la app); se abren con Chrome/Edge. Los respaldos JSON no incluyen los archivos: en otro PC hay que volver a enlazar.</p>
@@ -510,7 +512,7 @@
     ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
     │ INVENTARIO  │    │ MOVIMIENTOS │    │  PEDIDOS    │    │ TRANSPORTE  │
     │             │    │             │    │ (proveedor) │    │             │
-    │ • Artículos │    │ • 16 tipos  │    │ • Líneas OC │    │ • Automático│
+    │ • Artículos │    │ • 18 tipos  │    │ • Líneas OC │    │ • Automático│
     │ • 3 stocks  │    │ • Stand-By  │    │ • Rec. →    │    │ • Manual    │
     │ • Alertas   │    │ • Overdraft │    │   compra    │    │ • Expedición│
     │ • Búsqueda  │    │ • Referencia│    │ • XLSX      │    │ • Panel     │

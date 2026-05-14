@@ -250,7 +250,7 @@
 <h2>2.2 Dashboard (Panel de resumen)</h2>
 <p>Al entrar a la aplicación, se muestra un panel con información del día. En la <strong>barra superior</strong> puede cambiar de módulo con los botones (p. ej. <strong>📦 Inventario</strong> hacia §2.3, <strong>➕ Movimientos</strong> hacia §2.4):</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-panel.png" alt="Panel y barra de navegación" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-panel.png?v=1778738530" alt="Panel y barra de navegación" loading="lazy" decoding="async">
   <figcaption>Panel o dashboard; botones de navegación arriba</figcaption>
 </figure>
 <table>
@@ -271,7 +271,7 @@
 <h2>2.3 Inventario</h2>
 <p>Vista al pulsar el botón <strong>Inventario</strong> (📦) en la barra; se ven búsqueda, filtros, tarjetas y la tabla de artículos.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-inventario.png" alt="Pestaña Inventario" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-inventario.png?v=1778738530" alt="Pestaña Inventario" loading="lazy" decoding="async">
   <figcaption>Pestaña Inventario</figcaption>
 </figure>
 
@@ -328,9 +328,9 @@
 <hr>
 
 <h2>2.4 Movimientos</h2>
-<p>Pestaña <strong>Movimientos</strong> (➕ en la barra): cuadrícula de tipos; al elegir un tipo, el formulario en ventana superpuesta.</p>
+<p>Pestaña <strong>Movimientos</strong> (➕ en la barra): cuadrícula de tipos; al elegir un tipo, el formulario en ventana superpuesta. La pestaña <strong>Recepciones</strong> (🧱) abre el registro de recepciones en Configuración; el tipo de movimiento «Recepción de material» en la rejilla usa el mismo icono <strong>🧱</strong> en la app. Los <strong>18 tipos</strong> se muestran siempre en <strong>rejilla de 6 columnas × 3 filas</strong>; si el ancho de pantalla es reducido, la zona de la rejilla permite <strong>desplazamiento horizontal</strong> para mantener la alineación.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-movimientos.png" alt="Pestaña Movimientos" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-movimientos.png?v=1778738530" alt="Pestaña Movimientos" loading="lazy" decoding="async">
   <figcaption>Pestaña Movimientos</figcaption>
 </figure>
 
@@ -340,7 +340,7 @@
   <li>Seleccionar el <strong>tipo de movimiento</strong> pulsando su botón: se abre una <strong>ventana superpuesta dentro de la aplicación</strong> con el formulario de ese tipo (la vista de Movimientos sigue mostrando solo la cuadrícula y el listado reciente).</li>
   <li>En esa ventana, rellenar <strong>ID Proyecto</strong> (obligatorio o automático según el tipo) y <strong>Notas</strong></li>
   <li><strong>Buscar artículos</strong>: escribir mínimo 2 caracteres → seleccionar artículo → establecer <strong>cantidad</strong> en la línea como en otros tipos → la línea se añade a la lista (columna <strong>Cantidad</strong>)</li>
-  <li><strong>Origen de stock</strong> (tipos que <strong>restan</strong> inventario): si aparece la columna <strong>Origen stock</strong>, elija <strong>de qué depósito</strong> sale la cantidad: <strong>Almacén general</strong> (stock principal, con cantidad visible); cada <strong>caja</strong> (la misma cantidad que en <strong>Gestión de stock por caja</strong>); <strong>ubicaciones</strong> del stock por ubicación detallado (solo la etiqueta en la lista); y, cuando corresponda, <strong>stock de producción</strong> o <strong>stock de transformación</strong> (con cantidad visible). Puede <strong>añadir varias líneas</strong> del mismo artículo para repartir cantidades entre orígenes. En tipos que muestran también una columna <strong>Destino</strong> (p. ej. Ferretería, M.E. Producción, M.E. Obra), el <strong>origen</strong> es el depósito físico del que se descuenta; el <strong>destino</strong> clasifica el movimiento y puede ser distinto del origen.</li>
+  <li><strong>Origen de stock</strong> (tipos que <strong>restan</strong> inventario): si aparece la columna <strong>Origen stock</strong>, elija <strong>de qué depósito</strong> sale la cantidad: <strong>Almacén general</strong> (stock principal, con cantidad visible); cada <strong>caja</strong> (la misma cantidad que en <strong>Gestión de stock por caja</strong>); <strong>ubicaciones</strong> del stock por ubicación detallado (solo la etiqueta en la lista); y, cuando corresponda, <strong>stock de producción</strong> o <strong>stock de transformación</strong> (con cantidad visible). Puede <strong>añadir varias líneas</strong> del mismo artículo para repartir cantidades entre orígenes. En tipos que muestran también una columna <strong>Destino</strong> (p. ej. Ferretería, M.E. Producción, M.E. Obra), el <strong>origen</strong> es el depósito físico del que se descuenta; el <strong>destino</strong> clasifica el movimiento y puede ser distinto del origen. En <strong>Venta directa</strong> y <strong>Expedición de stock</strong> solo puede tomar stock del <strong>principal</strong>, <strong>cajas</strong> o <strong>ubicaciones</strong> (no producción ni transformación).</li>
   <li>Revisar y ajustar <strong>cantidades</strong> en la lista antes de procesar</li>
   <li>Pulsar <strong>Procesar movimiento</strong>. Si el tipo es <strong>M.E. obra</strong>, aparece una pregunta por el <strong>total de cajas</strong> de ese envío (no por artículo); la aplicación reparte esas cajas entre las líneas según las cantidades de cada una para el stock M.E. obra</li>
 </ol>
@@ -366,11 +366,21 @@
     <tr><td>Enviar a Producción</td><td>Resta</td><td>Opcional</td></tr>
     <tr><td>M.E. Producción</td><td>Resta</td><td>Obligatorio</td></tr>
     <tr><td>M.E. Obra</td><td>Resta</td><td>Obligatorio</td></tr>
+    <tr><td>Venta directa</td><td>Resta</td><td>Opcional</td></tr>
+    <tr><td>Expedición de stock</td><td>Resta</td><td>Obligatorio</td></tr>
     <tr><td>Stand-By</td><td>Sin efecto (pendiente)</td><td>Opcional</td></tr>
     <tr><td>Compra de Stock</td><td>Suma</td><td>Formulario especial</td></tr>
     <tr><td>Recepción Material</td><td>Suma (o provisional, según reglas de categoría)</td><td>Obligatorio</td></tr>
   </tbody>
 </table>
+
+<h3>Venta directa y Expedición de stock</h3>
+<ul>
+  <li><strong>Referencias internas:</strong> prefijos <strong>VDT</strong> (venta directa) y <strong>EXP</strong> (expedición) + 6 dígitos correlativos por tipo.</li>
+  <li><strong>Venta directa:</strong> al procesar, <strong>SO</strong> obligatorio: texto <code>SO</code> + <strong>4 a 6</strong> dígitos (p. ej. <code>SO100450</code>). Proyecto opcional.</li>
+  <li><strong>Expedición de stock:</strong> proyecto y <strong>PR</strong> obligatorios al procesar; <code>PR</code> + <strong>4 a 6</strong> dígitos. Mismas reglas de origen que la venta directa. Icono del tipo <strong>🚛</strong> (el módulo <strong>Transporte</strong> de la barra sigue con <strong>🚚</strong>).</li>
+  <li>En <strong>Historial</strong>, filtros dedicados <strong>SO (venta directa)</strong> y <strong>PR (expedición)</strong> (texto parcial).</li>
+</ul>
 
 <h3>Stand-By</h3>
 <p>Los movimientos Stand-By se guardan como borradores sin afectar el inventario:</p>
@@ -423,7 +433,7 @@
 <h2>2.5 Pedidos a proveedor (órdenes de compra por línea)</h2>
 <p><strong>Ruta:</strong> pestaña <strong>Pedidos</strong> (icono 📋 en la barra superior).</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-pedidos.png" alt="Pestaña Pedidos" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-pedidos.png?v=1778738530" alt="Pestaña Pedidos" loading="lazy" decoding="async">
   <figcaption>Pedidos a proveedor</figcaption>
 </figure>
 <p>Planifica líneas de pedido vinculadas al inventario (código, descripción, proveedor, cantidad). El <strong>número de OC/PO</strong> se registra al <strong>recibir</strong> en Compra de stock (packing slip), no al crear el borrador.</p>
@@ -466,7 +476,7 @@
 
 <h2>2.6 Historial</h2>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-historial.png" alt="Pestaña Historial" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-historial.png?v=1778738530" alt="Pestaña Historial" loading="lazy" decoding="async">
   <figcaption>Pestaña Historial</figcaption>
 </figure>
 
@@ -487,6 +497,8 @@
   <li>Rango de fechas</li>
   <li>Ubicación</li>
   <li>ID Proyecto (parcial)</li>
+  <li><strong>SO (venta directa)</strong> (parcial; campo guardado en el movimiento)</li>
+  <li><strong>PR (expedición)</strong> (parcial; campo guardado en el movimiento)</li>
   <li>Realizado por (parcial)</li>
   <li>Sobregiro (sí/no; alinea con el detalle del movimiento — compra y recepción no cuentan marcadores erróneos antiguos)</li>
   <li>Stock negativo (sí/no — basado en stock <strong>actual</strong>)</li>
@@ -498,6 +510,7 @@
 <p>Pulsar una tarjeta, una fila de lista o una fila de la tabla de detalles para ver el mismo modal de detalle completo:</p>
 <ul>
   <li>Tipo, referencia, proyecto, fecha y hora, estado</li>
+  <li>Para <strong>Venta directa</strong>, el <strong>SO</strong> guardado; para <strong>Expedición de stock</strong>, el <strong>PR</strong> guardado</li>
   <li>Quién lo realizó</li>
   <li><strong>Notas:</strong> texto acumulado del movimiento. Con permiso de <strong>movimientos</strong>, las notas ya guardadas se muestran en solo lectura; puede <strong>añadir nota</strong> al final (cabecera con fecha y usuario) sin sustituir el texto anterior.</li>
   <li>Lista de artículos con <strong>stock anterior</strong>, <strong>variación</strong> (+/−) y <strong>stock resultante</strong> tras cada línea (reconstruido desde el inventario y el historial)</li>
@@ -519,7 +532,7 @@
 <h2>2.7 Transporte</h2>
 <p>Acceso: botón <strong>Transporte</strong> (🚚) en la barra superior. En la pestaña verá el tablero y las acciones (crear, expedir, anular, etc.) según aparezcan habilitadas en su pantalla.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-transporte.png" alt="Pestaña Transporte" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-transporte.png?v=1778738530" alt="Pestaña Transporte" loading="lazy" decoding="async">
   <figcaption>Pestaña Transporte</figcaption>
 </figure>
 
@@ -617,7 +630,7 @@
 <h2>2.13 Recordatorios</h2>
 <p><strong>Ruta:</strong> botón con icono de recordatorio en la barra, pestaña <strong>Recordatorios</strong> cuando la tenga a la vista.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-recordatorios.png" alt="Pestaña Recordatorios" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-recordatorios.png?v=1778738530" alt="Pestaña Recordatorios" loading="lazy" decoding="async">
   <figcaption>Pestaña Recordatorios</figcaption>
 </figure>
 <p>Desde ahí se crean y gestionan recordatorios operativos con fecha objetivo y prioridad, cuando el módulo esté accesible en su entorno.</p>

@@ -244,7 +244,7 @@
 <h2>2.2 Dashboard (Summary panel)</h2>
 <p>Upon entering the application, a panel is displayed with today's information. The <strong>top bar</strong> has module buttons (e.g. <strong>📦 Inventory</strong> in §2.3, <strong>➕ Movements</strong> in §2.4):</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-panel.png" alt="Dashboard and navigation" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-panel.png?v=1778738530" alt="Dashboard and navigation" loading="lazy" decoding="async">
   <figcaption>Dashboard and main navigation</figcaption>
 </figure>
 <table>
@@ -265,7 +265,7 @@
 <h2>2.3 Inventory</h2>
 <p>View after clicking <strong>Inventory</strong> (📦): search, filters, stat cards, and the article table.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-inventario.png" alt="Inventory tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-inventario.png?v=1778738530" alt="Inventory tab" loading="lazy" decoding="async">
   <figcaption>Inventory tab</figcaption>
 </figure>
 
@@ -322,9 +322,9 @@
 <hr>
 
 <h2>2.4 Movements</h2>
-<p><strong>Movements</strong> (➕) in the bar: type grid; choosing a type opens the overlay form.</p>
+<p><strong>Movements</strong> (➕) in the bar: type grid; choosing a type opens the overlay form. The <strong>Receptions</strong> tab (🧱) opens the receptions register under Settings; the <strong>Material reception</strong> movement type in the grid uses the same <strong>🧱</strong> icon in the app. All <strong>18 types</strong> are shown in a fixed <strong>6-column × 3-row</strong> grid; on narrow screens the grid area allows <strong>horizontal scrolling</strong> so the layout stays aligned.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-movimientos.png" alt="Movements tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-movimientos.png?v=1778738530" alt="Movements tab" loading="lazy" decoding="async">
   <figcaption>Movements tab</figcaption>
 </figure>
 
@@ -334,7 +334,7 @@
   <li>Select the <strong>movement type</strong> by clicking its button — an <strong>in-app overlay window</strong> opens with the form for that type (the Movements view keeps showing only the type grid and recent list).</li>
   <li>In that window, fill in <strong>Project ID</strong> (required or automatic depending on the type) and <strong>Notes</strong></li>
   <li><strong>Search articles</strong>: type at least 2 characters → select an article → enter <strong>quantity</strong> as for other types → the line is added (<strong>Quantity</strong> column)</li>
-  <li><strong>Stock source</strong> (types that <strong>subtract</strong> stock): if the <strong>Stock source</strong> column appears, choose <strong>which depot</strong> the quantity comes from: <strong>General warehouse</strong> (main stock, quantity shown); each <strong>box</strong> (same quantity as in <strong>Box stock management</strong>); <strong>locations</strong> from per-location stock (label only in the list); and when available, <strong>production stock</strong> or <strong>transformation stock</strong> (quantity shown). You can <strong>add several lines</strong> for the same item to split quantities across sources. For types that also show a <strong>Destination</strong> column (e.g. Hardware, E.M. Production, E.M. Site), <strong>source</strong> is the physical depot deducted; <strong>destination</strong> classifies the movement and may differ from the source.</li>
+  <li><strong>Stock source</strong> (types that <strong>subtract</strong> stock): if the <strong>Stock source</strong> column appears, choose <strong>which depot</strong> the quantity comes from: <strong>General warehouse</strong> (main stock, quantity shown); each <strong>box</strong> (same quantity as in <strong>Box stock management</strong>); <strong>locations</strong> from per-location stock (label only in the list); and when available, <strong>production stock</strong> or <strong>transformation stock</strong> (quantity shown). You can <strong>add several lines</strong> for the same item to split quantities across sources. For types that also show a <strong>Destination</strong> column (e.g. Hardware, E.M. Production, E.M. Site), <strong>source</strong> is the physical depot deducted; <strong>destination</strong> classifies the movement and may differ from the source. For <strong>Direct sale</strong> and <strong>Stock dispatch</strong>, you may only take stock from <strong>main</strong>, <strong>boxes</strong>, or <strong>locations</strong> (not production or transformation).</li>
   <li>Review and adjust <strong>quantities</strong> in the list before processing</li>
   <li>Click <strong>Process movement</strong>. For <strong>Site E.M.</strong>, you are asked for the <strong>total boxes</strong> for that shipment (not per item); boxes are allocated across lines by line quantity for Site E.M. stock</li>
 </ol>
@@ -360,11 +360,21 @@
     <tr><td>Send to Production</td><td>Subtract</td><td>Optional</td></tr>
     <tr><td>E.M. Production</td><td>Subtract</td><td>Required</td></tr>
     <tr><td>E.M. Site</td><td>Subtract</td><td>Required</td></tr>
+    <tr><td>Direct sale</td><td>Subtract</td><td>Optional</td></tr>
+    <tr><td>Stock dispatch</td><td>Subtract</td><td>Required</td></tr>
     <tr><td>Stand-By</td><td>No effect (pending)</td><td>Optional</td></tr>
     <tr><td>Stock Purchase</td><td>Add</td><td>Special form</td></tr>
     <tr><td>Material Reception</td><td>Add (or provisional, depending on category rules)</td><td>Required</td></tr>
   </tbody>
 </table>
+
+<h3>Direct sale and Stock dispatch</h3>
+<ul>
+  <li><strong>Internal references:</strong> <strong>VDT</strong> (direct sale) and <strong>EXP</strong> (dispatch) prefixes + 6-digit sequence per type.</li>
+  <li><strong>Direct sale:</strong> when processing, <strong>SO</strong> is required: literal <code>SO</code> + <strong>4 to 6</strong> digits (e.g. <code>SO100450</code>). Project is optional.</li>
+  <li><strong>Stock dispatch:</strong> project and <strong>PR</strong> required when processing; <code>PR</code> + <strong>4 to 6</strong> digits. Same source rules as direct sale. Type icon <strong>🚛</strong> (top-bar <strong>Transport</strong> stays <strong>🚚</strong>).</li>
+  <li>In <strong>History</strong>, dedicated filters <strong>SO (direct sale)</strong> and <strong>PR (dispatch)</strong> (partial text).</li>
+</ul>
 
 <h3>Stand-By</h3>
 <p>Stand-By movements are saved as drafts without affecting inventory:</p>
@@ -417,7 +427,7 @@
 <h2>2.5 Supplier orders (order lines)</h2>
 <p><strong>Path:</strong> <strong>Orders</strong> tab (📋 in the top bar).</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-pedidos.png" alt="Orders tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-pedidos.png?v=1778738530" alt="Orders tab" loading="lazy" decoding="async">
   <figcaption>Orders</figcaption>
 </figure>
 <p>Plan supplier lines tied to inventory (code, description, supplier, quantity). The <strong>PO/OC number</strong> is captured when you <strong>receive</strong> in Stock purchase (packing slip), not when you create the draft.</p>
@@ -460,7 +470,7 @@
 
 <h2>2.6 History</h2>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-historial.png" alt="History tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-historial.png?v=1778738530" alt="History tab" loading="lazy" decoding="async">
   <figcaption>History tab</figcaption>
 </figure>
 
@@ -481,6 +491,8 @@
   <li>Date range</li>
   <li>Location</li>
   <li>Project ID (partial)</li>
+  <li><strong>SO (direct sale)</strong> (partial; stored on the movement)</li>
+  <li><strong>PR (dispatch)</strong> (partial; stored on the movement)</li>
   <li>Performed by (partial)</li>
   <li>Overdraft (yes/no; matches movement detail — stock purchase and reception ignore erroneous legacy markers)</li>
   <li>Negative stock (yes/no — based on <strong>current</strong> stock)</li>
@@ -492,6 +504,7 @@
 <p>Click a card to see the full detail:</p>
 <ul>
   <li>Type, reference, project, date and time, status</li>
+  <li>For <strong>Direct sale</strong>, the stored <strong>SO</strong>; for <strong>Stock dispatch</strong>, the stored <strong>PR</strong></li>
   <li>Who performed it</li>
   <li><strong>Notes:</strong> cumulative movement notes. With <strong>movements</strong> permission, existing notes are shown read-only; use <strong>Add note</strong> to append a new block (timestamp and user header) without replacing earlier text.</li>
   <li>List of articles with <strong>previous stock</strong>, <strong>change</strong> (+/−), and <strong>resulting stock</strong> per line (rebuilt from inventory and history)</li>
@@ -513,7 +526,7 @@
 <h2>2.7 Transport</h2>
 <p>Open the <strong>Transport</strong> (🚚) button. The tab shows the board and actions (create, ship, void, and so on) as enabled for your current screen.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-transporte.png" alt="Transport tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-transporte.png?v=1778738530" alt="Transport tab" loading="lazy" decoding="async">
   <figcaption>Transport tab</figcaption>
 </figure>
 
@@ -611,7 +624,7 @@
 <h2>2.13 Reminders</h2>
 <p><strong>Path:</strong> reminders button in the top bar, <strong>Reminders</strong> tab when you can open it.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-recordatorios.png" alt="Reminders tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-recordatorios.png?v=1778738530" alt="Reminders tab" loading="lazy" decoding="async">
   <figcaption>Reminders</figcaption>
 </figure>
 <p>You create and manage operational reminders with due date and priority from that screen when the module is available in your environment.</p>

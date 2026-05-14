@@ -1,11 +1,26 @@
 # Copia manuales y presentaciones PDF desde no-deployar hacia user-manual/ (paquete Ayuda en producción).
-# Sustituye rutas ../docs/app-screenshots/ por ./app-screenshots/ en los HTML copiados.
+# Sustituye rutas ../docs/app-screenshots/ por ./app-screenshots/ en manuales y presentaciones copiados a user-manual/
+# (no usar ../app-screenshots/ en user-manual/: apuntaría al padre del repo, no a user-manual/app-screenshots/).
+# Añade ?v=<unix> a cada URL de captura para evitar que el navegador sirva PNG viejos (Ayuda abre user-manual/*.html).
 # Uso (desde la raíz del repo):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File no-deployar\docs\sync-user-manual.ps1
 
 param(
     [string] $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 )
+
+$shotCacheBust = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+
+function Add-ScreenshotCacheBust([string] $Html) {
+    # Quitar query previa en rutas app-screenshots/*.png
+    $Html = $Html -replace '(\.\/app-screenshots\/[^"''\s>]+\.png)\?[^"''\s>]*', '$1'
+    $Html = $Html -replace '(\.\.\/app-screenshots\/[^"''\s>]+\.png)\?[^"''\s>]*', '$1'
+    # Añadir ?v= (una sola vez por URL)
+    $v = $script:shotCacheBust
+    $Html = $Html -replace '(\.\/app-screenshots\/[^"''\s>]+\.png)(")', "`$1?v=$v`$2"
+    $Html = $Html -replace '(\.\.\/app-screenshots\/[^"''\s>]+\.png)(")', "`$1?v=$v`$2"
+    return $Html
+}
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
@@ -41,8 +56,9 @@ foreach ($f in $htmlFiles) {
     }
     $content = Read-TextUtf8 $src
     $content = $content -replace '\.\./docs/app-screenshots/', './app-screenshots/'
+    $content = Add-ScreenshotCacheBust $content
     Write-TextUtf8 $dst $content
-    Write-Host "OK HTML -> $f"
+    Write-Host "OK HTML -> $f (capturas ?v=$shotCacheBust)"
 }
 
 if (Test-Path $srcShots) {
@@ -82,9 +98,10 @@ foreach ($f in $presHtml) {
         continue
     }
     $content = Read-TextUtf8 $src
-    $content = $content -replace '\.\./docs/app-screenshots/', '../app-screenshots/'
+    $content = $content -replace '\.\./docs/app-screenshots/', './app-screenshots/'
+    $content = Add-ScreenshotCacheBust $content
     Write-TextUtf8 $dst $content
-    Write-Host "OK presentation HTML -> $f"
+    Write-Host "OK presentation HTML -> $f (capturas ?v=$shotCacheBust)"
 }
 
 Write-Host "Listo: user-manual/"

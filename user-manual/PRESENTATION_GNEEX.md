@@ -47,13 +47,13 @@ It manages the entire material lifecycle:
 
 *Real v1.6 captures (Playwright). Regenerate: `docs/app-screenshots/README.md`.*
 
-![Login (entry to the app)](../app-screenshots/capture-en-01-login.png)
+![Login (entry to the app)](./app-screenshots/capture-en-01-login.png)
 
 ---
 
 ## Real-Time Inventory
 
-![Inventory tab](../app-screenshots/capture-en-inventario.png)
+![Inventory tab](./app-screenshots/capture-en-inventario.png)
 
 | Feature | Description |
 |---------|-------------|
@@ -73,16 +73,19 @@ It manages the entire material lifecycle:
 
 ---
 
-## 16 Movement Types
+## 18 Movement Types
 
-![Movements tab (type grid)](../app-screenshots/capture-en-movimientos.png)
+![Movements tab (type grid)](./app-screenshots/capture-en-movimientos.png)
 
-G-NEEX supports **16 movement types** covering all operations in an industrial warehouse:
+G-NEEX supports **18 movement types** covering all operations in an industrial warehouse:
+
+The type buttons use a fixed **6 columns × 3 rows** layout; on narrow viewports the area supports **horizontal scrolling** without losing alignment.
 
 | Category | Types |
 |----------|-------|
 | **Daily operations** | Daily Consumption, Adjustment, Hardware, Special |
 | **Projects / Job site** | Checklist, E.M. Job Site, E.M. Production, Waste |
+| **Sales / site shipment** | Direct sale (SO required), Stock dispatch (project & PR required) |
 | **Reverse logistics** | Return, Dismantle |
 | **Production** | Send to Production, Transformation, Transfer |
 | **Supply** | Stock Purchase, Material Reception |
@@ -90,7 +93,7 @@ G-NEEX supports **16 movement types** covering all operations in an industrial w
 
 On the **Movements** tab, choosing a type opens the form in an **in-app overlay window** (the type grid stays visible behind it).
 
-For types that **subtract stock**, **Stock source** lets you choose **which depot** the quantity comes from: **main** (General warehouse), **boxes**, **locations** (labels only in the list), **production stock**, and **transformation stock** (quantity shown when applicable); the same SKU can appear on **multiple lines** with different sources. When both **Destination** and source appear, **source** drives the physical deduction and **destination** may differ.
+For types that **subtract stock**, **Stock source** lets you choose **which depot** the quantity comes from: **main** (General warehouse), **boxes**, **locations** (labels only in the list), **production stock**, and **transformation stock** (quantity shown when applicable); the same SKU can appear on **multiple lines** with different sources. When both **Destination** and source appear, **source** drives the physical deduction and **destination** may differ. **Direct sale** and **Stock dispatch** allow **main, boxes, or locations only** (not production or transformation); direct sale requires **SO** (`SO` + 4–6 digits); dispatch requires **project** and **PR** (`PR` + 4–6 digits). Movement refs: **VDT** and **EXP** prefixes + 6 digits per type.
 
 **Site E.M.:** line **quantities** are inventory; **Process movement** asks for **total boxes** for the shipment (allocated across lines by quantity).
 
@@ -116,7 +119,7 @@ Each movement automatically records:
 
 ## Supplier orders (order lines)
 
-![Orders tab](../app-screenshots/capture-en-pedidos.png)
+![Orders tab](./app-screenshots/capture-en-pedidos.png)
 
 - **Orders** tab: lines tied to inventory (supplier, quantity); **PO/OC** is captured on **receipt** in Stock purchase.
 - Panel filters: text search (ref/code/description/supplier/quantities), status, key date range (from/to), and timeline preset (with/without receipt, ordered, cancelled).
@@ -132,11 +135,11 @@ Each movement automatically records:
 
 ## List layouts (Explorer-style)
 
-![History tab (tiles / table / carousel)](../app-screenshots/capture-en-historial.png)
+![History tab (tiles / table / carousel)](./app-screenshots/capture-en-historial.png)
 
 - **History**, **Transport**, and **Orders** include a **View** control for **tiles**, a compact **list**, and (where relevant) a **detailed table**; in **History**, a **Chronological carousel** is also available for horizontal card browsing. Minimized cards also show the **Project ID** when relevant.
 - In **History**, movements that are fully voided or **partial annulments** show a **diagonal stamp** (tilted dashed frame); filters also include annulment type.
-- New **Movement notes** filter; **Add note** in detail appends without erasing; **box stock management** saves also create **Adjustment (AJUSTE)** records.
+- New **Movement notes** filter; **SO (direct sale)** and **PR (dispatch)** filters; **Add note** in detail appends without erasing; **box stock management** saves also create **Adjustment (AJUSTE)** records.
 - **On-screen dates (app-wide):** day, 3-letter month, 4-digit year; with time, local **24-hour** clock.
 - In **History → Daily consumption by recipient**, the table now supports **editing recipients**, **saving changes**, and **clearing visible rows** using the current filters.
 - **Attachments (📎)** in movement detail and expanded transport: link files from any folder (no copy into the app); open with Chrome/Edge. JSON backups do not include file bytes—re-link on another PC.
@@ -147,7 +150,7 @@ Each movement automatically records:
 
 ## Smart Transport
 
-![Transport tab](../app-screenshots/capture-en-transporte.png)
+![Transport tab](./app-screenshots/capture-en-transporte.png)
 
 The transport module automates shipment logistics to job sites:
 
@@ -164,7 +167,7 @@ The transport module automates shipment logistics to job sites:
 
 ## Dashboard — Instant Overview
 
-![Main screen after login (summary)](../app-screenshots/capture-en-panel.png)
+![Main screen after login (summary)](./app-screenshots/capture-en-panel.png)
 
 Upon login, a panel displays the current operational status:
 
@@ -185,7 +188,7 @@ Visual indicators alert if there is critical stock or if the backup is more than
 
 ## Reminders (Admin)
 
-![Reminders tab](../app-screenshots/capture-en-recordatorios.png)
+![Reminders tab](./app-screenshots/capture-en-recordatorios.png)
 
 - Dedicated tab for operational reminders with due date and priority.
 - Priorities can auto-escalate by business-day aging.
@@ -195,7 +198,7 @@ Visual indicators alert if there is critical stock or if the backup is more than
 
 ## The app in use (on-screen)
 
-![Dashboard and navigation (G-NEEX)](../app-screenshots/capture-en-panel.png)
+![Dashboard and navigation (G-NEEX)](./app-screenshots/capture-en-panel.png)
 
 - G-NEEX groups daily work in modules you open from the top bar: inventory, movements, history, transport, orders, reminders, and settings.
 - The user manual explains each screen and workflow. **How** access and copies are run on your site is an operational matter; the focus here is day-to-day **use** of the interface and inventory features.
@@ -296,7 +299,7 @@ Files include the date range in their name:
     ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
     │  INVENTORY  │    │  MOVEMENTS  │    │   ORDERS    │    │  TRANSPORT  │
     │             │    │             │    │ (supplier)  │    │             │
-    │ • Items     │    │ • 16 types  │    │ • PO lines  │    │ • Automatic │
+    │ • Items     │    │ • 18 types  │    │ • PO lines  │    │ • Automatic │
     │ • 3 stocks  │    │ • Stand-By  │    │ • Receipt → │    │ • Manual    │
     │ • Alerts    │    │ • Overdraft │    │   purchase  │    │ • Shipping  │
     │ • Search    │    │ • Reference │    │ • XLSX      │    │ • Board     │

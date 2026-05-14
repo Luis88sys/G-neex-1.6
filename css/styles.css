@@ -39,6 +39,8 @@
     --mov-enviar-produccion: #ff6b35;
     --mov-mat-elec-prod: #00ff00;
     --mov-mat-elec-obra: #6b8e23;
+    --mov-venta-directa: #0f766e;
+    --mov-expedicion-stock: #b45309;
     
     /* Spacing */
     --spacing-xs: 4px;
@@ -2816,11 +2818,21 @@ html[data-test-mode="on"][data-theme="dark"] #inventory-tab .inventory-table--ma
     font-weight: 500;
 }
 
+/* Siempre 6 columnas × 3 filas (18 tipos); en viewport estrecho scroll horizontal */
+.movement-types-grid-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: var(--spacing-lg);
+}
+
 .movement-types-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(6, minmax(5.75rem, 1fr));
+    grid-auto-rows: auto;
     gap: var(--spacing-md);
-    margin-bottom: var(--spacing-lg);
+    width: max(100%, calc(6 * 5.75rem + 5 * var(--spacing-md)));
+    margin-bottom: 0;
 }
 
 .movement-type-cell {
@@ -2974,6 +2986,14 @@ html[data-test-mode="on"][data-theme="dark"] #inventory-tab .inventory-table--ma
 .movement-type-btn[data-type="MAT_ELEC_OBRA"] { border-color: var(--mov-mat-elec-obra); }
 .movement-type-btn[data-type="MAT_ELEC_OBRA"]::before { background: var(--mov-mat-elec-obra); }
 .movement-type-btn[data-type="MAT_ELEC_OBRA"].selected { background: var(--mov-mat-elec-obra); color: #fff; }
+
+.movement-type-btn[data-type="VENTA_DIRECTA"] { border-color: var(--mov-venta-directa); }
+.movement-type-btn[data-type="VENTA_DIRECTA"]::before { background: var(--mov-venta-directa); }
+.movement-type-btn[data-type="VENTA_DIRECTA"].selected { background: var(--mov-venta-directa); color: #fff; }
+
+.movement-type-btn[data-type="EXPEDICION_STOCK"] { border-color: var(--mov-expedicion-stock); }
+.movement-type-btn[data-type="EXPEDICION_STOCK"]::before { background: var(--mov-expedicion-stock); }
+.movement-type-btn[data-type="EXPEDICION_STOCK"].selected { background: var(--mov-expedicion-stock); color: #fff; }
 
 @keyframes mov-type-attention-pulse {
     0%,
@@ -4670,6 +4690,12 @@ body.auth-no-movements #config-suppliers .suppliers-remove-btn {
 .history-cell[data-type="MAT_ELEC_OBRA"] { border-color: var(--mov-mat-elec-obra); }
 .history-cell[data-type="MAT_ELEC_OBRA"]::before { background: var(--mov-mat-elec-obra); }
 
+.history-cell[data-type="VENTA_DIRECTA"] { border-color: var(--mov-venta-directa); }
+.history-cell[data-type="VENTA_DIRECTA"]::before { background: var(--mov-venta-directa); }
+
+.history-cell[data-type="EXPEDICION_STOCK"] { border-color: var(--mov-expedicion-stock); }
+.history-cell[data-type="EXPEDICION_STOCK"]::before { background: var(--mov-expedicion-stock); }
+
 /* ===== Standby List (Explorer style) ===== */
 .standby-list-head,
 .standby-row {
@@ -4762,6 +4788,8 @@ body.auth-no-movements #config-suppliers .suppliers-remove-btn {
 .standby-release-chip.type-ENVIAR_PRODUCCION { background: var(--mov-enviar-produccion); color: #fff; }
 .standby-release-chip.type-MAT_ELEC_PROD { background: var(--mov-mat-elec-prod); }
 .standby-release-chip.type-MAT_ELEC_OBRA { background: var(--mov-mat-elec-obra); color: #fff; }
+.standby-release-chip.type-VENTA_DIRECTA { background: var(--mov-venta-directa); color: #fff; }
+.standby-release-chip.type-EXPEDICION_STOCK { background: var(--mov-expedicion-stock); color: #fff; }
 
 .standby-actions {
     display: flex;
@@ -4793,6 +4821,8 @@ body.auth-no-movements #config-suppliers .suppliers-remove-btn {
 .standby-row.type-ENVIAR_PRODUCCION { border-left-color: var(--mov-enviar-produccion); }
 .standby-row.type-MAT_ELEC_PROD { border-left-color: var(--mov-mat-elec-prod); }
 .standby-row.type-MAT_ELEC_OBRA { border-left-color: var(--mov-mat-elec-obra); }
+.standby-row.type-VENTA_DIRECTA { border-left-color: var(--mov-venta-directa); }
+.standby-row.type-EXPEDICION_STOCK { border-left-color: var(--mov-expedicion-stock); }
 
 /* ===== Stand-by: globo flotante (FAB) ===== */
 #login-gate:not(.login-gate--hidden) ~ #standby-float-wrap {
@@ -6500,10 +6530,6 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
         justify-content: space-around;
     }
     
-    .movement-types-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
     .filters-grid {
         grid-template-columns: 1fr;
     }
@@ -6520,10 +6546,6 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
 @media (max-width: 480px) {
     .main-content {
         padding: var(--spacing-md);
-    }
-    
-    .movement-types-grid {
-        grid-template-columns: 1fr;
     }
     
     .history-cells-container {
@@ -6617,9 +6639,10 @@ body:not(.auth-admin) .consumo-ledger-table thead tr th:last-child {
     }
 
     .movement-types-grid {
-        grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+        grid-template-columns: repeat(6, minmax(4.85rem, 1fr));
         gap: 0.35rem;
-        margin-bottom: 0.65rem;
+        width: max(100%, calc(6 * 4.85rem + 5 * 0.35rem));
+        margin-bottom: 0;
     }
 
     .movement-type-btn {

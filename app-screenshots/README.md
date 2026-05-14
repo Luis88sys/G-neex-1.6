@@ -2,7 +2,7 @@
 
 PNG generados para **manuales** y **presentaciones** del proyecto. Cada idioma (es / en / fr) incluye: login, panel, inventario, movimientos, historial, transporte, pedidos, recordatorios y **Configuración → Usuarios**.
 
-## Regenerar las imágenes
+**Nota (mayo 2026):** la rejilla de **Movimientos** incluye ahora **Venta directa**, **Expedición de stock** (icono 🚛 en el tipo; el botón **Transporte** de la barra sigue con 🚚), **Recepción de material** (🧱) y la pestaña **Recepciones** (🧱). Tras cambios de UI conviene **volver a capturar** `capture-*-movimientos.png` y `capture-*-historial.png` para que coincidan con los manuales HTML y las presentaciones.
 
 Requisitos: **Python 3** y el paquete Playwright:
 

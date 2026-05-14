@@ -66,6 +66,22 @@
         close();
       });
     }
+    /** Manuales y presentaciones HTML: evita bfCache / pestaña vieja sin recargar el documento. */
+    var docLinks = r.querySelectorAll("a.help-manual-link[href]");
+    for (var j = 0; j < docLinks.length; j++) {
+      docLinks[j].addEventListener("click", function (ev) {
+        var el = ev.currentTarget;
+        var raw = el.getAttribute("href");
+        if (!raw) return;
+        var pathPart = raw.split("#")[0];
+        if (pathPart.indexOf(".html") === -1) return;
+        ev.preventDefault();
+        var hash = raw.indexOf("#") >= 0 ? raw.slice(raw.indexOf("#")) : "";
+        var sep = pathPart.indexOf("?") >= 0 ? "&" : "?";
+        var url = pathPart + sep + "_cb=" + Date.now() + hash;
+        window.open(url, el.target || "_blank", "noopener,noreferrer");
+      });
+    }
   }
 
   if (document.readyState === "loading") {

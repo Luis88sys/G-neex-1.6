@@ -4771,7 +4771,7 @@ const InventoryManager = {
    * Origen de stock para movimientos en salida: producción, transformación, cajas (principal), ubicaciones.
    * Ubicaciones muestran cantidad = stock principal − stock en cajas, repartida entre ranuras (no se duplica el total del principal).
    * Valores: "", "depot:production", "depot:transformation", "box:id", "ibox:número", "loc:encoded"
-   * @param {{ onlyOriginsWithStock?: boolean }} [options] — si `onlyOriginsWithStock`, no lista orígenes con cantidad ≤ 0 (consumo diario, merma); la opción ya seleccionada se mantiene aunque sea 0.
+   * @param {{ onlyOriginsWithStock?: boolean, excludeDepotProductionTransformation?: boolean }} [options] — si `onlyOriginsWithStock`, no lista orígenes con cantidad ≤ 0 (consumo diario, merma); la opción ya seleccionada se mantiene aunque sea 0. Si `excludeDepotProductionTransformation`, no se ofrecen depósitos producción/transformación (Venta directa, Expedición de stock).
    */
   buildStockSourceOptionsHtmlForMovement(itemId, selectedValue = "", options = {}) {
     const item = this.getItemById(itemId);
@@ -4782,6 +4782,7 @@ const InventoryManager = {
     }
     const selNorm = String(selectedValue || "").trim();
     const onlyOriginsWithStock = !!options.onlyOriginsWithStock;
+    const excludeDepotPT = !!options.excludeDepotProductionTransformation;
     const pool = this._getMainLocationPoolQty(item);
     const locSourceRows = this.getMovementLocationSourceOptions(item);
 
@@ -4805,9 +4806,9 @@ const InventoryManager = {
     const selP = selNorm === "depot:production" ? " selected" : "";
     const selT = selNorm === "depot:transformation" ? " selected" : "";
     const showProd =
-      !onlyOriginsWithStock || prodNum > 0 || selNorm === "depot:production";
+      !excludeDepotPT && (!onlyOriginsWithStock || prodNum > 0 || selNorm === "depot:production");
     const showTrans =
-      !onlyOriginsWithStock || transNum > 0 || selNorm === "depot:transformation";
+      !excludeDepotPT && (!onlyOriginsWithStock || transNum > 0 || selNorm === "depot:transformation");
     if (showProd) {
       opts.push(
         `<option value="depot:production"${selP}>${this.esc(

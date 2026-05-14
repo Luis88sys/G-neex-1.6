@@ -1780,6 +1780,36 @@ const MovementManager = {
             this.populateStandbyReleaseTypes();
         }
 
+        const soPrBlock = document.getElementById("movement-so-pr-fields");
+        const soWrap = document.getElementById("movement-sales-order-wrap");
+        const prWrap = document.getElementById("movement-pr-wrap");
+        if (soPrBlock) {
+            const showSoPr = type === "VENTA_DIRECTA" || type === "EXPEDICION_STOCK";
+            soPrBlock.style.display = showSoPr ? "grid" : "none";
+            if (soWrap) soWrap.style.display = type === "VENTA_DIRECTA" ? "" : "none";
+            if (prWrap) prWrap.style.display = type === "EXPEDICION_STOCK" ? "" : "none";
+        }
+        const soHint = document.getElementById("mov-sales-order-hint");
+        const prHint = document.getElementById("mov-pr-hint");
+        if (soHint && typeof I18n !== "undefined" && I18n.t) {
+            if (type === "VENTA_DIRECTA") {
+                soHint.textContent = `${I18n.t("hint.required")} · ${I18n.t("movements.salesOrderHint")}`;
+                soHint.className = "field-hint required";
+            } else {
+                soHint.textContent = I18n.t("movements.salesOrderHint");
+                soHint.className = "field-hint optional";
+            }
+        }
+        if (prHint && typeof I18n !== "undefined" && I18n.t) {
+            if (type === "EXPEDICION_STOCK") {
+                prHint.textContent = `${I18n.t("hint.required")} · ${I18n.t("movements.prNumberHint")}`;
+                prHint.className = "field-hint required";
+            } else {
+                prHint.textContent = I18n.t("movements.prNumberHint");
+                prHint.className = "field-hint optional";
+            }
+        }
+
         const compraBlock = document.getElementById('movement-compra-fields');
         const compraSug = document.getElementById('mov-compra-suggestions-wrap');
         const movConsExtra = document.getElementById("mov-compra-consumible-extra");
@@ -3310,7 +3340,9 @@ const MovementManager = {
             t === "MERMA" ||
             t === "CONSUMO_DIARIO" ||
             t === "MAT_ELEC_PROD" ||
-            t === "MAT_ELEC_OBRA"
+            t === "MAT_ELEC_OBRA" ||
+            t === "VENTA_DIRECTA" ||
+            t === "EXPEDICION_STOCK"
         );
     },
 
@@ -3585,11 +3617,16 @@ const MovementManager = {
         if (!thBox || thBox.style.display === 'none') return '';
         if (!this._lineSupportsStockSourceSelect(item, conf)) return `<td class="mov-box-cell">—</td>`;
         const sel = this._movementStockSourceSelectValue(item);
+        const exVentExp =
+            this.currentType === "VENTA_DIRECTA" || this.currentType === "EXPEDICION_STOCK"
+                ? { excludeDepotProductionTransformation: true }
+                : {};
         const html =
             typeof InventoryManager !== 'undefined' && InventoryManager.buildStockSourceOptionsHtmlForMovement
                 ? InventoryManager.buildStockSourceOptionsHtmlForMovement(item.itemId, sel, {
                       onlyOriginsWithStock:
-                          this.currentType === 'CONSUMO_DIARIO' || this.currentType === 'MERMA'
+                          this.currentType === 'CONSUMO_DIARIO' || this.currentType === 'MERMA',
+                      ...exVentExp
                   })
                 : '<option value="">—</option>';
         return `<td class="mov-box-cell"><select class="target-select mov-stock-source-select" data-stock-line-index="${index}" aria-label="${this._escHtml(I18n.t('movements.stockSourceColumn'))}">${html}</select></td>`;
@@ -3598,7 +3635,14 @@ const MovementManager = {
     updateItemStockSource(index, value) {
         if (index < 0 || index >= this.selectedItems.length) return;
         const it = this.selectedItems[index];
-        const v = String(value || '').trim();
+        let v = String(value || '').trim();
+        if (
+            (this.currentType === "VENTA_DIRECTA" || this.currentType === "EXPEDICION_STOCK") &&
+            (v === "depot:production" || v === "depot:transformation")
+        ) {
+            Utils.showToast(I18n.t("msg.stockSourceVentExpNotAllowed"), "error");
+            v = "";
+        }
         it.stockSourceId = v;
         it.boxId = '';
         it.boxNumber = undefined;
@@ -4497,6 +4541,30 @@ const MovementManager = {
             return false;
         }
 
+        if (this.currentType === "VENTA_DIRECTA") {
+            const rawSo = document.getElementById("mov-sales-order")?.value?.trim() || "";
+            if (!Utils.isValidVentDirectaSalesOrder(rawSo)) {
+                Utils.showToast(I18n.t("msg.salesOrderInvalid"), "error");
+                return false;
+            }
+        }
+        if (this.currentType === "EXPEDICION_STOCK") {
+            const rawPr = document.getElementById("mov-pr-number")?.value?.trim() || "";
+            if (!Utils.isValidExpedicionPr(rawPr)) {
+                Utils.showToast(I18n.t("msg.prNumberInvalid"), "error");
+                return false;
+            }
+        }
+        if (this.currentType === "VENTA_DIRECTA" || this.currentType === "EXPEDICION_STOCK") {
+            for (const it of this.selectedItems) {
+                const sid = this._getLineStockSourceId(it);
+                if (sid === "depot:production" || sid === "depot:transformation") {
+                    Utils.showToast(I18n.t("msg.stockSourceVentExpNotAllowed"), "error");
+                    return false;
+                }
+            }
+        }
+
         // Validar al menos un artículo
         if (this.selectedItems.length === 0) {
             Utils.showToast(I18n.t('msg.noItemsSelected'), 'error');
@@ -5197,6 +5265,18 @@ const MovementManager = {
                 return;
             }
         }
+        if (this.currentType === "VENTA_DIRECTA" || this.currentType === "EXPEDICION_STOCK") {
+            mappedItems = (mappedItems || []).map(li => {
+                if (!li || li.consumableReceipt) return li;
+                const sid = this._getLineStockSourceId(li);
+                if (sid === "depot:production" || sid === "depot:transformation") {
+                    const o = { ...li, target: "main" };
+                    delete o.stockSourceId;
+                    return o;
+                }
+                return li;
+            });
+        }
         mappedItems = mappedItems.map(li => {
             if (!li || li.consumableReceipt || li.itemId == null) return li;
             if (typeof InventoryManager === "undefined") return li;
@@ -5286,6 +5366,14 @@ const MovementManager = {
             attachments: []
         };
         movement.createdBy = Auth.getDisplayName();
+        if (this.currentType === "VENTA_DIRECTA") {
+            movement.salesOrder = Utils.normalizeVentDirectaSalesOrder(
+                document.getElementById("mov-sales-order")?.value || ""
+            );
+        }
+        if (this.currentType === "EXPEDICION_STOCK") {
+            movement.prNumber = Utils.normalizeExpedicionPr(document.getElementById("mov-pr-number")?.value || "");
+        }
         if (expiredStockOverrideReason) {
             movement.expiredStockOverrideReason = expiredStockOverrideReason;
         }
@@ -6513,6 +6601,13 @@ const MovementManager = {
         if (mrgp) mrgp.value = "";
         const mrHist = document.getElementById("mov-rec-receipt-historical-date");
         if (mrHist) mrHist.value = "";
+
+        const movSo = document.getElementById("mov-sales-order");
+        const movPr = document.getElementById("mov-pr-number");
+        if (movSo) movSo.value = "";
+        if (movPr) movPr.value = "";
+        const soPrBlock = document.getElementById("movement-so-pr-fields");
+        if (soPrBlock) soPrBlock.style.display = "none";
 
         const invLines = document.getElementById('movement-inventory-lines');
         if (invLines) invLines.style.display = 'block';

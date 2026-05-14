@@ -192,7 +192,7 @@
     <p>Elle gère tout le cycle de vie du matériel :</p>
     <p class="flow"><strong>Réception</strong> → <strong>Entrepôt</strong> → <strong>Sortie</strong> → <strong>Transport</strong> → <strong>Chantier</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
-        <img class="pres-shot" style="max-height:40vh" src="../app-screenshots/capture-fr-01-login.png" alt="Connexion" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:40vh" src="./app-screenshots/capture-fr-01-login.png?v=1778738530" alt="Connexion" loading="lazy" decoding="async">
         <figcaption style="font-size:0.95em;color:#666;margin-top:0.5rem">Écran de connexion</figcaption>
     </figure>
     <div class="watermark">G-NEEX</div>
@@ -202,7 +202,7 @@
 <div class="slide">
     <h2>Inventaire en Temps Réel</h2>
     <figure style="text-align:center;margin:0 0 12px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-inventario.png" alt="Onglet Inventaire" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-fr-inventario.png?v=1778738530" alt="Onglet Inventaire" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Inventaire</strong> (barre supérieure)</figcaption>
     </figure>
     <table>
@@ -227,14 +227,15 @@
     <div class="watermark">G-NEEX</div>
 </div>
 
-<!-- Slide 5: 16 Types de Mouvement -->
+<!-- Slide 5: 18 Types de Mouvement -->
 <div class="slide">
-    <h2>16 Types de Mouvement</h2>
+    <h2>18 Types de Mouvement</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-fr-movimientos.png" alt="Onglet Mouvements" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="./app-screenshots/capture-fr-movimientos.png?v=1778738530" alt="Onglet Mouvements" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Mouvements</strong> — grille des types</figcaption>
     </figure>
-    <p>G-NEEX supporte <strong>16 types de mouvement</strong> couvrant toutes les opérations d'un entrepôt industriel :</p>
+    <p>G-NEEX supporte <strong>18 types de mouvement</strong> couvrant toutes les opérations d'un entrepôt industriel :</p>
+    <p>La grille des boutons est toujours en <strong>6 colonnes × 3 lignes</strong> ; sur un écran étroit la zone permet un <strong>défilement horizontal</strong> sans perdre l’alignement.</p>
     <table>
         <thead>
             <tr><th>Catégorie</th><th>Types</th></tr>
@@ -242,6 +243,7 @@
         <tbody>
             <tr><td><strong>Opérations quotidiennes</strong></td><td>Consommation Quotidienne, Ajustement, Quincaillerie, Spécial</td></tr>
             <tr><td><strong>Projets / Chantier</strong></td><td>Checklist, M.E. Chantier, M.E. Production, Perte</td></tr>
+            <tr><td><strong>Vente / envoi chantier</strong></td><td>Vente directe (SO obligatoire), Expédition de stock (projet et PR obligatoires)</td></tr>
             <tr><td><strong>Logistique inverse</strong></td><td>Retour, Démantèlement</td></tr>
             <tr><td><strong>Production</strong></td><td>Envoi en Production, Transformation, Transfert</td></tr>
             <tr><td><strong>Approvisionnement</strong></td><td>Achat de Stock, Réception de Matériel</td></tr>
@@ -249,7 +251,7 @@
         </tbody>
     </table>
     <p>Dans l'onglet <strong>Mouvements</strong>, le choix d'un type ouvre le formulaire dans une <strong>fenêtre superposée dans l'application</strong> (la grille des types reste visible derrière).</p>
-    <p>Pour les types qui <strong>soustrent du stock</strong>, la colonne <strong>Origine stock</strong> permet de choisir <strong>depuis quel dépôt</strong> la quantité est prélevée : <strong>principal</strong> (Entrepôt général), <strong>caisses</strong>, <strong>emplacements</strong> (étiquette seule dans la liste), <strong>stock de production</strong> et <strong>stock de transformation</strong> (quantité affichée si applicable) ; la même référence peut figurer sur <strong>plusieurs lignes</strong>. Lorsqu’une colonne <strong>Destination</strong> s’ajoute à l’origine, l’<strong>origine</strong> correspond au prélèvement physique et la <strong>destination</strong> peut différer.</p>
+    <p>Pour les types qui <strong>soustrent du stock</strong>, la colonne <strong>Origine stock</strong> permet de choisir <strong>depuis quel dépôt</strong> la quantité est prélevée : <strong>principal</strong> (Entrepôt général), <strong>caisses</strong>, <strong>emplacements</strong> (étiquette seule dans la liste), <strong>stock de production</strong> et <strong>stock de transformation</strong> (quantité affichée si applicable) ; la même référence peut figurer sur <strong>plusieurs lignes</strong>. Lorsqu’une colonne <strong>Destination</strong> s’ajoute à l’origine, l’<strong>origine</strong> correspond au prélèvement physique et la <strong>destination</strong> peut différer. <strong>Vente directe</strong> et <strong>Expédition de stock</strong> : uniquement <strong>principal, caisses ou emplacements</strong> (pas production ni transformation) ; la vente exige un <strong>SO</strong> (<code>SO</code> + 4 à 6 chiffres) ; l’expédition exige <strong>projet</strong> et <strong>PR</strong> (<code>PR</code> + 4 à 6 chiffres). Références : préfixes <strong>VDT</strong> et <strong>EXP</strong> + 6 chiffres par type.</p>
     <p><strong>M.É. chantier :</strong> les <strong>quantités</strong> par ligne sont du stock ; au <strong>Traiter le mouvement</strong>, on saisit le <strong>total de caisses</strong> pour l'envoi (réparti entre les lignes selon les quantités).</p>
     <p>Chaque mouvement enregistre automatiquement :</p>
     <ul>
@@ -281,7 +283,7 @@
 <div class="slide">
     <h2>Commandes fournisseur</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-pedidos.png" alt="Onglet Commandes" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-fr-pedidos.png?v=1778738530" alt="Onglet Commandes" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Commandes</strong></figcaption>
     </figure>
     <p>Onglet <strong>Commandes</strong> : lignes liées au stock (fournisseur, quantité) ; le <strong>BC/PO</strong> est enregistré à la <strong>réception</strong> dans Achat de stock.</p>
@@ -302,12 +304,12 @@
 <div class="slide">
     <h2>Dispositions de liste</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:30vh" src="../app-screenshots/capture-fr-historial.png" alt="Onglet Historique" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:30vh" src="./app-screenshots/capture-fr-historial.png?v=1778738530" alt="Onglet Historique" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Historique</strong> (mosaïque / tableau / carrousel)</figcaption>
     </figure>
     <p><strong>Historique</strong>, <strong>Transport</strong> et <strong>Commandes</strong> proposent un sélecteur <strong>Affichage</strong> : <strong>mosaïque</strong>, <strong>liste compacte</strong> et, selon l’écran, <strong>tableau détaillé</strong> ; dans <strong>Historique</strong>, un <strong>Carrousel chronologique</strong> est aussi disponible pour parcourir les cartes à l’horizontale. Les cartes minimisées affichent aussi l’<strong>ID projet</strong> quand pertinent.</p>
     <p>Dans <strong>Historique</strong>, les mouvements entièrement annulés ou avec <strong>annulation partielle</strong> affichent un <strong>tampon diagonal</strong> (cadre en pointillés incliné) ; les filtres incluent aussi le type d’annulation.</p>
-    <p>Nouveau filtre <strong>Notes du mouvement</strong> (texte dans le champ notes uniquement). Dans le détail, avec la permission mouvements, <strong>Ajouter une note</strong> s’ajoute en fin sans effacer l’existant (date et utilisateur par bloc). Les changements de <strong>quantité par caisse</strong> en gestion par caisse créent aussi un <strong>ajustement (AJUSTE)</strong> dans l’historique.</p>
+    <p>Nouveau filtre <strong>Notes du mouvement</strong> (texte dans le champ notes uniquement) ; filtres <strong>SO (vente directe)</strong> et <strong>PR (expédition)</strong>. Dans le détail, avec la permission mouvements, <strong>Ajouter une note</strong> s’ajoute en fin sans effacer l’existant (date et utilisateur par bloc). Les changements de <strong>quantité par caisse</strong> en gestion par caisse créent aussi un <strong>ajustement (AJUSTE)</strong> dans l’historique.</p>
     <p><strong>Dates à l’écran (toute l’app) :</strong> jour, mois en trois lettres, année sur quatre chiffres ; avec l’heure, <strong>24 h</strong> locale.</p>
     <p>Dans <strong>Historique → Consommation quotidienne par destinataire</strong>, le tableau permet désormais de <strong>modifier les destinataires</strong>, <strong>enregistrer les changements</strong> et <strong>nettoyer les lignes visibles</strong> selon les filtres.</p>
     <p><strong>Pièces jointes (📎)</strong> dans le détail d’un mouvement et le transport déplié : lient des fichiers dans n’importe quel dossier (sans copie dans l’app) ; ouverture avec Chrome/Edge. Les sauvegardes JSON n’incluent pas les fichiers : relier sur un autre PC.</p>
@@ -320,7 +322,7 @@
 <div class="slide">
     <h2>Transport Intelligent</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-transporte.png" alt="Onglet Transport" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-fr-transporte.png?v=1778738530" alt="Onglet Transport" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Transport</strong></figcaption>
     </figure>
     <p>Le module transport automatise la logistique d'envoi vers le chantier :</p>
@@ -341,7 +343,7 @@
 <div class="slide">
     <h2>Tableau de Bord — Vue d'Ensemble Instantanée</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-panel.png" alt="Tableau de bord" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-fr-panel.png?v=1778738530" alt="Tableau de bord" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Tableau de bord après connexion (vue d’ensemble)</figcaption>
     </figure>
     <p>À la connexion, un panneau affiche l'état actuel des opérations :</p>
@@ -361,7 +363,7 @@
 <div class="slide">
     <h2>Rappels</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="../app-screenshots/capture-fr-recordatorios.png" alt="Onglet Rappels" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-fr-recordatorios.png?v=1778738530" alt="Onglet Rappels" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Onglet <strong>Rappels</strong></figcaption>
     </figure>
     <ul>
@@ -377,7 +379,7 @@
 <div class="slide">
     <h2>L’application à l’écran (usage)</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:28vh" src="../app-screenshots/capture-fr-panel.png" alt="Tableau de bord G-NEEX" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="./app-screenshots/capture-fr-panel.png?v=1778738530" alt="Tableau de bord G-NEEX" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Tableau de bord : navigation vers les modules principaux</figcaption>
     </figure>
     <ul>
@@ -509,7 +511,7 @@
     ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
     │ INVENTAIRE  │    │ MOUVEMENTS  │    │ COMMANDES   │    │  TRANSPORT  │
     │             │    │             │    │(fournisseur)│    │             │
-    │ • Articles  │    │ • 16 types  │    │ • Lignes BC │    │ • Automati. │
+    │ • Articles  │    │ • 18 types  │    │ • Lignes BC │    │ • Automati. │
     │ • 3 stocks  │    │ • Stand-By  │    │ • Récept. → │    │ • Manuel    │
     │ • Alertes   │    │ • Dépassem. │    │   achat     │    │ • Expédit.  │
     │ • Recherche │    │ • Référence │    │ • XLSX      │    │ • Tableau   │

@@ -47,13 +47,13 @@ Gestiona todo el ciclo de vida del material:
 
 *Capturas reales v1.6 (Playwright). Regenerar: `docs/app-screenshots/README.md`.*
 
-![Inicio de sesión (entrada a la app)](../app-screenshots/capture-es-01-login.png)
+![Inicio de sesión (entrada a la app)](../docs/app-screenshots/capture-es-01-login.png)
 
 ---
 
 ## Inventario en Tiempo Real
 
-![Pestaña Inventario](../app-screenshots/capture-es-inventario.png)
+![Pestaña Inventario](../docs/app-screenshots/capture-es-inventario.png)
 
 | Función | Descripción |
 |---------|-------------|
@@ -73,16 +73,19 @@ Gestiona todo el ciclo de vida del material:
 
 ---
 
-## 16 Tipos de Movimiento
+## 18 Tipos de Movimiento
 
-![Pestaña Movimientos (rejilla de tipos)](../app-screenshots/capture-es-movimientos.png)
+![Pestaña Movimientos (rejilla de tipos)](../docs/app-screenshots/capture-es-movimientos.png)
 
-G-NEEX soporta **16 tipos de movimiento** que cubren todas las operaciones de un almacén industrial:
+G-NEEX soporta **18 tipos de movimiento** que cubren todas las operaciones de un almacén industrial:
+
+La rejilla de botones usa siempre **6 columnas × 3 filas**; si el ancho no alcanza, la zona permite **desplazamiento horizontal** sin perder la alineación.
 
 | Categoría | Tipos |
 |-----------|-------|
 | **Operaciones diarias** | Consumo Diario, Ajuste, Ferretería, Especial |
 | **Proyectos / Obra** | Lista de Chequeo, M.E. Obra, M.E. Producción, Merma |
+| **Venta / envío a obra** | Venta directa (SO obligatorio), Expedición de stock (proyecto y PR obligatorios) |
 | **Logística inversa** | Retorno, Desmantelar |
 | **Producción** | Enviar a Producción, Transformación, Transferencia |
 | **Abastecimiento** | Compra de Stock, Recepción de Material |
@@ -90,7 +93,7 @@ G-NEEX soporta **16 tipos de movimiento** que cubren todas las operaciones de un
 
 En la pestaña **Movimientos**, al pulsar un tipo se abre el formulario en una **ventana superpuesta dentro de la aplicación** (la vista sigue mostrando la cuadrícula de tipos detrás).
 
-En los tipos que **restan inventario**, la columna **Origen stock** permite elegir **de qué depósito** sale la cantidad: **principal** (Almacén general), **cajas**, **ubicaciones** (solo etiqueta en la lista), **stock de producción** y **stock de transformación** (con cantidad cuando aplica); la misma referencia puede ir en **varias líneas** con orígenes distintos. Si el formulario incluye columna **Destino** además del origen, el **origen** define el descuento físico y el **destino** puede ser distinto.
+En los tipos que **restan inventario**, la columna **Origen stock** permite elegir **de qué depósito** sale la cantidad: **principal** (Almacén general), **cajas**, **ubicaciones** (solo etiqueta en la lista), **stock de producción** y **stock de transformación** (con cantidad cuando aplica); la misma referencia puede ir en **varias líneas** con orígenes distintos. Si el formulario incluye columna **Destino** además del origen, el **origen** define el descuento físico y el **destino** puede ser distinto. **Venta directa** y **Expedición de stock** solo permiten **principal, cajas o ubicaciones** (no producción ni transformación); la venta exige **SO** (`SO` + 4–6 dígitos); la expedición exige **proyecto** y **PR** (`PR` + 4–6 dígitos). Referencias de movimiento: prefijos **VDT** y **EXP** + 6 dígitos por tipo.
 
 **M.E. obra:** las **cantidades** en cada línea son de inventario; al **Procesar movimiento** se introduce el **total de cajas** del envío (se distribuyen entre líneas según las cantidades).
 
@@ -116,7 +119,7 @@ Cada movimiento registra automáticamente:
 
 ## Pedidos a proveedor (órdenes por línea)
 
-![Pestaña Pedidos](../app-screenshots/capture-es-pedidos.png)
+![Pestaña Pedidos](../docs/app-screenshots/capture-es-pedidos.png)
 
 - Pestaña **Pedidos**: líneas vinculadas al inventario (código, proveedor, cantidad); el **OC/PO** se informa **por línea** en **Compra de stock** al recibir (no filtra el vínculo con el pedido: deben coincidir **código de artículo** y **proveedor**).
 - Filtros en el panel: búsqueda de texto (referencia/código/descripción/proveedor/cantidades), estado, fecha clave (desde/hasta) e historial (con/sin recepción, con pedido, con anulación).
@@ -132,11 +135,11 @@ Cada movimiento registra automáticamente:
 
 ## Vistas de listado (estilo Explorador)
 
-![Pestaña Historial (vistas mosaico / tabla / carrusel)](../app-screenshots/capture-es-historial.png)
+![Pestaña Historial (vistas mosaico / tabla / carrusel)](../docs/app-screenshots/capture-es-historial.png)
 
 - **Historial**, **Transporte** y **Pedidos** incluyen un selector **Vista** con disposición en **mosaico** (tarjetas o iconos), **lista compacta** y, donde aplica, **tabla detallada**; además, en **Historial** hay **Carrusel cronológico** para recorrer tarjetas en secuencia horizontal. Las tarjetas minimizadas muestran también el **ID Proyecto** cuando corresponde.
 - En **Historial**, movimientos anulados en total o con **anulado parcial** muestran un **sello diagonal** (marco discontinuo inclinado); también hay filtro por tipo de anulación.
-- Nuevo filtro **Notas del movimiento**; en el detalle se pueden **añadir notas** sin borrar las existentes; las cantidades por **gestión de caja** generan **AJUSTE** en historial.
+- Nuevo filtro **Notas del movimiento**; filtros **SO (venta directa)** y **PR (expedición)**; en el detalle se pueden **añadir notas** sin borrar las existentes; las cantidades por **gestión de caja** generan **AJUSTE** en historial.
 - **Fechas en pantalla (toda la app):** día, mes en tres letras, año en cuatro cifras; con hora, **24 h** hora local.
 - En **Historial → Consumo diario por destinatario**, la tabla permite **editar destinatarios**, **guardar cambios** y **limpiar las filas visibles** según filtros.
 - **Adjuntos (📎)** en el detalle de un movimiento y en el transporte expandido: enlazan archivos en cualquier carpeta del equipo (sin copiarlos a la app); se abren con Chrome/Edge. Los respaldos JSON no incluyen los archivos: en otro PC hay que volver a enlazar.
@@ -147,7 +150,7 @@ Cada movimiento registra automáticamente:
 
 ## Transporte Inteligente
 
-![Pestaña Transporte](../app-screenshots/capture-es-transporte.png)
+![Pestaña Transporte](../docs/app-screenshots/capture-es-transporte.png)
 
 El módulo de transporte automatiza la logística de envío a obra:
 
@@ -164,7 +167,7 @@ El módulo de transporte automatiza la logística de envío a obra:
 
 ## Dashboard — Visión General al Instante
 
-![Panel tras el inicio de sesión (resumen)](../app-screenshots/capture-es-panel.png)
+![Panel tras el inicio de sesión (resumen)](../docs/app-screenshots/capture-es-panel.png)
 
 Al iniciar sesión, un panel muestra el estado actual de la operación:
 
@@ -185,7 +188,7 @@ Indicadores visuales alertan si hay stock crítico o si el respaldo tiene más d
 
 ## Recordatorios (Admin)
 
-![Pestaña Recordatorios](../app-screenshots/capture-es-recordatorios.png)
+![Pestaña Recordatorios](../docs/app-screenshots/capture-es-recordatorios.png)
 
 - Pestaña dedicada para recordatorios operativos con fecha objetivo y prioridad.
 - Las prioridades pueden escalar automáticamente por antigüedad en días hábiles.
@@ -195,7 +198,7 @@ Indicadores visuales alertan si hay stock crítico o si el respaldo tiene más d
 
 ## Aplicación en pantalla (visión de uso)
 
-![Panel o dashboard (G-NEEX)](../app-screenshots/capture-es-panel.png)
+![Panel o dashboard (G-NEEX)](../docs/app-screenshots/capture-es-panel.png)
 
 - G-NEEX organiza el trabajo en módulos con acceso directo desde la barra: inventario, movimientos, historial, transporte, pedidos, recordatorios y ajustes.
 - El administrador define usuarios en **⚙️ Configuración → Usuarios** con plantillas genéricas o **perfiles de referencia** (mismo comportamiento que las cuentas integradas del proyecto); la tabla **`PlantillasPermisos.xlsx.csv`** documenta cada clave.
@@ -297,7 +300,7 @@ Los archivos incluyen rango de fechas en el nombre:
     ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
     │ INVENTARIO  │    │ MOVIMIENTOS │    │  PEDIDOS    │    │ TRANSPORTE  │
     │             │    │             │    │ (proveedor)│    │             │
-    │ • Artículos │    │ • 16 tipos  │    │ • Líneas OC │    │ • Automático│
+    │ • Artículos │    │ • 18 tipos  │    │ • Líneas OC │    │ • Automático│
     │ • 3 stocks  │    │ • Stand-By  │    │ • Recepción │    │ • Manual    │
     │ • Alertas   │    │ • Overdraft │    │   → compra  │    │ • Expedición│
     │ • Búsqueda  │    │ • Referencia│    │ • XLSX      │    │ • Panel     │

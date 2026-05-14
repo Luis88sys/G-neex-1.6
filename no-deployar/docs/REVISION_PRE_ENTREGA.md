@@ -26,6 +26,7 @@ Siguientes fases previstas: Inventario, Panel, Movimientos, Historial, Recordato
 ## 3. Movimientos y pedidos
 
 - Recepción desde líneas de pedido: debe seguir abriendo el mismo flujo COMPRA_STOCK (`MovementManager.openCompraStockFromOrderLine` / lote).
+- **Venta directa / Expedición de stock:** validación de **SO** / **PR** (4–6 dígitos), origen de stock solo principal/cajas/ubicaciones; filtros de historial **SO** / **PR**; permisos `movType_VENTA_DIRECTA` y `movType_EXPEDICION_STOCK` en matriz.
 - Vínculo pedido ↔ compra (recepción): coherencia por **código de artículo + proveedor**; PO por fila en el formulario; comprobar que al editar cantidades en la tabla no se pierden PO/proveedor antes de **Procesar**.
 - Tras cambios en Pedidos o Movimientos, probar al menos: línea inactiva → pedida → recepción parcial/total, recepción múltiple con un solo proveedor, y exportación/imprimir si el rol lo permite.
 

@@ -239,7 +239,7 @@
 <h2>2.2 Tableau de bord (Panneau de résumé)</h2>
 <p>À l'entrée dans l'application, un panneau s'affiche avec les informations du jour. La <strong>barre supérieure</strong> contient les accès aux modules (p. ex. <strong>📦 Inventaire</strong> — §2.3) :</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-panel.png" alt="Tableau de bord" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-panel.png?v=1778738530" alt="Tableau de bord" loading="lazy" decoding="async">
   <figcaption>Tableau de bord et barre de navigation</figcaption>
 </figure>
 <table>
@@ -260,7 +260,7 @@
 <h2>2.3 Inventaire</h2>
 <p>Vue en cliquant sur <strong>Inventaire</strong> (📦) dans la barre : recherche, filtres, cartes et tableau.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-inventario.png" alt="Onglet Inventaire" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-inventario.png?v=1778738530" alt="Onglet Inventaire" loading="lazy" decoding="async">
   <figcaption>Onglet Inventaire</figcaption>
 </figure>
 
@@ -317,9 +317,9 @@
 <hr>
 
 <h2>2.4 Mouvements</h2>
-<p>Onglet <strong>Mouvements</strong> (➕) : grille de types ; formulaire en fenêtre superposée.</p>
+<p>Onglet <strong>Mouvements</strong> (➕) : grille de types ; formulaire en fenêtre superposée. L’onglet <strong>Réceptions</strong> (🧱) ouvre le registre des réceptions dans Configuration ; le type « Réception de matériel » dans la grille utilise la même icône <strong>🧱</strong> dans l’application. Les <strong>18 types</strong> s’affichent toujours dans une <strong>grille de 6 colonnes × 3 lignes</strong> ; sur un écran étroit la zone de la grille permet un <strong>défilement horizontal</strong> pour conserver l’alignement.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-movimientos.png" alt="Onglet Mouvements" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-movimientos.png?v=1778738530" alt="Onglet Mouvements" loading="lazy" decoding="async">
   <figcaption>Onglet Mouvements</figcaption>
 </figure>
 
@@ -329,7 +329,7 @@
   <li>Sélectionner le <strong>type de mouvement</strong> en cliquant sur son bouton : une <strong>fenêtre superposée dans l'application</strong> s'ouvre avec le formulaire de ce type (la vue Mouvements affiche toujours uniquement la grille et la liste récente).</li>
   <li>Dans cette fenêtre, remplir l'<strong>ID Projet</strong> (obligatoire ou automatique selon le type) et les <strong>Notes</strong></li>
   <li><strong>Rechercher des articles</strong> : au moins 2 caractères → sélectionner un article → saisir la <strong>quantité</strong> comme pour les autres types → la ligne est ajoutée (colonne <strong>Quantité</strong>)</li>
-  <li><strong>Origine du stock</strong> (types qui <strong>soustrent</strong> du stock) : si la colonne <strong>Origine stock</strong> apparaît, choisissez <strong>depuis quel dépôt</strong> la quantité est prélevée : <strong>Entrepôt général</strong> (stock principal, quantité affichée) ; chaque <strong>caisse</strong> (même quantité que dans <strong>Gestion du stock par caisse</strong>) ; <strong>emplacements</strong> du stock détaillé par emplacement (<strong>étiquette seule</strong> dans la liste) ; et le cas échéant <strong>stock de production</strong> ou <strong>stock de transformation</strong> (quantité affichée). Vous pouvez <strong>ajouter plusieurs lignes</strong> du même article pour répartir les quantités. Pour les types qui affichent aussi une colonne <strong>Destination</strong> (p. ex. Quincaillerie, M.É. Production, M.É. Chantier), l’<strong>origine</strong> est le dépôt physique débité ; la <strong>destination</strong> classe le mouvement et peut différer de l’origine.</li>
+  <li><strong>Origine du stock</strong> (types qui <strong>soustrent</strong> du stock) : si la colonne <strong>Origine stock</strong> apparaît, choisissez <strong>depuis quel dépôt</strong> la quantité est prélevée : <strong>Entrepôt général</strong> (stock principal, quantité affichée) ; chaque <strong>caisse</strong> (même quantité que dans <strong>Gestion du stock par caisse</strong>) ; <strong>emplacements</strong> du stock détaillé par emplacement (<strong>étiquette seule</strong> dans la liste) ; et le cas échéant <strong>stock de production</strong> ou <strong>stock de transformation</strong> (quantité affichée). Vous pouvez <strong>ajouter plusieurs lignes</strong> du même article pour répartir les quantités. Pour les types qui affichent aussi une colonne <strong>Destination</strong> (p. ex. Quincaillerie, M.É. Production, M.É. Chantier), l’<strong>origine</strong> est le dépôt physique débité ; la <strong>destination</strong> classe le mouvement et peut différer de l’origine. Pour la <strong>Vente directe</strong> et l’<strong>Expédition de stock</strong>, seuls le <strong>principal</strong>, les <strong>caisses</strong> ou les <strong>emplacements</strong> sont autorisés (pas la production ni la transformation).</li>
   <li>Vérifier et ajuster les <strong>quantités</strong> dans la liste avant de traiter</li>
   <li>Cliquer sur <strong>Traiter le mouvement</strong>. Pour <strong>M.É. chantier</strong>, une question demande le <strong>total de caisses</strong> pour cet envoi (pas par article) ; elles sont réparties entre les lignes selon les quantités pour le stock M.É. chantier</li>
 </ol>
@@ -355,11 +355,21 @@
     <tr><td>Envoi en Production</td><td>Soustrait</td><td>Facultatif</td></tr>
     <tr><td>M.É. Production</td><td>Soustrait</td><td>Obligatoire</td></tr>
     <tr><td>M.É. Chantier</td><td>Soustrait</td><td>Obligatoire</td></tr>
+    <tr><td>Vente directe</td><td>Soustrait</td><td>Facultatif</td></tr>
+    <tr><td>Expédition de stock</td><td>Soustrait</td><td>Obligatoire</td></tr>
     <tr><td>Stand-By</td><td>Sans effet (en attente)</td><td>Facultatif</td></tr>
     <tr><td>Achat de Stock</td><td>Ajoute</td><td>Formulaire spécial</td></tr>
     <tr><td>Réception de Matériel</td><td>Ajoute (ou provisoire selon les règles de catégorie)</td><td>Obligatoire</td></tr>
   </tbody>
 </table>
+
+<h3>Vente directe et Expédition de stock</h3>
+<ul>
+  <li><strong>Références internes :</strong> préfixes <strong>VDT</strong> (vente directe) et <strong>EXP</strong> (expédition) + 6 chiffres par type.</li>
+  <li><strong>Vente directe :</strong> au traitement, <strong>SO</strong> obligatoire : <code>SO</code> + <strong>4 à 6</strong> chiffres (ex. <code>SO100450</code>). Projet facultatif.</li>
+  <li><strong>Expédition de stock :</strong> projet et <strong>PR</strong> obligatoires ; <code>PR</code> + <strong>4 à 6</strong> chiffres. Mêmes règles d’origine. Icône du type <strong>🚛</strong> (le module <strong>Transport</strong> de la barre reste <strong>🚚</strong>).</li>
+  <li>Dans <strong>Historique</strong>, filtres <strong>SO (vente directe)</strong> et <strong>PR (expédition)</strong> (texte partiel).</li>
+</ul>
 
 <h3>Stand-By</h3>
 <p>Les mouvements Stand-By sont enregistrés comme brouillons sans affecter l'inventaire :</p>
@@ -412,7 +422,7 @@
 <h2>2.5 Commandes fournisseur (lignes de commande)</h2>
 <p><strong>Chemin :</strong> onglet <strong>Commandes</strong> (icône 📋 dans la barre supérieure).</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-pedidos.png" alt="Onglet Commandes" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-pedidos.png?v=1778738530" alt="Onglet Commandes" loading="lazy" decoding="async">
   <figcaption>Commandes fournisseur</figcaption>
 </figure>
 <p>Planifier des lignes liées à l'inventaire (code, description, fournisseur, quantité). Le <strong>numéro de BC/PO</strong> est enregistré à la <strong>réception</strong> dans Achat de stock (bon de livraison), pas à la création du brouillon.</p>
@@ -455,7 +465,7 @@
 
 <h2>2.6 Historique</h2>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-historial.png" alt="Onglet Historique" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-historial.png?v=1778738530" alt="Onglet Historique" loading="lazy" decoding="async">
   <figcaption>Onglet Historique</figcaption>
 </figure>
 
@@ -476,6 +486,8 @@
   <li>Plage de dates</li>
   <li>Emplacement</li>
   <li>ID Projet (partiel)</li>
+  <li><strong>SO (vente directe)</strong> (partiel ; champ sur le mouvement)</li>
+  <li><strong>PR (expédition)</strong> (partiel ; champ sur le mouvement)</li>
   <li>Réalisé par (partiel)</li>
   <li>Surdimensionnement (oui/non ; cohérent avec le détail du mouvement — achat et réception n’incluent pas d’anciens marqueurs erronés)</li>
   <li>Stock négatif (oui/non — basé sur le stock <strong>actuel</strong>)</li>
@@ -487,6 +499,7 @@
 <p>Cliquer sur une carte, une ligne de liste ou une ligne du tableau de détails pour ouvrir le même modal de détail complet :</p>
 <ul>
   <li>Type, référence, projet, date et heure, état</li>
+  <li>Pour la <strong>Vente directe</strong>, le <strong>SO</strong> enregistré ; pour l’<strong>Expédition de stock</strong>, le <strong>PR</strong> enregistré</li>
   <li>Qui l'a réalisé</li>
   <li><strong>Notes :</strong> texte cumulatif du mouvement. Avec la permission <strong>mouvements</strong>, les notes déjà enregistrées sont en lecture seule ; le bouton <strong>Ajouter une note</strong> ajoute un bloc en fin (en-tête date et utilisateur) sans effacer le texte précédent.</li>
   <li>Liste des articles avec <strong>stock précédent</strong>, <strong>variation</strong> (+/−) et <strong>stock résultant</strong> par ligne (reconstruit à partir de l’inventaire et de l’historique)</li>
@@ -508,7 +521,7 @@
 <h2>2.7 Transport</h2>
 <p>Bouton <strong>Transport</strong> (🚚) dans la barre : l’onglet affiche le tableau et les actions (créer, expédier, supprimer, etc.) selon ce qui apparaît actif.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-transporte.png" alt="Onglet Transport" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-transporte.png?v=1778738530" alt="Onglet Transport" loading="lazy" decoding="async">
   <figcaption>Onglet Transport</figcaption>
 </figure>
 
@@ -606,7 +619,7 @@
 <h2>2.13 Rappels</h2>
 <p><strong>Chemin :</strong> bouton de rappels dans la barre, onglet <strong>Rappels</strong> lorsqu’il est accessible.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-recordatorios.png" alt="Onglet Rappels" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-recordatorios.png?v=1778738530" alt="Onglet Rappels" loading="lazy" decoding="async">
   <figcaption>Onglet Rappels</figcaption>
 </figure>
 <p>Depuis cet écran, on crée et gère les rappels opérationnels avec date cible et priorité, lorsque le module est visible dans votre environnement.</p>

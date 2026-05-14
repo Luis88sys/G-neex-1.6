@@ -225,6 +225,8 @@ const Auth = {
     "movType_ENVIAR_PRODUCCION",
     "movType_MAT_ELEC_PROD",
     "movType_MAT_ELEC_OBRA",
+    "movType_VENTA_DIRECTA",
+    "movType_EXPEDICION_STOCK",
     "movType_COMPRA_STOCK",
     "movType_RECEPCION_MATERIAL",
     "movType_STANDBY",
@@ -261,6 +263,8 @@ const Auth = {
         "movType_ENVIAR_PRODUCCION",
         "movType_MAT_ELEC_PROD",
         "movType_MAT_ELEC_OBRA",
+        "movType_VENTA_DIRECTA",
+        "movType_EXPEDICION_STOCK",
         "movType_COMPRA_STOCK",
         "movType_RECEPCION_MATERIAL",
         "movType_STANDBY"

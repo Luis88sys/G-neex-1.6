@@ -62,11 +62,12 @@ Si tiene Node.js, una alternativa es `npx --yes serve -l 8765` en la misma carpe
 - En herramientas de inventario queda solo `Cajas sin unidades (total por caja)` para localizar cajas vacías reutilizables.
 - En Ayuda, los enlaces de `Presentaciones` dentro de `user-manual/` se muestran solo para perfil administrador.
 - En movimientos, la validación de `Origen stock` se aplica solo en tipos/líneas que descuentan stock desde ese origen; con sobregiro permitido exige causa obligatoria, y en los demás casos bloquea hasta corregir origen/distribución.
+- **Venta directa / Expedición de stock:** salidas con origen solo en **principal, cajas o ubicaciones** (no producción ni transformación). **SO** obligatorio al procesar venta directa (`SO` + 4–6 dígitos; referencia interna **VDT** + correlativo de 6 dígitos). **Proyecto** y **PR** obligatorios al procesar expedición (`PR` + 4–6 dígitos; referencia **EXP** + correlativo). Icono del tipo expedición **🚛**; el botón **Transporte** de la barra sigue con **🚚**. **Recepción de material** y pestaña **Recepciones** usan **🧱**.
 - **Pedidos ↔ Compra de stock:** el vínculo automático exige **mismo código de artículo** (pedido vs línea de compra) y **mismo proveedor**; el **número de PO/OC** se informa **por fila** en el formulario de Compra de stock y **no** se usa para decidir si la compra corresponde al pedido — al recepcionar, ese PO (y proveedor) actualizan la línea de pedido cuando aplica. Si registra la compra solo desde Movimientos y existe una línea pendiente que cumpla eso, pueden mostrarse cuadros **Sí / No** para enlazar y actualizar cantidad recibida, estado y acciones (véase manual §2.5). Otras confirmaciones siguen con **Confirmar / Cancelar** salvo ese flujo sí/no.
-- **Historial:** filtro dedicado **Notas del movimiento** (texto parcial solo en el campo `notes`). El filtro por **código** de artículo ya **no** busca dentro de las notas del movimiento.
+- **Historial:** filtro dedicado **Notas del movimiento** (texto parcial solo en el campo `notes`). Filtros **SO (venta directa)** y **PR (expedición)** sobre los campos guardados en el movimiento. El filtro por **código** de artículo ya **no** busca dentro de las notas del movimiento.
 - **Historial → detalle:** con permiso de movimientos puede **añadir notas** al final del bloque (cabecera automática con fecha y usuario); el texto ya guardado no se sobrescribe desde ahí.
 - **Inventario → gestión de stock por caja:** al **guardar** un cambio de cantidad con artículo vinculado y sincronización al principal, se registra un **AJUSTE** en movimientos (motivo opcional, como en el editor de artículo). Anulación y fusión de movimientos contemplan metadatos de caja en esas líneas.
-- **Compatibilidad de respaldos:** los movimientos siguen siendo JSON estándar en `phoenix-movements`. Las líneas pueden incluir campos opcionales nuevos (`metaBoxMgrAjuste`, etc.); los archivos **antiguos sin esos campos** se importan y fusionan igual. El script `scripts/repair-backup-users.mjs` solo fusiona listas y deduplica por `id`; no elimina propiedades desconocidas.
+- **Compatibilidad de respaldos:** los movimientos siguen siendo JSON estándar en `phoenix-movements`. Las líneas pueden incluir campos opcionales nuevos (`metaBoxMgrAjuste`, etc.); los archivos **antiguos sin esos campos** se importan y fusionan igual. En la raíz del objeto de movimiento pueden existir **`salesOrder`** (tipo `VENTA_DIRECTA`) y **`prNumber`** (`EXPEDICION_STOCK`); son opcionales en el JSON y la fusión de respaldos no las elimina. El script `scripts/repair-backup-users.mjs` solo fusiona listas y deduplica por `id`; no elimina propiedades desconocidas.
 
 ---
 
@@ -152,7 +153,7 @@ py -m http.server 8765
 
 Si no tienes el runner de capturas versionado, las capturas vivas siguen siendo las datadas en mayo de 2026 (anteriores al logo clicable y a la pantalla de bienvenida). Para una próxima entrega oficial, recomiendo:
 1. Levantar `python -m http.server 8765`.
-2. Lanzar el flujo de Playwright con los tres locales y rutas principales.
+2. Lanzar el flujo de Playwright con los tres locales y rutas principales (**incluida la rejilla de Movimientos** con los tipos actuales y **Historial** con filtros SO/PR visibles si el script lo permite).
 3. Reemplazar las imágenes en `app-screenshots/` y sincronizar `user-manual/app-screenshots/` con `no-deployar/docs/sync-user-manual.ps1`.
 
 ### Regenerar PDFs de manuales y presentaciones

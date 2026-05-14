@@ -104,9 +104,11 @@ const MOVEMENT_TYPES = {
     ENVIAR_PRODUCCION:{ id:'ENVIAR_PRODUCCION', color:'#ff6b35', behavior:'negative', target:'production', multiTarget:true, projectRequired:false, icon:'🏭' },
     MAT_ELEC_PROD:{ id:'MAT_ELEC_PROD', color:'#00ff00', behavior:'negative', target:'main', multiTarget:true, projectRequired:true, icon:'⚡' },
     MAT_ELEC_OBRA:{ id:'MAT_ELEC_OBRA', color:'#6b8e23', behavior:'negative', target:'main', multiTarget:true, projectRequired:true, icon:'🔌' },
+    VENTA_DIRECTA:{ id:'VENTA_DIRECTA', color:'#0f766e', behavior:'negative', target:'main', multiTarget:true, projectRequired:false, icon:'💰' },
+    EXPEDICION_STOCK:{ id:'EXPEDICION_STOCK', color:'#b45309', behavior:'negative', target:'main', multiTarget:true, projectRequired:true, icon:'🚛' },
     STANDBY:{ id:'STANDBY', color:'#708090', behavior:'any', target:'main', multiTarget:true, projectRequired:false, icon:'⏸️' },
     COMPRA_STOCK:{ id:'COMPRA_STOCK', color:'#f5f5f5', behavior:'positive', target:'main', multiTarget:false, projectRequired:false, icon:'🛒', specialForm:'compra' },
-    RECEPCION_MATERIAL:{ id:'RECEPCION_MATERIAL', color:'#e9967a', behavior:'reception', target:'main', multiTarget:false, projectRequired:true, icon:'📥', specialForm:'recepcion' }
+    RECEPCION_MATERIAL:{ id:'RECEPCION_MATERIAL', color:'#e9967a', behavior:'reception', target:'main', multiTarget:false, projectRequired:true, icon:'🧱', specialForm:'recepcion' }
 };
 
 /** Siglas visibles en la referencia del movimiento + número correlativo por tipo (p. ej. AJU00000001). */
@@ -124,6 +126,8 @@ const MOVEMENT_REF_PREFIX = {
     ENVIAR_PRODUCCION: 'EVP',
     MAT_ELEC_PROD: 'MEP',
     MAT_ELEC_OBRA: 'MEO',
+    VENTA_DIRECTA: 'VDT',
+    EXPEDICION_STOCK: 'EXP',
     STANDBY: 'STB',
     COMPRA_STOCK: 'COM',
     RECEPCION_MATERIAL: 'REM'
@@ -219,6 +223,21 @@ const Utils = {
             if (!counters[typ] || n > counters[typ]) counters[typ] = n;
         });
         this._saveMovementRefCounters(counters);
+    },
+
+    /** Venta directa: prefijo literal `SO` + 4 a 6 dígitos. */
+    isValidVentDirectaSalesOrder(s) {
+        return /^SO\d{4,6}$/i.test(String(s ?? "").trim());
+    },
+    normalizeVentDirectaSalesOrder(s) {
+        return String(s ?? "").trim().toUpperCase();
+    },
+    /** Expedición de stock: prefijo literal `PR` + 4 a 6 dígitos. */
+    isValidExpedicionPr(s) {
+        return /^PR\d{4,6}$/i.test(String(s ?? "").trim());
+    },
+    normalizeExpedicionPr(s) {
+        return String(s ?? "").trim().toUpperCase();
     },
 
     /**

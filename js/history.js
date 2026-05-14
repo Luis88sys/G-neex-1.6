@@ -40,6 +40,8 @@ const HistoryManager = {
             'filter-supplier',
             'filter-location',
             'filter-project-id',
+            'filter-sales-order',
+            'filter-pr-number',
             'filter-created-by',
             'filter-qty-min',
             'filter-qty-max'
@@ -91,6 +93,12 @@ const HistoryManager = {
         if (fromOrderPanel) titleParts.push(I18n.t("history.compraFromOrderPanelTitle"));
         const cellTitle = this._esc(titleParts.join(" — "));
         const projectId = mov.type !== "CONSUMO_DIARIO" ? String(mov.projectId || "").trim() : "";
+        const soPr =
+            mov.type === "VENTA_DIRECTA" && String(mov.salesOrder || "").trim()
+                ? String(mov.salesOrder).trim()
+                : mov.type === "EXPEDICION_STOCK" && String(mov.prNumber || "").trim()
+                  ? String(mov.prNumber).trim()
+                  : "";
         return `
                 <div class="history-cell${this._annulCellClass(mov)} ${showOd ? 'history-cell--overdraft' : ''} ${fromOrderPanel ? 'history-cell--orderline' : ''}" 
                      data-type="${mov.type}"
@@ -104,6 +112,7 @@ const HistoryManager = {
                     <span class="cell-type" style="color: ${config.color}">${this._esc(I18n.t(`movType.${mov.type}`))}</span>
                     <span class="cell-date">${Utils.formatDate(mov.date)}</span>
                     ${projectId ? `<span class="cell-project">${this._esc(projectId)}</span>` : ''}
+                    ${soPr ? `<span class="cell-so-pr muted">${this._esc(soPr)}</span>` : ""}
                     ${mov.createdBy ? `<span class="cell-user">${this._esc(mov.createdBy)}</span>` : ''}
                 </div>
             `;
@@ -118,7 +127,15 @@ const HistoryManager = {
         if (showOd) titleParts.push(I18n.t("history.overdraft"));
         if (fromOrderPanel) titleParts.push(I18n.t("history.compraFromOrderPanelTitle"));
         const rowTitle = this._esc(titleParts.join(" — "));
-        const meta = `${this._esc(I18n.t(`movType.${mov.type}`))} · ${this._esc(Utils.formatDate(mov.date))}`;
+        const soPr =
+            mov.type === "VENTA_DIRECTA" && String(mov.salesOrder || "").trim()
+                ? String(mov.salesOrder).trim()
+                : mov.type === "EXPEDICION_STOCK" && String(mov.prNumber || "").trim()
+                  ? String(mov.prNumber).trim()
+                  : "";
+        const meta = `${this._esc(I18n.t(`movType.${mov.type}`))} · ${this._esc(Utils.formatDate(mov.date))}${
+            soPr ? ` · ${this._esc(soPr)}` : ""
+        }`;
         return `
                 <button type="button" class="history-list-row${this._annulCellClass(mov)} ${showOd ? 'history-cell--overdraft' : ''} ${fromOrderPanel ? 'history-cell--orderline' : ''}"
                     data-type="${mov.type}"
@@ -498,7 +515,7 @@ const HistoryManager = {
                 Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
                 return;
             }
-            const headers = ["reference", "type", "date", "projectId", "createdBy", "notes"];
+            const headers = ["reference", "type", "date", "projectId", "salesOrder", "prNumber", "createdBy", "notes"];
             const objs = rows.map(m => ({
                 reference: String(m.reference || ""),
                 type: String(m.type || ""),
@@ -507,6 +524,8 @@ const HistoryManager = {
                         ? Utils.formatDateTime(m.date)
                         : String(m.date || ""),
                 projectId: String(m.projectId || ""),
+                salesOrder: String(m.salesOrder || ""),
+                prNumber: String(m.prNumber || ""),
                 createdBy: String(m.createdBy || ""),
                 notes: String(m.notes || "")
                     .replace(/\s+/g, " ")
@@ -543,6 +562,8 @@ const HistoryManager = {
         const dateTo = document.getElementById('filter-date-to')?.value || '';
         const location = this._normalizeFilterText(document.getElementById('filter-location')?.value || '');
         const projectId = this._normalizeFilterText(document.getElementById('filter-project-id')?.value || '');
+        const salesOrderNeedle = this._normalizeFilterText(document.getElementById('filter-sales-order')?.value || '');
+        const prNeedle = this._normalizeFilterText(document.getElementById('filter-pr-number')?.value || '');
         const createdBy = this._normalizeFilterText(document.getElementById('filter-created-by')?.value || '');
         const recipient = this._normalizeFilterText(document.getElementById('filter-recipient')?.value || '');
         const supplier = this._normalizeFilterText(document.getElementById('filter-supplier')?.value || '');
@@ -616,6 +637,8 @@ const HistoryManager = {
                 if (!inLines && !tfLoc) return false;
             }
             if (projectId && !this._normalizeFilterText(mov.projectId || '').includes(projectId)) return false;
+            if (salesOrderNeedle && !this._normalizeFilterText(mov.salesOrder || '').includes(salesOrderNeedle)) return false;
+            if (prNeedle && !this._normalizeFilterText(mov.prNumber || '').includes(prNeedle)) return false;
             if (createdBy && !this._normalizeFilterText(mov.createdBy || '').includes(createdBy)) return false;
             if (recipient) {
                 const hitR = hay => this._normalizeFilterText(hay).includes(recipient);
@@ -988,6 +1011,10 @@ const HistoryManager = {
         add(I18n.t("history.filterType"), I18n.t(`movType.${m.type}`) || m.type || "");
         add(I18n.t("history.movementDate"), Utils.formatDateTime(m.date));
         if (m.type !== "CONSUMO_DIARIO") add(I18n.t("movements.projectId"), m.projectId || "—");
+        if (m.type === "VENTA_DIRECTA" && String(m.salesOrder || "").trim())
+            add(I18n.t("movements.salesOrder"), m.salesOrder);
+        if (m.type === "EXPEDICION_STOCK" && String(m.prNumber || "").trim())
+            add(I18n.t("movements.prNumber"), m.prNumber);
         add(
             I18n.t("table.status"),
             m.annulled
@@ -1525,6 +1552,14 @@ const HistoryManager = {
                     <span class="detail-label">${this._esc(I18n.t('movements.projectId'))}</span>
                     <span class="detail-value">${Utils.escapeHtml(movement.projectId || '-')}</span>
                 </div>` : ''}
+                ${movement.type === 'VENTA_DIRECTA' ? `<div class="detail-item">
+                    <span class="detail-label">${this._esc(I18n.t('movements.salesOrder'))}</span>
+                    <span class="detail-value">${Utils.escapeHtml(String(movement.salesOrder || '').trim() || '—')}</span>
+                </div>` : ''}
+                ${movement.type === 'EXPEDICION_STOCK' ? `<div class="detail-item">
+                    <span class="detail-label">${this._esc(I18n.t('movements.prNumber'))}</span>
+                    <span class="detail-value">${Utils.escapeHtml(String(movement.prNumber || '').trim() || '—')}</span>
+                </div>` : ''}
                 <div class="detail-item">
                     <span class="detail-label">${this._esc(I18n.t('history.movementDate'))}</span>
                     <span class="detail-value">${Utils.escapeHtml(Utils.formatDateTime(movement.date))}</span>
@@ -1740,7 +1775,7 @@ const HistoryManager = {
         this._historyFilterDebounceT = null;
         const ids = [
             'filter-type', 'filter-ref', 'filter-code', 'filter-desc', 'filter-notes', 'filter-recipient', 'filter-date-from', 'filter-date-to',
-            'filter-location', 'filter-project-id', 'filter-created-by', 'filter-overdraft', 'filter-negative-stock', 'filter-annul-status'
+            'filter-location', 'filter-project-id', 'filter-sales-order', 'filter-pr-number', 'filter-created-by', 'filter-overdraft', 'filter-negative-stock', 'filter-annul-status'
         ];
         ids.forEach(id => {
             const el = document.getElementById(id);
@@ -1764,6 +1799,8 @@ const HistoryManager = {
             dateTo: 'filter-date-to',
             location: 'filter-location',
             projectId: 'filter-project-id',
+            salesOrder: 'filter-sales-order',
+            prNumber: 'filter-pr-number',
             createdBy: 'filter-created-by',
             recipient: 'filter-recipient',
             overdraft: 'filter-overdraft',
@@ -1796,6 +1833,10 @@ const HistoryManager = {
         document.getElementById('filter-date-to').value = '';
         document.getElementById('filter-location').value = '';
         document.getElementById('filter-project-id').value = '';
+        const fso = document.getElementById('filter-sales-order');
+        if (fso) fso.value = '';
+        const fpr = document.getElementById('filter-pr-number');
+        if (fpr) fpr.value = '';
         document.getElementById('filter-created-by').value = '';
         document.getElementById('filter-recipient').value = '';
         const supEl = document.getElementById('filter-supplier');
