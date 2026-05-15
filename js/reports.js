@@ -1,6 +1,13 @@
 // reports.js — exportación XLSX (tablas con formato) de transportes, movimientos y consumo por artículo
 
 const ReportExporter = {
+  /** Términos de artículo elegidos (lista en chips); se sincroniza en `#report-item-needle`. */
+  _reportItemChipTokens: [],
+  /** IDs de proyecto elegidos; se sincroniza en `#report-item-project-ids`. */
+  _reportProjectChipIds: [],
+  /** Claves de `MOVEMENT_TYPES` elegidas; se sincroniza en `#report-item-movement-types`. */
+  _reportMovementTypeKeys: [],
+
   init() {
     document.getElementById("open-report-modal")?.addEventListener("click", () => this.openModal("movements_filtered"));
     document.getElementById("transport-export-summary-btn")?.addEventListener("click", () => void this.exportTransportsQuick());
@@ -13,6 +20,23 @@ const ReportExporter = {
     this.syncItemWrap();
     this._setupReportItemSuggestions();
     this._setupReportProjectSuggestions();
+    this._setupReportMovementTypeSuggestions();
+    this._setupReportConsumptionChipUi();
+    document.getElementById("report-item-chips-clear")?.addEventListener("click", () => {
+      this._reportItemChipTokens = [];
+      this._renderReportConsumptionChips();
+      this._syncReportConsumptionHiddenFields();
+    });
+    document.getElementById("report-project-chips-clear")?.addEventListener("click", () => {
+      this._reportProjectChipIds = [];
+      this._renderReportConsumptionChips();
+      this._syncReportConsumptionHiddenFields();
+    });
+    document.getElementById("report-movtype-chips-clear")?.addEventListener("click", () => {
+      this._reportMovementTypeKeys = [];
+      this._renderReportConsumptionChips();
+      this._syncReportConsumptionHiddenFields();
+    });
   },
 
   _setColumnPickerHeaders(headers) {
@@ -77,7 +101,7 @@ const ReportExporter = {
   /** Coincidencias del inventario mientras escribe (informe «Líneas por artículo»). */
   _setupReportItemSuggestions() {
     if (this._reportItemSuggestBound) return;
-    const inp = document.getElementById("report-item-needle");
+    const inp = document.getElementById("report-item-search-input");
     const res = document.getElementById("report-item-suggestions");
     if (!inp || !res) return;
     this._reportItemSuggestBound = true;
@@ -119,21 +143,29 @@ const ReportExporter = {
       res.setAttribute("aria-hidden", "false");
     };
 
-    inp.addEventListener(
-      "input",
-      Utils.debounce(refresh, 180)
-    );
+    inp.addEventListener("input", Utils.debounce(refresh, 180));
 
     inp.addEventListener("focus", () => {
       if (inp.value.trim().length >= 1) refresh();
     });
 
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this._addReportItemChipFromSearchInput();
+      }
+      if (e.key === "Escape") {
+        this._hideReportItemSuggestions();
+        this._hideReportProjectSuggestions();
+        this._hideReportMovementTypeSuggestions();
+      }
+    });
+
     res.addEventListener("click", e => {
       const hit = e.target.closest(".report-item-suggestion-hit");
       if (!hit || hit.dataset.code == null) return;
-      const code = hit.dataset.code;
-      const cur = String(inp.value || "").trim();
-      inp.value = cur ? `${cur.replace(/[\s,;]+$/, "")}, ${code}` : code;
+      this._addReportItemToken(hit.dataset.code);
+      inp.value = "";
       this._hideReportItemSuggestions();
       inp.focus();
     });
@@ -141,19 +173,14 @@ const ReportExporter = {
     document.addEventListener("click", e => {
       if (!e.target.closest(".report-item-search-wrap")) this._hideReportItemSuggestions();
       if (!e.target.closest(".report-project-search-wrap")) this._hideReportProjectSuggestions();
-    });
-
-    inp.addEventListener("keydown", e => {
-      if (e.key === "Escape") {
-        this._hideReportItemSuggestions();
-        this._hideReportProjectSuggestions();
-      }
+      if (!e.target.closest(".report-movtype-search-wrap")) this._hideReportMovementTypeSuggestions();
     });
   },
 
   closeModal() {
     this._hideReportItemSuggestions();
     this._hideReportProjectSuggestions();
+    this._hideReportMovementTypeSuggestions();
     document.getElementById("report-modal")?.classList.remove("active");
   },
 
@@ -164,6 +191,7 @@ const ReportExporter = {
       sel.value = presetType;
     }
     this.syncItemWrap();
+    if (typeof I18n !== "undefined" && I18n.apply) I18n.apply(m || document);
     m?.classList.add("active");
   },
 
@@ -174,8 +202,15 @@ const ReportExporter = {
     if (v !== "item_consumption") {
       this._hideReportItemSuggestions();
       this._hideReportProjectSuggestions();
+      this._hideReportMovementTypeSuggestions();
+    } else {
+      this._ingestConsumptionSelectionFromHiddenFields();
+      this._renderReportConsumptionChips();
+      this._syncReportConsumptionHiddenFields();
     }
     this._setColumnPickerHeaders(this._headersForKind(v));
+    const modal = document.getElementById("report-modal");
+    if (modal && typeof I18n !== "undefined" && I18n.apply) I18n.apply(modal);
   },
 
   fileStamp() {
@@ -211,17 +246,6 @@ const ReportExporter = {
     return (cut >= 0 ? s.slice(cut + 1) : s).trim().toLowerCase();
   },
 
-  _applyPickedReportProjectId(textarea, canonicalId) {
-    const raw = String(textarea.value || "");
-    const cut = Math.max(raw.lastIndexOf(","), raw.lastIndexOf(";"), raw.lastIndexOf("\n"));
-    if (cut < 0) {
-      textarea.value = canonicalId;
-      return;
-    }
-    const left = raw.slice(0, cut + 1).replace(/\s+$/, "");
-    textarea.value = `${left} ${canonicalId}`.replace(/\s+/g, " ").trim();
-  },
-
   /** IDs de proyecto ya vistos en historial (movimientos, transportes, recepciones). */
   _collectReportHistoryProjectIds() {
     const seen = new Map();
@@ -245,9 +269,9 @@ const ReportExporter = {
 
   _setupReportProjectSuggestions() {
     if (this._reportProjectSuggestBound) return;
-    const ta = document.getElementById("report-item-project-ids");
+    const inp = document.getElementById("report-project-search-input");
     const res = document.getElementById("report-project-suggestions");
-    if (!ta || !res) return;
+    if (!inp || !res) return;
     this._reportProjectSuggestBound = true;
 
     const esc = s => (typeof Utils !== "undefined" && Utils.escapeHtml ? Utils.escapeHtml(s) : String(s ?? ""));
@@ -260,7 +284,7 @@ const ReportExporter = {
         return;
       }
       const all = this._collectReportHistoryProjectIds();
-      const needle = this._lastReportProjectSegmentLower(ta.value);
+      const needle = this._lastReportProjectSegmentLower(inp.value);
       let list = all;
       if (needle) list = all.filter(id => id.toLowerCase().includes(needle));
       if (!all.length) {
@@ -284,20 +308,442 @@ const ReportExporter = {
       res.setAttribute("aria-hidden", "false");
     };
 
-    ta.addEventListener("input", Utils.debounce(refresh, 180));
-    ta.addEventListener("focus", () => refresh());
+    inp.addEventListener("input", Utils.debounce(refresh, 180));
+    inp.addEventListener("focus", () => refresh());
+
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this._addReportProjectChipFromSearchInput();
+      }
+      if (e.key === "Escape") {
+        this._hideReportProjectSuggestions();
+        this._hideReportMovementTypeSuggestions();
+      }
+    });
 
     res.addEventListener("click", e => {
       const hit = e.target.closest(".report-project-suggestion-hit");
       if (!hit || hit.dataset.projectId == null) return;
-      this._applyPickedReportProjectId(ta, hit.dataset.projectId);
+      this._addReportProjectChip(hit.dataset.projectId);
+      inp.value = "";
       this._hideReportProjectSuggestions();
-      ta.focus();
+      inp.focus();
+    });
+  },
+
+  _hideReportMovementTypeSuggestions() {
+    const res = document.getElementById("report-movtype-suggestions");
+    if (!res) return;
+    res.innerHTML = "";
+    res.classList.remove("active");
+    res.setAttribute("aria-hidden", "true");
+  },
+
+  _allReportMovementTypeKeys() {
+    return typeof MOVEMENT_TYPES !== "undefined" && MOVEMENT_TYPES ? Object.keys(MOVEMENT_TYPES) : [];
+  },
+
+  _movementTypeChipLabel(key) {
+    const k = String(key || "").trim();
+    if (!k) return "";
+    const lab =
+      typeof I18n !== "undefined" && I18n.t ? String(I18n.t(`movType.${k}`) || "").trim() : "";
+    return lab || k;
+  },
+
+  _foldForMovTypeMatch(str) {
+    return String(str || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  },
+
+  _resolveReportMovementTypeFromUserText(raw) {
+    const s0 = String(raw || "").trim();
+    if (!s0) return { key: null, reason: "none" };
+    const keys = this._allReportMovementTypeKeys();
+    if (!keys.length) return { key: null, reason: "invalid" };
+
+    const up = s0.replace(/[\s\-]+/g, "_").toUpperCase();
+    if (MOVEMENT_TYPES[up]) return { key: up, reason: "ok" };
+
+    const lowSp = s0.toLowerCase().replace(/\s+/g, "_");
+    const lowTight = s0.toLowerCase().replace(/[\s_]+/g, "");
+    const fr = this._foldForMovTypeMatch(s0);
+    if (!fr) return { key: null, reason: "invalid" };
+
+    const labelFold = k =>
+      this._foldForMovTypeMatch(typeof I18n !== "undefined" && I18n.t ? I18n.t(`movType.${k}`) : "");
+    const keyFold = k => this._foldForMovTypeMatch(k.replace(/_/g, " "));
+
+    const scoreOf = new Map();
+    const add = (k, sc) => {
+      scoreOf.set(k, Math.max(scoreOf.get(k) || 0, sc));
+    };
+
+    for (const k of keys) {
+      const kLow = k.toLowerCase();
+      const kf = keyFold(k);
+      const lf = labelFold(k);
+      if (kLow === lowSp) add(k, 100);
+      if (kLow.replace(/_/g, "") === lowTight) add(k, 100);
+      if (kf === fr) add(k, 95);
+      if (lf && lf === fr) add(k, 95);
+      if (fr.length >= 2 && kf.startsWith(fr)) add(k, 72);
+      if (lf && fr.length >= 2 && lf.startsWith(fr)) add(k, 70);
+      const words = s0.split(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_]+/).filter(w => w.length >= 2);
+      if (words.length) {
+        const okAll = words.every(w => {
+          const wf = this._foldForMovTypeMatch(w);
+          return wf && (kf.includes(wf) || (lf && lf.includes(wf)));
+        });
+        if (okAll) add(k, 58 + Math.min(words.length, 4));
+      }
+      if (fr.length >= 4 && kf.includes(fr)) add(k, 42);
+      else if (fr.length >= 3 && kf.includes(fr)) add(k, 36);
+      if (lf && fr.length >= 4 && lf.includes(fr)) add(k, 40);
+      else if (lf && fr.length >= 3 && lf.includes(fr)) add(k, 34);
+    }
+
+    let best = 0;
+    for (const v of scoreOf.values()) if (v > best) best = v;
+    if (!best) return { key: null, reason: "invalid" };
+
+    let tops = keys.filter(k => (scoreOf.get(k) || 0) === best);
+    tops = [...new Set(tops)];
+    if (tops.length === 1) return { key: tops[0], reason: "ok" };
+
+    const pref = tops.filter(k => {
+      const kf = keyFold(k);
+      const lf = labelFold(k);
+      return (fr.length >= 2 && kf.startsWith(fr)) || (lf && fr.length >= 2 && lf.startsWith(fr));
+    });
+    if (pref.length === 1) return { key: pref[0], reason: "ok" };
+
+    const words = s0.split(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_]+/).filter(w => w.length >= 2);
+    if (words.length) {
+      const wordHits = tops.filter(k => {
+        const kf = keyFold(k);
+        const lf = labelFold(k);
+        return words.every(w => {
+          const wf = this._foldForMovTypeMatch(w);
+          return wf && (kf.includes(wf) || (lf && lf.includes(wf)));
+        });
+      });
+      if (wordHits.length === 1) return { key: wordHits[0], reason: "ok" };
+    }
+
+    return { key: null, reason: "ambiguous" };
+  },
+
+  _setupReportMovementTypeSuggestions() {
+    if (this._reportMovTypeSuggestBound) return;
+    const inp = document.getElementById("report-movtype-search-input");
+    const res = document.getElementById("report-movtype-suggestions");
+    if (!inp || !res) return;
+    this._reportMovTypeSuggestBound = true;
+
+    const esc = s => (typeof Utils !== "undefined" && Utils.escapeHtml ? Utils.escapeHtml(s) : String(s ?? ""));
+    const escAttr = s => (typeof Utils !== "undefined" && Utils.escapeAttr ? Utils.escapeAttr(s) : String(s ?? ""));
+
+    const refresh = () => {
+      const wrap = document.getElementById("report-item-wrap");
+      if (!wrap || wrap.style.display === "none") {
+        this._hideReportMovementTypeSuggestions();
+        return;
+      }
+      const needleRaw = String(inp.value || "").trim().toLowerCase();
+      const needle = this._foldForMovTypeMatch(inp.value || "");
+      const keys = this._allReportMovementTypeKeys().slice().sort((a, b) => a.localeCompare(b));
+      let list = keys;
+      if (needleRaw.length || needle.length) {
+        list = keys.filter(k => {
+          if (needle && k.toLowerCase().includes(needleRaw)) return true;
+          if (needle && k.toLowerCase().replace(/_/g, "").includes(needle)) return true;
+          const lab =
+            typeof I18n !== "undefined" && I18n.t ? String(I18n.t(`movType.${k}`) || "").toLowerCase() : "";
+          if (needleRaw && lab.includes(needleRaw)) return true;
+          const labF = this._foldForMovTypeMatch(lab);
+          return needle && labF.includes(needle);
+        });
+      }
+      if (!list.length) {
+        res.innerHTML = `<div class="search-result-item muted">${esc(I18n.t("msg.noResults"))}</div>`;
+      } else {
+        const cap = needle ? 50 : 40;
+        res.innerHTML = list
+          .slice(0, cap)
+          .map(k => {
+            const lab =
+              typeof I18n !== "undefined" && I18n.t ? String(I18n.t(`movType.${k}`) || "").trim() : k;
+            return `
+            <div class="search-result-item report-movtype-suggestion-hit" role="option" tabindex="-1"
+              data-mov-type="${escAttr(k)}" title="${escAttr(k)}">
+              <span class="result-description">${esc(lab || k)}</span>
+            </div>`;
+          })
+          .join("");
+      }
+      res.classList.add("active");
+      res.setAttribute("aria-hidden", "false");
+    };
+
+    inp.addEventListener("input", Utils.debounce(refresh, 180));
+    inp.addEventListener("focus", () => refresh());
+
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this._addReportMovementTypeFromSearchInput();
+      }
+      if (e.key === "Escape") this._hideReportMovementTypeSuggestions();
     });
 
-    ta.addEventListener("keydown", e => {
-      if (e.key === "Escape") this._hideReportProjectSuggestions();
+    res.addEventListener("click", e => {
+      const hit = e.target.closest(".report-movtype-suggestion-hit");
+      if (!hit || hit.dataset.movType == null) return;
+      this._addReportMovementTypeKey(hit.dataset.movType);
+      inp.value = "";
+      this._hideReportMovementTypeSuggestions();
+      inp.focus();
     });
+  },
+
+  _setupReportConsumptionChipUi() {
+    if (this._reportConsumptionChipUiBound) return;
+    const wrap = document.getElementById("report-item-wrap");
+    if (!wrap) return;
+    this._reportConsumptionChipUiBound = true;
+    wrap.addEventListener("click", e => {
+      const bItem = e.target.closest("[data-report-remove-item]");
+      if (bItem) {
+        const idx = parseInt(bItem.getAttribute("data-report-remove-item"), 10);
+        if (Number.isFinite(idx) && idx >= 0 && idx < this._reportItemChipTokens.length) {
+          this._reportItemChipTokens.splice(idx, 1);
+          this._renderReportConsumptionChips();
+          this._syncReportConsumptionHiddenFields();
+        }
+        return;
+      }
+      const bProj = e.target.closest("[data-report-remove-project]");
+      if (bProj) {
+        const idx = parseInt(bProj.getAttribute("data-report-remove-project"), 10);
+        if (Number.isFinite(idx) && idx >= 0 && idx < this._reportProjectChipIds.length) {
+          this._reportProjectChipIds.splice(idx, 1);
+          this._renderReportConsumptionChips();
+          this._syncReportConsumptionHiddenFields();
+        }
+        return;
+      }
+      const bMov = e.target.closest("[data-report-remove-movtype]");
+      if (bMov) {
+        const idx = parseInt(bMov.getAttribute("data-report-remove-movtype"), 10);
+        if (Number.isFinite(idx) && idx >= 0 && idx < this._reportMovementTypeKeys.length) {
+          this._reportMovementTypeKeys.splice(idx, 1);
+          this._renderReportConsumptionChips();
+          this._syncReportConsumptionHiddenFields();
+        }
+        return;
+      }
+    });
+  },
+
+  _itemTokenListHasLower(list, lower) {
+    return list.some(t => String(t).trim().toLowerCase() === lower);
+  },
+
+  _projectIdListHasLower(list, lower) {
+    return list.some(t => String(t).trim().toLowerCase() === lower);
+  },
+
+  _movTypeKeyListHas(list, keyUpper) {
+    const u = String(keyUpper || "").trim().toUpperCase();
+    if (!u) return false;
+    return list.some(t => String(t).trim().toUpperCase() === u);
+  },
+
+  _addReportMovementTypeKey(key) {
+    const k = String(key || "").trim().toUpperCase();
+    if (!k || typeof MOVEMENT_TYPES === "undefined" || !MOVEMENT_TYPES[k]) return;
+    if (this._movTypeKeyListHas(this._reportMovementTypeKeys, k)) return;
+    this._reportMovementTypeKeys.push(k);
+    this._renderReportConsumptionChips();
+    this._syncReportConsumptionHiddenFields();
+  },
+
+  _addReportMovementTypeFromSearchInput() {
+    const inp = document.getElementById("report-movtype-search-input");
+    const raw = String(inp?.value || "").trim();
+    if (!raw) return;
+    const r = this._resolveReportMovementTypeFromUserText(raw);
+    if (r.reason === "ambiguous") {
+      Utils.showToast(I18n.t("reports.movementTypeAmbiguous"), "warning");
+      return;
+    }
+    if (!r.key) {
+      Utils.showToast(I18n.t("reports.movementTypeUnknown"), "warning");
+      return;
+    }
+    this._addReportMovementTypeKey(r.key);
+    if (inp) inp.value = "";
+    this._hideReportMovementTypeSuggestions();
+  },
+
+  _addReportItemToken(code) {
+    const c = String(code || "").trim();
+    if (!c) return;
+    const low = c.toLowerCase();
+    if (this._itemTokenListHasLower(this._reportItemChipTokens, low)) return;
+    this._reportItemChipTokens.push(c);
+    this._renderReportConsumptionChips();
+    this._syncReportConsumptionHiddenFields();
+  },
+
+  _addReportItemChipFromSearchInput() {
+    const inp = document.getElementById("report-item-search-input");
+    const raw = String(inp?.value || "").trim();
+    if (!raw) return;
+    this._addReportItemToken(raw);
+    if (inp) inp.value = "";
+    this._hideReportItemSuggestions();
+  },
+
+  _addReportProjectChip(canonicalId) {
+    const c = String(canonicalId || "").trim();
+    if (!c) return;
+    const low = c.toLowerCase();
+    if (this._projectIdListHasLower(this._reportProjectChipIds, low)) return;
+    this._reportProjectChipIds.push(c);
+    this._renderReportConsumptionChips();
+    this._syncReportConsumptionHiddenFields();
+  },
+
+  _addReportProjectChipFromSearchInput() {
+    const inp = document.getElementById("report-project-search-input");
+    const raw = String(inp?.value || "").trim();
+    if (!raw) return;
+    this._addReportProjectChip(raw);
+    if (inp) inp.value = "";
+    this._hideReportProjectSuggestions();
+  },
+
+  _syncReportConsumptionHiddenFields() {
+    const hItem = document.getElementById("report-item-needle");
+    const hProj = document.getElementById("report-item-project-ids");
+    const hMov = document.getElementById("report-item-movement-types");
+    if (hItem) hItem.value = this._reportItemChipTokens.join(", ");
+    if (hProj) hProj.value = this._reportProjectChipIds.join(", ");
+    if (hMov) hMov.value = this._reportMovementTypeKeys.join(", ");
+  },
+
+  /** Al mostrar el informe por consumo, la lista sale de los campos ocultos (import / coherencia con export). */
+  _ingestConsumptionSelectionFromHiddenFields() {
+    const hItem = document.getElementById("report-item-needle")?.value || "";
+    const hProj = document.getElementById("report-item-project-ids")?.value || "";
+    const hMov = document.getElementById("report-item-movement-types")?.value || "";
+    this._reportItemChipTokens = hItem
+      .split(/[\n,;]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    this._reportProjectChipIds = hProj
+      .split(/[\n,;]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    this._reportMovementTypeKeys = [];
+    hMov.split(/[\n,;]+/).forEach(s => {
+      const k = String(s || "").trim().toUpperCase();
+      if (k && typeof MOVEMENT_TYPES !== "undefined" && MOVEMENT_TYPES[k] && !this._movTypeKeyListHas(this._reportMovementTypeKeys, k)) {
+        this._reportMovementTypeKeys.push(k);
+      }
+    });
+  },
+
+  _renderReportConsumptionChips() {
+    const esc = s => (typeof Utils !== "undefined" && Utils.escapeHtml ? Utils.escapeHtml(s) : String(s ?? ""));
+    const escAttr = s => (typeof Utils !== "undefined" && Utils.escapeAttr ? Utils.escapeAttr(s) : String(s ?? ""));
+    const ariaRemove =
+      typeof I18n !== "undefined" && I18n.t ? I18n.t("reports.chipRemoveAria") : "Remove";
+    const emptyItem =
+      typeof I18n !== "undefined" && I18n.t ? I18n.t("reports.itemChipListEmpty") : "No items yet. Search or pick from the list.";
+    const emptyProj =
+      typeof I18n !== "undefined" && I18n.t ? I18n.t("reports.projectChipListEmpty") : "No projects yet. Search or pick from the list.";
+    const emptyMov =
+      typeof I18n !== "undefined" && I18n.t ? I18n.t("reports.movementTypeChipListEmpty") : "No movement types yet. Search or pick from the list.";
+
+    const listItem = document.getElementById("report-item-chip-list");
+    if (listItem) {
+      listItem.innerHTML = this._reportItemChipTokens.length
+        ? this._reportItemChipTokens
+            .map(
+              (tok, idx) => `
+        <span class="report-chip" role="listitem">
+          <span class="report-chip-text">${esc(tok)}</span>
+          <button type="button" class="report-chip-remove" data-report-remove-item="${idx}" aria-label="${escAttr(ariaRemove)}">×</button>
+        </span>`
+            )
+            .join("")
+        : `<div class="report-chip-list-empty muted">${esc(emptyItem)}</div>`;
+    }
+    const listProj = document.getElementById("report-project-chip-list");
+    if (listProj) {
+      listProj.innerHTML = this._reportProjectChipIds.length
+        ? this._reportProjectChipIds
+            .map(
+              (pid, idx) => `
+        <span class="report-chip" role="listitem">
+          <span class="report-chip-text">${esc(pid)}</span>
+          <button type="button" class="report-chip-remove" data-report-remove-project="${idx}" aria-label="${escAttr(ariaRemove)}">×</button>
+        </span>`
+            )
+            .join("")
+        : `<div class="report-chip-list-empty muted">${esc(emptyProj)}</div>`;
+    }
+    const listMov = document.getElementById("report-movtype-chip-list");
+    if (listMov) {
+      listMov.innerHTML = this._reportMovementTypeKeys.length
+        ? this._reportMovementTypeKeys
+            .map(
+              (mk, idx) => `
+        <span class="report-chip" role="listitem" title="${escAttr(mk)}">
+          <span class="report-chip-text">${esc(this._movementTypeChipLabel(mk))}</span>
+          <button type="button" class="report-chip-remove" data-report-remove-movtype="${idx}" aria-label="${escAttr(ariaRemove)}">×</button>
+        </span>`
+            )
+            .join("")
+        : `<div class="report-chip-list-empty muted">${esc(emptyMov)}</div>`;
+    }
+  },
+
+  _movementTypeSetFromKeys(movementTypes) {
+    return new Set(
+      (Array.isArray(movementTypes) ? movementTypes : [])
+        .map(t => String(t || "").trim().toUpperCase())
+        .filter(t => t && typeof MOVEMENT_TYPES !== "undefined" && MOVEMENT_TYPES[t])
+    );
+  },
+
+  /** Proyecto + tipos (excluye consumo diario si hay filtro de proyecto, como antes). */
+  _movementMatchesConsumptionHead(m, projectSet, movementTypeSet) {
+    if (movementTypeSet.size) {
+      const typ = String((m && m.type) || "")
+        .trim()
+        .toUpperCase();
+      if (!movementTypeSet.has(typ)) return false;
+    }
+    return this._movementMatchesReportProjectSet(m, projectSet);
+  },
+
+  _movementAppearsInConsumptionExport(m, { itemTokens, projectIds, movementTypes }) {
+    const tokensLower = Array.isArray(itemTokens)
+      ? itemTokens.map(t => String(t).trim().toLowerCase()).filter(Boolean)
+      : [];
+    const projectSet = new Set((projectIds || []).map(p => String(p).trim().toLowerCase()).filter(Boolean));
+    const movementTypeSet = this._movementTypeSetFromKeys(movementTypes);
+    if (!this._movementMatchesConsumptionHead(m, projectSet, movementTypeSet)) return false;
+    if (!tokensLower.length) return true;
+    return (m.items || []).some(it => this._lineMatchesReportItemTokens(it, tokensLower));
   },
 
   _movementMatchesReportProjectSet(m, projectSet) {
@@ -485,28 +931,32 @@ const ReportExporter = {
             details: [`${I18n.t("export.manifest.rows")}: ${built.rows.length}`]
           };
         } else if (kind === "item_consumption") {
+          this._syncReportConsumptionHiddenFields();
           const rawNeedle = document.getElementById("report-item-needle")?.value || "";
           const rawProjects = document.getElementById("report-item-project-ids")?.value || "";
           const itemTokens = this._parseReportItemTokens(rawNeedle);
           const projectIds = this._parseReportProjectIds(rawProjects);
-          if (!itemTokens.length && !projectIds.length) {
+          const movementTypes = [...this._reportMovementTypeKeys];
+          if (!itemTokens.length && !projectIds.length && !movementTypes.length) {
             Utils.showToast(I18n.t("msg.reportExportNeedleOrProject"), "warning");
             return;
           }
-          const built = this.buildItemConsumption({ itemTokens, projectIds });
+          const built = this.buildItemConsumption({ itemTokens, projectIds, movementTypes });
           if (!built.rows.length) {
             Utils.showToast(I18n.t("msg.reportEmpty"), "warning");
             return;
           }
           headers = built.headers;
           tableRows = built.rows;
-          const allMov = (MovementManager.movements || []).filter(m => {
-            const pset = new Set(projectIds);
-            if (!this._movementMatchesReportProjectSet(m, pset)) return false;
-            if (!itemTokens.length) return true;
-            return (m.items || []).some(it => this._lineMatchesReportItemTokens(it, itemTokens));
-          });
-          const slug = [itemTokens.slice(0, 3).join("-") || "all", projectIds.slice(0, 3).join("-") || "all"]
+          const allMov = (MovementManager.movements || []).filter(m =>
+            this._movementAppearsInConsumptionExport(m, { itemTokens, projectIds, movementTypes })
+          );
+          const slug = [
+            itemTokens.slice(0, 3).join("-") || "",
+            projectIds.slice(0, 3).join("-") || "",
+            movementTypes.slice(0, 4).join("-") || ""
+          ]
+            .filter(Boolean)
             .join("_")
             .replace(/[^\w\-]+/g, "")
             .slice(0, 80);
@@ -517,6 +967,9 @@ const ReportExporter = {
             details: [
               itemTokens.length ? `${I18n.t("export.manifest.searchNeedle")}: ${itemTokens.join(", ")}` : "",
               projectIds.length ? `${I18n.t("movements.projectId")}: ${projectIds.join(", ")}` : "",
+              movementTypes.length
+                ? `${I18n.t("history.filterType")}: ${movementTypes.map(t => I18n.t(`movType.${t}`) || t).join(", ")}`
+                : "",
               `${I18n.t("export.manifest.rows")}: ${built.rows.length}`
             ].filter(Boolean)
           };
@@ -707,9 +1160,10 @@ const ReportExporter = {
     return { headers, rows };
   },
 
-  buildItemConsumption({ itemTokens, projectIds }) {
+  buildItemConsumption({ itemTokens, projectIds, movementTypes }) {
     const tokensLower = Array.isArray(itemTokens) ? itemTokens.map(t => String(t).trim().toLowerCase()).filter(Boolean) : [];
     const projectSet = new Set((projectIds || []).map(p => String(p).trim().toLowerCase()).filter(Boolean));
+    const movementTypeSet = this._movementTypeSetFromKeys(movementTypes);
     const movements = [...(MovementManager.movements || [])].reverse();
     const headers = [
       I18n.t("standby.date"),
@@ -727,7 +1181,7 @@ const ReportExporter = {
     ];
     const rows = [];
     for (const m of movements) {
-      if (!this._movementMatchesReportProjectSet(m, projectSet)) continue;
+      if (!this._movementMatchesConsumptionHead(m, projectSet, movementTypeSet)) continue;
       const items = m.items || [];
       const pair =
         typeof MovementManager !== "undefined" && MovementManager.computeMovementLineStockBeforeAfter

@@ -1899,6 +1899,17 @@ tr.inv-box-summary-row.is-selected {
     font-size: 0.8rem;
 }
 
+.inv-lots-overalloc {
+    color: var(--danger, #b91c1c);
+    font-weight: 500;
+    margin-top: 0.5rem;
+}
+
+.inv-lots-cell--overalloc {
+    border-left: 3px solid var(--danger, #b91c1c);
+    padding-left: 0.35rem;
+}
+
 .stock-expiring {
     color: #fbbf24 !important;
 }
@@ -3222,11 +3233,6 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     }
 }
 
-#report-modal .report-modal-hint {
-    margin: 0.35rem 0 0.55rem;
-    font-size: 0.85rem;
-}
-
 #report-modal .report-modal-export-actions {
     justify-content: flex-end;
 }
@@ -3237,6 +3243,120 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
 #report-modal .report-project-search-wrap .search-results {
     z-index: 7;
+}
+
+/* Informes: selección por chips (artículos / proyectos) */
+#report-modal .report-consumption-picker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 0.65rem;
+    margin-top: 0.25rem;
+}
+
+#report-modal .report-consumption-search-wrap {
+    flex: 1 1 12rem;
+    min-width: 0;
+}
+
+#report-modal .report-selected-block {
+    margin: 0.5rem 0 0.85rem;
+}
+
+#report-modal .report-selected-block--primary {
+    margin: 0 0 1rem;
+}
+
+#report-modal .report-selected-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+}
+
+#report-modal .report-chip-clear-all {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    padding: 0.2rem 0.5rem;
+}
+
+#report-modal .report-selected-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    opacity: 0.9;
+}
+
+#report-modal .report-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.45rem;
+    align-items: center;
+    align-content: flex-start;
+    min-height: 2.75rem;
+    padding: 0.35rem 0.4rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-tertiary);
+}
+
+#report-modal .report-chip-list--scroll {
+    max-height: 10.5rem;
+    overflow-y: auto;
+}
+
+#report-modal .report-chip-list-empty {
+    flex: 1 1 100%;
+    padding: 0.5rem 0.35rem;
+    font-size: 0.84rem;
+    text-align: center;
+    line-height: 1.35;
+}
+
+#report-modal .report-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 100%;
+    padding: 0.2rem 0.45rem 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    line-height: 1.25;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+#report-modal .report-chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 14rem;
+}
+
+#report-modal .report-chip-remove {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--text-muted);
+    background: transparent;
+}
+
+#report-modal .report-chip-remove:hover {
+    color: var(--danger, #c00);
+    background: rgba(220, 53, 69, 0.12);
 }
 
 .report-columns-list {

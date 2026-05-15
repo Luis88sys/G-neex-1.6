@@ -508,35 +508,56 @@ const HistoryManager = {
     },
 
     /** XLSX del historial según filtros actuales (útil en vistas sin tabla HTML). */
-    exportFilteredMovementsSpreadsheet() {
+    async exportFilteredMovementsSpreadsheet() {
         try {
             const rows = this.getFilteredMovements();
             if (!rows.length) {
                 Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
                 return;
             }
-            const headers = ["reference", "type", "date", "projectId", "salesOrder", "prNumber", "createdBy", "notes"];
-            const objs = rows.map(m => ({
-                reference: String(m.reference || ""),
-                type: String(m.type || ""),
-                date:
+            const hRef = I18n.t("standby.reference");
+            const hType = I18n.t("history.filterType");
+            const hDate = I18n.t("standby.date");
+            const hProj = I18n.t("movements.projectId");
+            const hSo = I18n.t("movements.salesOrder");
+            const hPr = I18n.t("movements.prNumber");
+            const hBy = I18n.t("history.createdBy");
+            const hNotes = I18n.t("movements.notes");
+            const headers = [hRef, hType, hDate, hProj, hSo, hPr, hBy, hNotes];
+            const rowObjs = rows.map(m => {
+                const o = {};
+                o[hRef] = String(m.reference || "");
+                o[hType] = (m.type && I18n.t(`movType.${m.type}`)) || String(m.type || "");
+                o[hDate] =
                     m.date && typeof Utils.formatDateTime === "function"
                         ? Utils.formatDateTime(m.date)
-                        : String(m.date || ""),
-                projectId: String(m.projectId || ""),
-                salesOrder: String(m.salesOrder || ""),
-                prNumber: String(m.prNumber || ""),
-                createdBy: String(m.createdBy || ""),
-                notes: String(m.notes || "")
+                        : String(m.date || "");
+                o[hProj] = m.type === "CONSUMO_DIARIO" ? "" : String(m.projectId || "");
+                o[hSo] = String(m.salesOrder || "");
+                o[hPr] = String(m.prNumber || "");
+                o[hBy] = String(m.createdBy || "");
+                o[hNotes] = String(m.notes || "")
                     .replace(/\s+/g, " ")
                     .trim()
-                    .slice(0, 1200)
-            }));
+                    .slice(0, 1200);
+                return o;
+            });
+            const pickTitle =
+                typeof I18n !== "undefined" && I18n.t ? I18n.t("ui.exportActiveTabTitle") : "Export";
+            const selected = await Utils.pickColumns(headers, pickTitle);
+            if (!selected || !selected.length) return;
+            const objs = rowObjs.map(o => {
+                const out = {};
+                selected.forEach(h => {
+                    out[h] = o[h] ?? "";
+                });
+                return out;
+            });
             const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
             const fn = `GNEEX_Historial_filtrado_${stamp}.xlsx`;
-            const buf = Utils.buildStyledXlsxBuffer(headers, objs, {
+            const buf = Utils.buildStyledXlsxBuffer(selected, objs, {
                 kind: "history-filtered",
-                title: "Historial filtrado"
+                title: I18n.t("export.manifest.report.movementsFiltered") || "Historial filtrado"
             });
             if (!buf || !buf.byteLength) {
                 Utils.showToast(I18n.t("msg.errorExportingReport"), "error");

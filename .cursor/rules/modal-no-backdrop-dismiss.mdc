@@ -1,0 +1,14 @@
+---
+description: Modales y overlays — no cerrar al clic fuera del panel
+alwaysApply: true
+---
+
+# Modales: sin cierre por clic en el fondo
+
+En **toda la app G-NEEX**:
+
+- **No** implementar cierre al hacer clic en el **fondo** del overlay / fuera del panel de contenido (backdrop), ni con `data-close-on-backdrop` ni con `modal.addEventListener("click", e => e.target === modal && …)`.
+- El usuario cierra con **acciones explícitas**: botón cerrar (×), Cancelar, Aceptar, minimizar donde aplique, o la lógica de negocio que corresponda.
+- Al añadir **nuevos** modales (`.modal` u overlays a pantalla completa), seguir esta política; no reintroducir cierre accidental por clic fuera.
+
+La política global está aplicada en `js/app.js` (no hay listener de backdrop para `.modal`). **Escape** puede seguir cerrando modales según el código existente; si se cambia Escape en el futuro, documentarlo aparte.

@@ -472,7 +472,7 @@ const App = {
     );
   },
 
-  exportActiveMainTabContent() {
+  async exportActiveMainTabContent() {
     try {
       const panel = document.querySelector(".tab-content.active");
       if (!panel || typeof Utils === "undefined") return;
@@ -484,14 +484,22 @@ const App = {
       if (slug === "history") {
         const tbl = panel.querySelector("table.history-details-table");
         if (tbl && tbl.querySelector("tbody tr")) {
-          const ok = Utils.exportDomTableToStyledDownload(tbl, `GNEEX_Historial_${new Date().toISOString().slice(0, 10)}`);
-          if (ok) {
+          const pickTitle =
+            typeof I18n !== "undefined" && I18n.t ? I18n.t("ui.exportActiveTabTitle") : "Export";
+          const res = await Utils.exportDomTableToStyledDownloadPickColumns(
+            tbl,
+            `GNEEX_Historial_${new Date().toISOString().slice(0, 10)}`,
+            pickTitle
+          );
+          if (res === "ok") {
             Utils.showToast(I18n.t("ui.exportDone"), "success");
             return;
           }
+          if (res === "fail") Utils.showToast(I18n.t("msg.errorExportingReport"), "error");
+          return;
         }
         if (typeof HistoryManager !== "undefined" && HistoryManager.exportFilteredMovementsSpreadsheet) {
-          HistoryManager.exportFilteredMovementsSpreadsheet();
+          await HistoryManager.exportFilteredMovementsSpreadsheet();
         }
         return;
       }
@@ -521,9 +529,15 @@ const App = {
         Utils.showToast(I18n.t("ui.exportActiveTabNoTable"), "info");
         return;
       }
-      const ok = Utils.exportDomTableToStyledDownload(tbl, `GNEEX_${slug}_${new Date().toISOString().slice(0, 10)}`);
-      if (ok) Utils.showToast(I18n.t("ui.exportDone"), "success");
-      else Utils.showToast(I18n.t("msg.errorExportingReport"), "error");
+      const pickTitle =
+        typeof I18n !== "undefined" && I18n.t ? I18n.t("ui.exportActiveTabTitle") : "Export";
+      const res = await Utils.exportDomTableToStyledDownloadPickColumns(
+        tbl,
+        `GNEEX_${slug}_${new Date().toISOString().slice(0, 10)}`,
+        pickTitle
+      );
+      if (res === "ok") Utils.showToast(I18n.t("ui.exportDone"), "success");
+      else if (res === "fail") Utils.showToast(I18n.t("msg.errorExportingReport"), "error");
     } catch (e) {
       console.warn("exportActiveMainTabContent", e);
     }
@@ -901,7 +915,7 @@ const App = {
 
   setupGlobalEvents() {
     document.getElementById("header-export-active-table-btn")?.addEventListener("click", () => {
-      this.exportActiveMainTabContent();
+      void this.exportActiveMainTabContent();
     });
     document.getElementById("header-print-active-table-btn")?.addEventListener("click", () => {
       this.printActiveMainTabContent();
@@ -1010,20 +1024,8 @@ const App = {
         }
       });
 
-    // Clic en el fondo del overlay: solo si el modal lo permite (`data-close-on-backdrop`).
-    // Nunca en confirmación / prompt / sobregiro (evita cierre al soltar selección de texto fuera).
-    document.querySelectorAll(".modal").forEach(m =>
-      m.addEventListener("click", e => {
-        if (e.target !== m) return;
-        if (m.id === "confirm-modal" || m.id === "app-prompt-modal" || m.id === "overdraft-confirm-modal") return;
-        if (!m.dataset.closeOnBackdrop) return;
-        if (m.id === "report-modal" && typeof ReportExporter !== "undefined" && ReportExporter.closeModal) {
-          ReportExporter.closeModal();
-          return;
-        }
-        m.classList.remove("active");
-      })
-    );
+    // G-NEEX: no cerrar modales al clic en el fondo del overlay (solo botones explícitos).
+    // Antes se usaba `data-close-on-backdrop`; se eliminó por política de producto (evita cierres accidentales).
 
     document.addEventListener("keydown", e => {
       if (e.key !== "Escape") return;

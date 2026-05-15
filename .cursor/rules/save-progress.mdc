@@ -1,6 +1,5 @@
-# Persistir progreso (commits)
+# Persistir progreso (sin tocar git)
 
-Tras completar un bloque de trabajo coherente (funcionalidad, corrección de bug, i18n, respaldo reparado, etc.), **hacer commit en git** con un mensaje claro en español o inglés, de modo que el progreso no dependa solo del chat.
+**El usuario gestiona git** (add, commit, push, ramas). El agente **no** debe ejecutar comandos de git ni asumir commits.
 
-- Incluir en el commit los archivos tocados; no dejar cambios importantes solo en el working tree sin commit al cerrar la tarea.
-- Si se genera un respaldo reparado (p. ej. `*.fixed.json`), puede incluirse en el commit si el usuario lo quiere versionado; si no, documentar en el mensaje la ruta del archivo generado.
+Al cerrar un bloque de trabajo útil, el agente puede **resumir en el chat** qué archivos cambiaron o qué artefactos generó (p. ej. rutas de `*.fixed.json`) para que el usuario decida cuándo y cómo versionarlo.

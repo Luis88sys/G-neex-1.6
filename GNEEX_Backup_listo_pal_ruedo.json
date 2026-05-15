@@ -15,7 +15,9 @@
       "itemsWithLocationStocks": 4,
       "boxRowsCount": 123,
       "locationRowsCount": 4
-    }
+    },
+    "repairAppliedUtc": "2026-05-15T01:32:40.030Z",
+    "repairScript": "scripts/repair-backup-users.mjs (users + movement merge + inbound hadOverdraft normalize + phoenix-* defaults)"
   },
   "artifacts": {
     "inventoryBoxStockSnapshot": {
@@ -1082,6 +1084,20 @@
     "phoenix-location-catalog-base-disabled": null,
     "phoenix-location-catalog-custom-disabled": null,
     "phoenix-elevation-outstanding": null,
-    "phoenix-elevation-consumed": null
+    "phoenix-elevation-consumed": null,
+    "phoenix-theme": "dark",
+    "phoenix-lang": "es",
+    "phoenix-float-standby-dismissed": "false",
+    "phoenix-float-consumo-dismissed": "false",
+    "phoenix-float-pos-standby": "{}",
+    "phoenix-float-pos-consumo": "{}",
+    "phoenix-float-pos-draft-movement": "{}",
+    "phoenix-float-pos-draft-config": "{}",
+    "phoenix-view-history-ui": "tiles",
+    "phoenix-view-transport-ui": "tiles",
+    "phoenix-view-orderlines-ui": "table",
+    "phoenix-nav-open-target": "same",
+    "phoenix-modal-layouts": "{}",
+    "phoenix-table-column-layouts": "[]"
   }
 }

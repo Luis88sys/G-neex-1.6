@@ -1661,7 +1661,7 @@
 </div>
 
 <!-- Ayuda por tipo de movimiento -->
-<div id="mov-type-help-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mov-type-help-title" data-close-on-backdrop="1">
+<div id="mov-type-help-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mov-type-help-title">
   <div class="modal-content mov-type-help-modal-content">
     <div class="modal-header">
       <h2 id="mov-type-help-title"></h2>
@@ -2056,7 +2056,7 @@
 </div>
 
 <!-- ========== DASHBOARD: todas las alertas ========== -->
-<div id="dashboard-alerts-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-alerts-title" data-close-on-backdrop="1">
+<div id="dashboard-alerts-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-alerts-title">
   <div class="modal-content modal-large">
     <div class="modal-header">
       <h2 id="dashboard-alerts-title" data-i18n="dashboard.alertsModalTitle">Todas las alertas activas</h2>
@@ -2317,7 +2317,7 @@
 <p class="app-creator-credit" data-i18n="app.creatorCredit" data-i18n-title="app.creatorCreditTitle" title="">Luis Goire</p>
 
 <!-- ========== INFORMES XLSX ========== -->
-<div id="report-modal" class="modal" data-close-on-backdrop="1">
+<div id="report-modal" class="modal">
   <div class="modal-content gneex-resizable-modal report-modal-shell">
     <div class="modal-header">
       <h2 data-i18n="reports.title">Informes XLSX</h2>
@@ -2339,18 +2339,54 @@
         </select>
       </div>
       <div id="report-item-wrap" class="form-group" style="display:none;">
-        <label for="report-item-needle" data-i18n="reports.itemNeedleLabel">Artículos (código, texto o id)</label>
-        <div class="item-search-container report-item-search-wrap">
-          <textarea id="report-item-needle" class="form-input" rows="3" autocomplete="off" data-i18n-placeholder="reports.itemNeedlePh" placeholder=""></textarea>
-          <div id="report-item-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+        <div class="report-selected-block report-selected-block--primary">
+          <div class="report-selected-header">
+            <span class="report-selected-label" id="report-item-selected-heading" data-i18n="reports.itemSelectedLabel">Artículos en el informe</span>
+            <button type="button" id="report-item-chips-clear" class="btn btn-secondary btn-sm report-chip-clear-all" data-i18n="reports.chipListClearAll">Vaciar lista</button>
+          </div>
+          <div id="report-item-chip-list" class="report-chip-list report-chip-list--scroll" role="list" aria-labelledby="report-item-selected-heading" aria-live="polite"></div>
         </div>
-        <p class="muted report-modal-hint" data-i18n="reports.itemNeedleHint"></p>
-        <label for="report-item-project-ids" data-i18n="reports.projectIdsLabel">Proyectos (ID)</label>
-        <div class="item-search-container report-project-search-wrap">
-          <textarea id="report-item-project-ids" class="form-input" rows="2" autocomplete="off" data-i18n-placeholder="reports.projectIdsPh" placeholder=""></textarea>
-          <div id="report-project-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+        <input type="hidden" id="report-item-needle" value="" />
+
+        <label for="report-item-search-input" data-i18n="reports.itemAddSearchLabel">Añadir artículo a la lista</label>
+        <div class="report-consumption-picker-row">
+          <div class="item-search-container report-item-search-wrap report-consumption-search-wrap">
+            <input type="text" id="report-item-search-input" class="form-input" autocomplete="off" data-i18n-placeholder="reports.itemSearchPlaceholder" placeholder="" />
+            <div id="report-item-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+          </div>
         </div>
-        <p class="muted report-modal-hint" data-i18n="reports.projectIdsHint"></p>
+        <div class="report-selected-block report-selected-block--primary">
+          <div class="report-selected-header">
+            <span class="report-selected-label" id="report-project-selected-heading" data-i18n="reports.projectSelectedLabel">Proyectos en el informe</span>
+            <button type="button" id="report-project-chips-clear" class="btn btn-secondary btn-sm report-chip-clear-all" data-i18n="reports.chipListClearAll">Vaciar lista</button>
+          </div>
+          <div id="report-project-chip-list" class="report-chip-list report-chip-list--scroll" role="list" aria-labelledby="report-project-selected-heading" aria-live="polite"></div>
+        </div>
+        <input type="hidden" id="report-item-project-ids" value="" />
+
+        <label for="report-project-search-input" data-i18n="reports.projectAddSearchLabel">Añadir proyecto a la lista</label>
+        <div class="report-consumption-picker-row">
+          <div class="item-search-container report-project-search-wrap report-consumption-search-wrap">
+            <input type="text" id="report-project-search-input" class="form-input" autocomplete="off" data-i18n-placeholder="reports.projectSearchPlaceholder" placeholder="" />
+            <div id="report-project-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="report-selected-block report-selected-block--primary">
+          <div class="report-selected-header">
+            <span class="report-selected-label" id="report-movtype-selected-heading" data-i18n="reports.movementTypeSelectedLabel">Tipos de movimiento en el informe</span>
+            <button type="button" id="report-movtype-chips-clear" class="btn btn-secondary btn-sm report-chip-clear-all" data-i18n="reports.chipListClearAll">Vaciar lista</button>
+          </div>
+          <div id="report-movtype-chip-list" class="report-chip-list report-chip-list--scroll" role="list" aria-labelledby="report-movtype-selected-heading" aria-live="polite"></div>
+        </div>
+        <input type="hidden" id="report-item-movement-types" value="" />
+
+        <label for="report-movtype-search-input" data-i18n="reports.movementTypeAddSearchLabel">Añadir tipo de movimiento</label>
+        <div class="report-consumption-picker-row">
+          <div class="item-search-container report-movtype-search-wrap report-consumption-search-wrap">
+            <input type="text" id="report-movtype-search-input" class="form-input" autocomplete="off" data-i18n-placeholder="reports.movementTypeSearchPlaceholder" placeholder="" />
+            <div id="report-movtype-suggestions" class="search-results" role="listbox" aria-hidden="true"></div>
+          </div>
+        </div>
       </div>
         </div>
         <div class="report-modal-col report-modal-col--columns">

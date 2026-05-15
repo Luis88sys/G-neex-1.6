@@ -1,11 +1,11 @@
 ---
-description: Protocolo pre-deploy cuando el usuario dice «Bankai» (ayuda, capturas, docs, backend, código, bugs)
+description: Protocolo pre-deploy cuando el usuario dice «Bankai» (ayuda, capturas, docs, backend, bugs, inconsistencias, código muerto)
 alwaysApply: true
 ---
 
 # Bankai — checklist pre-deploy G-NEEX
 
-Cuando el usuario escribe **`Bankai`** (sin importar mayúsculas), ejecutar el protocolo de alineación y limpieza antes de desplegar: coherencia entre la **SPA** (`index.html` + `js/`), la **ayuda embebida** (`user-manual/`), **presentaciones**, **capturas PNG**, **documentación / contrato backend**, **código muerto o roto** y **bugs** evidentes. Mantener el alcance enfocado en “listo para deploy” salvo que el usuario pida un subconjunto.
+Cuando el usuario escribe **`Bankai`** (sin importar mayúsculas), ejecutar el protocolo de alineación y limpieza antes de desplegar: coherencia entre la **SPA** (`index.html` + `js/`), la **ayuda embebida** (`user-manual/`), **presentaciones**, **capturas PNG**, **documentación / contrato backend**, y una pasada **obligatoria** de **bugs**, **inconsistencias** y **código muerto** (ver §6). Mantener el alcance enfocado en “listo para deploy” salvo que el usuario pida un subconjunto.
 
 ## Orden de trabajo (ejecutar en la raíz del repo salvo que se indique otra ruta)
 
@@ -28,7 +28,11 @@ Cuando el usuario escribe **`Bankai`** (sin importar mayúsculas), ejecutar el p
 
 5. **Textos y manuales**: `no-deployar/User Manual/`, `no-deployar/Presentation/`, `js/i18n.js` — mismos conceptos que la UI (tipos de movimiento, filtros, SO/PR, etc.).
 
-6. **Código y bugs**: búsqueda acotada (rutas rotas, duplicados, TODO bloqueante); reparar solo lo necesario para deploy estable.
+6. **Bugs, inconsistencias y código muerto** (obligatorio en cada Bankai; priorizar `index.html`, `js/`, `css/styles.css`; ampliar solo si hay señales claras):
+   - **Bugs**: buscar fallos evidentes por lectura o por prueba mínima (flujos que contradigan reglas ya documentadas, accesos sin comprobación, listeners duplicados, promesas sin `catch` en código nuevo obvio, `querySelector` que puede devolver `null`); revisar `TODO` / `FIXME` / `HACK` en el diff o en `js/`; corregir solo lo bloqueante o de bajo riesgo para un deploy estable (no abrir refactors grandes aquí).
+   - **Inconsistencias**: mismas etiquetas o conceptos en **UI vs `js/i18n.js`** (ES/EN/FR); tipos de movimiento, permisos, filtros y textos de ayuda alineados con lo que hace el código; enlaces a manuales / `user-manual/` / rutas en `index.html` que apunten a archivos existentes; duplicados contradictorios (dos claves o dos textos para el mismo concepto).
+   - **Código muerto**: símbolos o funciones **sin referencias** en el repo, ramas imposibles, ficheros huérfanos obvios, CSS de selectores que ya no existen en el DOM; **no** eliminar masivamente por “limpieza”: solo retirar o unificar lo claramente muerto o documentar en comentario breve si conviene dejarlo por compatibilidad de datos.
+   - Herramientas útiles (raíz del repo): búsqueda semántica / `rg` por nombres de función o clave i18n; `git diff` reciente para ver cambios accidentales; contrastar con pasos 4–5 si la documentación contradice el comportamiento.
 
 7. **Respaldo madre** — **no** forma parte automática de Bankai. Si el usuario escribe **«Madre mía»** / **«Madre mia»**, seguir la regla **`madre-backup.mdc`** (`node scripts/repair-backup-users.mjs GNEEX_Backup_Madre.json`). Si en el mismo mensaje de Bankai pide explícitamente reparar el respaldo madre, ejecutar también ese comando.
 

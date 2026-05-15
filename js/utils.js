@@ -595,8 +595,8 @@ const Utils = {
      */
     _appDateLocale() {
         const locMap = { es: "es-ES", en: "en-US", fr: "fr-FR" };
-        const lang = typeof I18n !== "undefined" && I18n.currentLang ? I18n.currentLang : "es";
-        return { bcp: locMap[lang] || "es-ES", lang };
+        const lang = typeof I18n !== "undefined" && I18n.currentLang ? I18n.currentLang : "en";
+        return { bcp: locMap[lang] || "en-US", lang };
     },
 
     /**
@@ -1156,6 +1156,17 @@ const Utils = {
         this.showToast(dest ? `${msg} -> ${dest}` : msg, "success");
     },
 
+    /** Nombre de hoja XLSX válido (31 caracteres; sin : \\ / ? * [ ] '). */
+    _xlsxSafeSheetName(raw, fallback) {
+        const fb = String(fallback || "Sheet").slice(0, 31);
+        const s = String(raw || "")
+            .replace(/[:\\/?*\[\]]/g, "")
+            .replace(/'/g, "")
+            .trim()
+            .slice(0, 31);
+        return s || fb;
+    },
+
     /**
      * Tabla XLSX con encabezado naranja (tema G-NEEX), texto centrado y negrita.
      * Requiere `vendor/xlsx-js-style.min.js` (global `XLSX`).
@@ -1221,7 +1232,11 @@ const Utils = {
         ws["!cols"] = colWidths;
 
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Datos");
+        const sheetData = this._xlsxSafeSheetName(
+            typeof I18n !== "undefined" && I18n.t ? I18n.t("export.xlsxSheetData") : "Data",
+            "Data"
+        );
+        XLSX.utils.book_append_sheet(wb, ws, sheetData);
 
         if (manifestMeta && typeof manifestMeta === "object") {
             const esc = s => String(s ?? "");
@@ -1250,7 +1265,11 @@ const Utils = {
                 ...(Array.isArray(manifestMeta.details) ? manifestMeta.details.map(d => [esc(d)]) : [])
             ];
             const wsInfo = XLSX.utils.aoa_to_sheet(infoAoa);
-            XLSX.utils.book_append_sheet(wb, wsInfo, "Info");
+            const sheetInfo = this._xlsxSafeSheetName(
+                typeof I18n !== "undefined" && I18n.t ? I18n.t("export.xlsxSheetInfo") : "Info",
+                "Info"
+            );
+            XLSX.utils.book_append_sheet(wb, wsInfo, sheetInfo);
         }
 
         try {
@@ -1267,6 +1286,36 @@ const Utils = {
     },
 
     /**
+     * Primera fila = cabeceras; filas siguientes = datos (mismas columnas).
+     * @param {HTMLTableElement|null} table
+     * @returns {{ headers: string[]; rows: string[][] }|null}
+     */
+    domTableToMatrixForExport(table) {
+        if (!table || !table.querySelector("tr")) return null;
+        const matrix = [];
+        table.querySelectorAll("tr").forEach(tr => {
+            const row = [...tr.querySelectorAll("th,td")].map(td =>
+                String((td.innerText || "").replace(/\s+/g, " ").trim())
+            );
+            if (row.some(c => c !== "")) matrix.push(row);
+        });
+        if (!matrix.length) return null;
+        const ncol = Math.max(...matrix.map(r => r.length));
+        matrix.forEach(r => {
+            while (r.length < ncol) r.push("");
+        });
+        const counts = Object.create(null);
+        const headers = matrix[0].map((cell, i) => {
+            const base = String(cell || "").trim() || `Col${i + 1}`;
+            counts[base] = (counts[base] || 0) + 1;
+            const n = counts[base];
+            return n > 1 ? `${base} (${n})` : base;
+        });
+        const rows = matrix.slice(1);
+        return { headers, rows };
+    },
+
+    /**
      * Exporta una tabla HTML (`<table>`) a XLSX con el estilo G-NEEX (primera fila = cabeceras).
      * @param {HTMLTableElement|null} table
      * @param {string} filenameBase nombre sin extensión o con `.xlsx`
@@ -1274,27 +1323,10 @@ const Utils = {
      */
     exportDomTableToStyledDownload(table, filenameBase = "export") {
         try {
-            if (!table || !table.querySelector("tr")) return false;
-            const matrix = [];
-            table.querySelectorAll("tr").forEach(tr => {
-                const row = [...tr.querySelectorAll("th,td")].map(td =>
-                    String((td.innerText || "").replace(/\s+/g, " ").trim())
-                );
-                if (row.some(c => c !== "")) matrix.push(row);
-            });
-            if (!matrix.length) return false;
-            const ncol = Math.max(...matrix.map(r => r.length));
-            matrix.forEach(r => {
-                while (r.length < ncol) r.push("");
-            });
-            const counts = Object.create(null);
-            const headers = matrix[0].map((cell, i) => {
-                const base = String(cell || "").trim() || `Col${i + 1}`;
-                counts[base] = (counts[base] || 0) + 1;
-                const n = counts[base];
-                return n > 1 ? `${base} (${n})` : base;
-            });
-            const objs = matrix.slice(1).map(r => Object.fromEntries(headers.map((h, ci) => [h, r[ci] ?? ""])));
+            const parsed = this.domTableToMatrixForExport(table);
+            if (!parsed) return false;
+            const { headers, rows } = parsed;
+            const objs = rows.map(r => Object.fromEntries(headers.map((h, ci) => [h, r[ci] ?? ""])));
             let fn = String(filenameBase || "export").trim();
             fn = fn.replace(/[^\w\-.\u00C0-\u024f\s\(\)\[\]]+/gi, "_").trim();
             if (!fn.length) fn = "export";
@@ -1309,6 +1341,48 @@ const Utils = {
         } catch (e) {
             console.warn("exportDomTableToStyledDownload", e);
             return false;
+        }
+    },
+
+    /**
+     * Igual que `exportDomTableToStyledDownload` pero abre primero el selector de columnas.
+     * @param {HTMLTableElement|null} table
+     * @param {string} filenameBase
+     * @param {string} [pickTitle]
+     * @returns {Promise<"ok"|"cancelled"|"fail">}
+     */
+    async exportDomTableToStyledDownloadPickColumns(table, filenameBase = "export", pickTitle) {
+        try {
+            const parsed = this.domTableToMatrixForExport(table);
+            if (!parsed) return "fail";
+            const { headers, rows } = parsed;
+            const title =
+                pickTitle ||
+                (typeof I18n !== "undefined" && I18n.t ? I18n.t("reports.columnsLabel") : "Columns");
+            const selected = await this.pickColumns(headers, title);
+            if (!selected || !selected.length) return "cancelled";
+            const objs = rows.map(r => {
+                const o = {};
+                for (const h of selected) {
+                    const idx = headers.indexOf(h);
+                    o[h] = idx >= 0 ? (r[idx] ?? "") : "";
+                }
+                return o;
+            });
+            let fn = String(filenameBase || "export").trim();
+            fn = fn.replace(/[^\w\-.\u00C0-\u024f\s\(\)\[\]]+/gi, "_").trim();
+            if (!fn.length) fn = "export";
+            if (!/\.xlsx$/i.test(fn)) fn += ".xlsx";
+            const buf = this.buildStyledXlsxBuffer(selected, objs, {
+                kind: "dom-table",
+                title: fn.replace(/\.xlsx$/i, "")
+            });
+            if (!buf || !buf.byteLength) return "fail";
+            this.downloadArrayBuffer(buf, fn);
+            return "ok";
+        } catch (e) {
+            console.warn("exportDomTableToStyledDownloadPickColumns", e);
+            return "fail";
         }
     },
 
@@ -1488,7 +1562,7 @@ th.print-cell-code,td.print-cell-code{
         const langHtml =
             typeof I18n !== "undefined" && I18n.currentLang
                 ? { es: "es", en: "en", fr: "fr" }[I18n.currentLang] || "en"
-                : "es";
+                : "en";
         const css = this.PRINT_DOCUMENT_CSS;
         w.document.write(`<!DOCTYPE html><html lang="${langHtml}"><head><meta charset="UTF-8"><title>${esc(title)}</title>
       <style>${css}</style></head><body>

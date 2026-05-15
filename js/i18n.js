@@ -348,9 +348,9 @@ const I18n = {
             'inventory.toolsItemZeroTotal': 'Cajas sin unidades (suma total)',
             'inventory.toolsItemBoxManager': 'Gestionar stock por caja',
             'inventory.toolsItemReconcileTotals': 'Recalcular stock principal (cajas + ubicaciones)',
-            'inventory.reconcileConfirm': 'El stock principal de cada artículo se elevará a la suma de cajas + ubicaciones cuando esté por debajo. ¿Continuar?',
+            'inventory.reconcileConfirm': 'El stock principal se elevará a la suma de cajas + ubicaciones cuando esté por debajo, salvo principal negativo o artículos con movimientos de sobregiro efectivo (compra/recepción excluidas). ¿Continuar?',
             'inventory.reconcileConfirmHead': 'Se elevará el stock principal a la suma de cajas + ubicaciones en {n} artículos (Δ total = {d}). Detalle:',
-            'inventory.reconcileConfirmTail': '\n\nNo se reducirá ningún principal (el sobrante no asignado a cajas/ubicaciones se respeta). ¿Continuar?',
+            'inventory.reconcileConfirmTail': '\n\nNo se reducirá ningún principal. No se sube si el principal es negativo o si el artículo figura en un movimiento con sobregiro efectivo. ¿Continuar?',
             'inventory.reconcileNothing': 'Todos los stocks principales ya cubren la suma de cajas + ubicaciones. Nada que ajustar.',
             'inventory.reconcileDone': 'Reconciliación aplicada en {n} artículos (Δ={d}).',
             'inventory.toolsItemRefreshLotExpiry': 'Refrescar caducidad de lotes desde vida útil',
@@ -361,7 +361,7 @@ const I18n = {
             'welcome.hello': 'Bienvenido a',
             'welcome.userGreeting': 'Hola, {name}',
             'inventory.refreshDataConfirmHead': 'Se actualizará el inventario con tres pasadas de mantenimiento:',
-            'inventory.refreshDataConfirmTail': '\n\nNo se reducirá ningún stock principal. Si el principal está en negativo (p. ej. tras un sobregiro aceptado), no se modifica: «Actualizar inventario» no reescribe movimientos. Las caducidades personalizadas se conservan. ¿Continuar?',
+            'inventory.refreshDataConfirmTail': '\n\nNo se reducirá ningún stock principal. No se sube el principal si está en negativo o si el artículo figura en un movimiento con sobregiro efectivo (compra/recepción excluidas). No se reescriben movimientos. Las caducidades personalizadas se conservan. ¿Continuar?',
             'inventory.refreshDataNormalizeHead': '• Ubicaciones / cajas: {n} artículo(s) se normalizarán al formato canónico (texto → catálogo)',
             'inventory.refreshDataNormalizeSkip': 'Ubicaciones / cajas: ya están normalizadas.',
             'inventory.refreshDataReconcileHead': '• Stock principal: {n} artículo(s), Δ total = +{d}',
@@ -370,6 +370,10 @@ const I18n = {
             'inventory.refreshDataLotsSkip': 'Caducidades de lotes: ya están al día.',
             'inventory.refreshDataLotsKept': '{k} lote(s) con caducidad personalizada se preservan',
             'inventory.refreshDataNothing': 'Nada que actualizar: stock principal, ubicaciones y caducidades de lotes ya están al día.',
+            'inventory.refreshDataNothingButReconcileSkips': 'Sin normalizaciones ni caducidades pendientes. No se sube el principal automáticamente: {n} artículo(s) con principal negativo, {o} por historial de sobregiro en movimientos (revise manualmente o con movimientos).',
+            'inventory.refreshDataReconcileSkipDeferred': 'Stock principal: ninguna subida automática programada; hay artículos que cuadrarían con cajas + ubicaciones pero se omiten (detalle debajo).',
+            'inventory.refreshDataReconcileSkippedNegativeHead': '   Principal negativo ({n}): no se modifica el principal.',
+            'inventory.refreshDataReconcileSkippedOverdraftHead': '   Movimientos con sobregiro en historial ({n}): no se sube el principal automáticamente (coherencia con salidas ya aceptadas).',
             'inventory.refreshDataDone': 'Actualización aplicada. Normalizados: {p} artículo(s). Stock principal: {n} artículo(s) Δ=+{d}. Caducidades de lotes: {l} lote(s) en {m} artículo(s).',
             'inventory.shelfLifeMonthsHint': 'Si das fecha de expedición y vida útil, la caducidad se calcula al vuelo.',
             'inventory.lotsEditorTitle': 'Lotes (caducidad por compra)',
@@ -563,6 +567,10 @@ const I18n = {
             'inventory.lotRowArticleLevel': 'Nivel artículo',
             'inventory.lotRowLotLevel': 'Lote',
             'inventory.lotRowUnassigned': 'Sin lote (resto del stock principal)',
+            'inventory.lotsOverMainStockHint':
+                'Atención: la suma de cantidades en lotes ({l}) superaba el stock principal ({m}); exceso {x}. Con el control FEFO activado, el guardado recorta lotes automáticamente (lo que caduca antes primero) hasta cuadrar con el principal. Si solo bajó el principal, los lotes se ajustan solos al guardar.',
+            'inventory.lotsOverMainStockTooltip':
+                'Suma lotes {l} > principal {m} (exceso {x}). Ajuste lotes o suba el principal.',
             'inventory.affectedQtyCol': 'Cantidad afectada',
             'inventory.affectedExpiredTooltip': 'Unidades ya vencidas',
             'inventory.affectedSoonTooltip': 'Unidades próximas a vencer',
@@ -857,15 +865,28 @@ const I18n = {
             'reports.typeMovementsFiltered': 'Movimientos (filtros del historial)',
             'reports.typeMovementsLinesFiltered': 'Movimientos filtrados (una fila por artículo)',
             'reports.typeMovementsAll': 'Movimientos (todos)',
-            'reports.typeItemConsumption': 'Historial por artículo(s) y/o proyecto(s)',
+            'reports.typeItemConsumption': 'Historial por artículo(s), proyecto(s) y/o tipo(s) de movimiento',
+            'reports.itemSearchLabel': 'Buscar artículo',
+            'reports.itemSearchPlaceholder': 'Busque y elija en la lista, o pulse Intro para añadir lo escrito.',
+            'reports.itemSelectedLabel': 'Artículos en el informe',
+            'reports.projectSearchLabel': 'Buscar proyecto (ID)',
+            'reports.projectSearchPlaceholder': 'Filtre o elija en la lista, o pulse Intro para añadir el id.',
+            'reports.chipRemoveAria': 'Quitar de la lista',
+            'reports.chipListClearAll': 'Vaciar lista',
+            'reports.itemAddSearchLabel': 'Añadir artículo a la lista',
+            'reports.projectAddSearchLabel': 'Añadir proyecto a la lista',
+            'reports.itemChipListEmpty': 'Sin artículos. Busque en la lista o pulse Intro.',
+            'reports.projectChipListEmpty': 'Sin proyectos. Busque en la lista o pulse Intro.',
             'reports.itemNeedleLabel': 'Artículos (código, descripción, destinatario o id de ítem)',
-            'reports.itemNeedlePh': 'Uno por línea o separados por coma o punto y coma. Vacío = todos los artículos si indicó proyecto(s).',
-            'reports.itemNeedleHint':
-                'Cada término se busca en código, descripción, nombre de destinatario (consumo), nombre en recepción o id de ítem. Varios términos = filas que coincidan con cualquiera.',
+            'reports.itemNeedlePh': 'Separados por coma o salto. Vacío = todos si hay proyecto(s).',
             'reports.projectIdsLabel': 'Proyectos (solo movimientos con este ID de proyecto)',
             'reports.projectIdsPh': 'Un ID por línea o separados por coma. Vacío = todos los proyectos.',
-            'reports.projectIdsHint':
-                'Sugerencias según proyectos ya usados en movimientos, transportes o recepciones. Si indica proyectos, no se incluyen líneas de «Consumo diario». Combine con términos de artículo para acotar.',
+            'reports.movementTypeSelectedLabel': 'Tipos de movimiento',
+            'reports.movementTypeAddSearchLabel': 'Añadir tipo',
+            'reports.movementTypeSearchPlaceholder': 'Filtre y elija en la lista, o pulse Intro con la clave o nombre.',
+            'reports.movementTypeChipListEmpty': 'Sin tipos. Elija en la lista o pulse Intro.',
+            'reports.movementTypeUnknown': 'Sin coincidencia. Lista o clave exacta.',
+            'reports.movementTypeAmbiguous': 'Varias coincidencias; elija en la lista.',
             'reports.projectPredictEmpty': 'No hay IDs de proyecto en movimientos, transportes ni recepciones.',
             'reports.columnsLabel': 'Columnas a exportar',
             'reports.columnsAll': 'Seleccionar todo',
@@ -1076,7 +1097,7 @@ const I18n = {
             'msg.dataExported': 'Datos exportados',
             'msg.reportEmpty': 'No hay datos para este informe.',
             'msg.descriptionCopied': 'Descripción copiada al portapapeles.',
-            'msg.reportExportNeedleOrProject': 'Indique al menos un término de artículo o un ID de proyecto.',
+            'msg.reportExportNeedleOrProject': 'Al menos un artículo, proyecto o tipo de movimiento.',
             'msg.reportItemNeedleRequired': 'Indique código o texto del artículo.',
             'msg.errorExportingReport': 'Error al generar el informe.',
             'msg.dataImported': 'Datos importados',
@@ -1100,6 +1121,8 @@ const I18n = {
             'export.manifest.kindLabel': 'Tipo',
             'export.manifest.exportedUtcLabel': 'Exportado (UTC)',
             'export.manifest.exportedLocalLabel': 'Exportado (local)',
+            'export.xlsxSheetData': 'Datos',
+            'export.xlsxSheetInfo': 'Info',
             'export.manifest.orderLines': 'Pedidos a proveedor (exportación XLSX)',
             'export.manifest.receptions': 'Recepciones (exportación XLSX)',
             'export.manifest.historyFiltered': 'Historial — movimientos filtrados (resumen)',
@@ -2408,9 +2431,9 @@ const I18n = {
             'inventory.toolsItemZeroTotal': 'Boxes with no units (total sum)',
             'inventory.toolsItemBoxManager': 'Manage stock per box',
             'inventory.toolsItemReconcileTotals': 'Recalculate main stock (boxes + locations)',
-            'inventory.reconcileConfirm': 'Main stock of each item will be raised to the sum of boxes + locations when below it. Continue?',
+            'inventory.reconcileConfirm': 'Main stock will be raised to boxes + locations when below, except for negative main or items on movements with effective overdraft (purchase/reception excluded). Continue?',
             'inventory.reconcileConfirmHead': 'Main stock will be raised to boxes + locations on {n} items (total Δ = {d}). Detail:',
-            'inventory.reconcileConfirmTail': '\n\nNo main stock will ever be reduced (any surplus not assigned to boxes/locations is preserved). Continue?',
+            'inventory.reconcileConfirmTail': '\n\nMain stock will never be reduced. It will not be raised while negative or when the item appears on a movement with effective overdraft. Continue?',
             'inventory.reconcileNothing': 'All main stocks already cover the sum of boxes + locations. Nothing to adjust.',
             'inventory.reconcileDone': 'Reconciliation applied to {n} items (Δ={d}).',
             'inventory.toolsItemRefreshLotExpiry': 'Refresh lot expiry from shelf life',
@@ -2421,7 +2444,7 @@ const I18n = {
             'welcome.hello': 'Welcome to',
             'welcome.userGreeting': 'Hi, {name}',
             'inventory.refreshDataConfirmHead': 'Inventory will be updated with three maintenance passes:',
-            'inventory.refreshDataConfirmTail': '\n\nMain stock will not be reduced. If main stock is negative (e.g. after an accepted overdraft), it is left unchanged: this action does not rewrite movements. Custom lot expiry values are preserved. Continue?',
+            'inventory.refreshDataConfirmTail': '\n\nMain stock will not be reduced. It will not be raised while negative or when the item appears on a movement with effective overdraft (purchase/reception excluded). This action does not rewrite movements. Custom lot expiry values are preserved. Continue?',
             'inventory.refreshDataNormalizeHead': '• Locations / boxes: {n} item(s) will be normalized to the canonical format (text → catalog)',
             'inventory.refreshDataNormalizeSkip': 'Locations / boxes: already normalized.',
             'inventory.refreshDataReconcileHead': '• Main stock: {n} item(s), total Δ = +{d}',
@@ -2430,6 +2453,10 @@ const I18n = {
             'inventory.refreshDataLotsSkip': 'Lot expiry: already up to date.',
             'inventory.refreshDataLotsKept': '{k} lot(s) with custom expiry are preserved',
             'inventory.refreshDataNothing': 'Nothing to update: main stock, locations and lot expiry are already up to date.',
+            'inventory.refreshDataNothingButReconcileSkips': 'No normalization or lot-expiry changes pending. Main stock will not be raised automatically: {n} item(s) with negative main, {o} due to overdraft history on movements (review manually or via movements).',
+            'inventory.refreshDataReconcileSkipDeferred': 'Main stock: no automatic increases scheduled; some items would align with boxes + locations but are skipped (see below).',
+            'inventory.refreshDataReconcileSkippedNegativeHead': '   Negative main ({n}): main stock is not changed.',
+            'inventory.refreshDataReconcileSkippedOverdraftHead': '   Movements with overdraft in history ({n}): main stock is not raised automatically (keeps accepted withdrawals consistent).',
             'inventory.refreshDataDone': 'Update applied. Normalized: {p} item(s). Main stock: {n} item(s) Δ=+{d}. Lot expiry: {l} lot(s) on {m} item(s).',
             'inventory.shelfLifeMonthsHint': 'If you provide an issue date and a shelf life, the expiry is computed on the fly.',
             'inventory.lotsEditorTitle': 'Lots (expiry per purchase)',
@@ -2547,7 +2574,7 @@ const I18n = {
             'inventory.boxExportTitle': 'G-NEEX box stock export',
             'inventory.boxExportEmpty': 'No box lines to export.',
             'inventory.boxStockManifestSheetDatos':
-              'Use the «Datos» sheet; row 1 must be: Codigo | Caja | UbicacionCaja | CantidadCaja | CantidadCajas | Vacia. The Vacia column is the same as marking do not touch in the app.',
+              'Use the «Data» sheet; row 1 must be: Codigo | Caja | UbicacionCaja | CantidadCaja | CantidadCajas | Vacia. The Vacia column is the same as marking do not touch in the app.',
             'inventory.boxStockManifestColCodigo': 'Codigo — item code (same as in inventory).',
             'inventory.boxStockManifestColCaja': 'Caja — positive number or text with BOXn / caja n.',
             'inventory.boxStockManifestColUbicacion':
@@ -2629,6 +2656,10 @@ const I18n = {
             'inventory.lotRowArticleLevel': 'Item-level',
             'inventory.lotRowLotLevel': 'Lot',
             'inventory.lotRowUnassigned': 'Unassigned (remaining main stock)',
+            'inventory.lotsOverMainStockHint':
+                'Note: lot totals ({l}) were above main stock ({m}) by {x}. With FEFO tracking on, saving trims lots automatically (soonest expiry first) to match main stock. If you only lower main stock, lots adjust on save.',
+            'inventory.lotsOverMainStockTooltip':
+                'Lot total {l} > main {m} (excess {x}). Edit lot rows or raise main stock.',
             'inventory.affectedQtyCol': 'Affected qty',
             'inventory.affectedExpiredTooltip': 'Already expired units',
             'inventory.affectedSoonTooltip': 'Units expiring soon',
@@ -2920,15 +2951,28 @@ const I18n = {
             'reports.typeMovementsFiltered': 'Movements (history filters)',
             'reports.typeMovementsLinesFiltered': 'Filtered movements (one row per item)',
             'reports.typeMovementsAll': 'Movements (all)',
-            'reports.typeItemConsumption': 'History by item(s) and/or project(s)',
+            'reports.typeItemConsumption': 'History by item(s), project(s) and/or movement type(s)',
+            'reports.itemSearchLabel': 'Search item',
+            'reports.itemSearchPlaceholder': 'Type and pick from the list, or press Enter to add the text.',
+            'reports.itemSelectedLabel': 'Items in report',
+            'reports.projectSearchLabel': 'Search project (id)',
+            'reports.projectSearchPlaceholder': 'Filter or pick from the list, or press Enter to add the id.',
+            'reports.chipRemoveAria': 'Remove from list',
+            'reports.chipListClearAll': 'Clear list',
+            'reports.itemAddSearchLabel': 'Add item to list',
+            'reports.projectAddSearchLabel': 'Add project to list',
+            'reports.itemChipListEmpty': 'No items yet. Pick from the list or press Enter.',
+            'reports.projectChipListEmpty': 'No projects yet. Pick from the list or press Enter.',
             'reports.itemNeedleLabel': 'Items (code, description, recipient or item id)',
-            'reports.itemNeedlePh': 'One per line or separated by comma or semicolon. Leave empty for all items if you set project(s).',
-            'reports.itemNeedleHint':
-                'Each term matches code, description, recipient name (daily consumption), reception line name or item id. Multiple terms = rows matching any term.',
+            'reports.itemNeedlePh': 'Comma or line breaks. Empty = all items if project(s) set.',
             'reports.projectIdsLabel': 'Projects (only movements with this project id)',
             'reports.projectIdsPh': 'One id per line or comma-separated. Empty = all projects.',
-            'reports.projectIdsHint':
-                'Suggestions from project IDs already used in movements, transports or receptions. When set, “Daily consumption” lines are excluded. Combine with item terms to narrow down.',
+            'reports.movementTypeSelectedLabel': 'Movement types',
+            'reports.movementTypeAddSearchLabel': 'Add type',
+            'reports.movementTypeSearchPlaceholder': 'Filter and pick from the list, or press Enter with key or label.',
+            'reports.movementTypeChipListEmpty': 'No types yet. Pick from the list or press Enter.',
+            'reports.movementTypeUnknown': 'No match. Use the list or exact key.',
+            'reports.movementTypeAmbiguous': 'Several matches; pick from the list.',
             'reports.projectPredictEmpty': 'No project IDs found in movements, transports or receptions.',
             'reports.columnsLabel': 'Columns to export',
             'reports.columnsAll': 'Select all',
@@ -3127,7 +3171,7 @@ const I18n = {
             'msg.dataExported': 'Data exported',
             'msg.reportEmpty': 'No data for this report.',
             'msg.descriptionCopied': 'Description copied to clipboard.',
-            'msg.reportExportNeedleOrProject': 'Enter at least one item term or a project id.',
+            'msg.reportExportNeedleOrProject': 'At least one item, project, or movement type.',
             'msg.reportItemNeedleRequired': 'Enter an item code or text.',
             'msg.errorExportingReport': 'Error generating the report.',
             'msg.dataImported': 'Data imported',
@@ -3151,6 +3195,8 @@ const I18n = {
             'export.manifest.kindLabel': 'Kind',
             'export.manifest.exportedUtcLabel': 'Exported (UTC)',
             'export.manifest.exportedLocalLabel': 'Exported (local)',
+            'export.xlsxSheetData': 'Data',
+            'export.xlsxSheetInfo': 'Info',
             'export.manifest.orderLines': 'Supplier orders (XLSX export)',
             'export.manifest.receptions': 'Receptions (XLSX export)',
             'export.manifest.historyFiltered': 'History — filtered movements (summary)',
@@ -4460,9 +4506,9 @@ const I18n = {
             'inventory.toolsItemZeroTotal': 'Caisses sans unités (somme)',
             'inventory.toolsItemBoxManager': 'Gérer le stock par caisse',
             'inventory.toolsItemReconcileTotals': 'Recalculer le stock principal (caisses + emplacements)',
-            'inventory.reconcileConfirm': 'Le stock principal de chaque article sera porté à la somme des caisses + emplacements lorsqu’il est inférieur. Continuer ?',
+            'inventory.reconcileConfirm': 'Le stock principal sera porté à la somme caisses + emplacements s’il est inférieur, sauf stock négatif ou articles sur mouvements avec découvert effectif (achat/réception exclus). Continuer ?',
             'inventory.reconcileConfirmHead': 'Le stock principal sera porté à la somme caisses + emplacements sur {n} articles (Δ total = {d}). Détail :',
-            'inventory.reconcileConfirmTail': '\n\nAucun stock principal ne sera réduit (le surplus non affecté aux caisses/emplacements est préservé). Continuer ?',
+            'inventory.reconcileConfirmTail': '\n\nAucun stock principal ne sera réduit. Aucune hausse automatique si le principal est négatif ou si l’article figure sur un mouvement avec découvert effectif. Continuer ?',
             'inventory.reconcileNothing': 'Tous les stocks principaux couvrent déjà la somme des caisses + emplacements. Rien à ajuster.',
             'inventory.reconcileDone': 'Réconciliation appliquée à {n} articles (Δ={d}).',
             'inventory.toolsItemRefreshLotExpiry': 'Rafraîchir la péremption des lots depuis la durée de vie',
@@ -4473,7 +4519,7 @@ const I18n = {
             'welcome.hello': 'Bienvenue sur',
             'welcome.userGreeting': 'Bonjour, {name}',
             'inventory.refreshDataConfirmHead': 'L’inventaire sera mis à jour avec trois passes de maintenance :',
-            'inventory.refreshDataConfirmTail': '\n\nLe stock principal ne sera pas réduit. S’il est négatif (p. ex. après un découvert accepté), il n’est pas modifié : cette action ne réécrit pas les mouvements. Les dates de péremption personnalisées sont conservées. Continuer ?',
+            'inventory.refreshDataConfirmTail': '\n\nLe stock principal ne sera pas réduit. Il ne sera pas relevé tant qu’il est négatif ou si l’article figure sur un mouvement avec découvert effectif (achat/réception exclus). Cette action ne réécrit pas les mouvements. Les dates de péremption personnalisées sont conservées. Continuer ?',
             'inventory.refreshDataNormalizeHead': '• Emplacements / caisses : {n} article(s) seront normalisés au format canonique (texte → catalogue)',
             'inventory.refreshDataNormalizeSkip': 'Emplacements / caisses : déjà normalisés.',
             'inventory.refreshDataReconcileHead': '• Stock principal : {n} article(s), Δ total = +{d}',
@@ -4482,6 +4528,10 @@ const I18n = {
             'inventory.refreshDataLotsSkip': 'Péremption des lots : déjà à jour.',
             'inventory.refreshDataLotsKept': '{k} lot(s) avec péremption personnalisée sont préservés',
             'inventory.refreshDataNothing': 'Rien à mettre à jour : stock principal, emplacements et péremptions de lots sont déjà à jour.',
+            'inventory.refreshDataNothingButReconcileSkips': 'Aucune normalisation ni péremption de lots en attente. Le stock principal ne sera pas relevé automatiquement : {n} article(s) avec stock principal négatif, {o} en raison d’un historique de découvert sur les mouvements (à traiter manuellement ou par mouvements).',
+            'inventory.refreshDataReconcileSkipDeferred': 'Stock principal : aucune augmentation automatique ; certains articles pourraient s’aligner sur caisses + emplacements mais sont ignorés (détail ci-dessous).',
+            'inventory.refreshDataReconcileSkippedNegativeHead': '   Stock principal négatif ({n}) : le principal n’est pas modifié.',
+            'inventory.refreshDataReconcileSkippedOverdraftHead': '   Mouvements avec découvert dans l’historique ({n}) : le principal n’est pas relevé automatiquement (cohérence avec les sorties déjà acceptées).',
             'inventory.refreshDataDone': 'Mise à jour appliquée. Normalisés : {p} article(s). Stock principal : {n} article(s) Δ=+{d}. Péremption des lots : {l} lot(s) sur {m} article(s).',
             'inventory.shelfLifeMonthsHint': 'Si vous indiquez une date d’expédition et une durée de vie, la péremption est calculée à la volée.',
             'inventory.lotsEditorTitle': 'Lots (péremption par achat)',
@@ -4599,7 +4649,7 @@ const I18n = {
             'inventory.boxExportTitle': 'Export stock par caisse (G-NEEX)',
             'inventory.boxExportEmpty': 'Aucune ligne de caisse à exporter.',
             'inventory.boxStockManifestSheetDatos':
-              'Utilisez la feuille « Datos » ; la ligne 1 doit être : Codigo | Caja | UbicacionCaja | CantidadCaja | CantidadCajas | Vacia. La colonne Vacia a le même sens que l’option ne pas toucher dans l’application.',
+              'Utilisez la feuille « Données » ; la ligne 1 doit être : Codigo | Caja | UbicacionCaja | CantidadCaja | CantidadCajas | Vacia. La colonne Vacia a le même sens que l’option ne pas toucher dans l’application.',
             'inventory.boxStockManifestColCodigo': 'Codigo — code article (identique à l’inventaire).',
             'inventory.boxStockManifestColCaja': 'Caja — nombre positif ou texte avec BOXn / caja n.',
             'inventory.boxStockManifestColUbicacion':
@@ -4681,6 +4731,10 @@ const I18n = {
             'inventory.lotRowArticleLevel': 'Niveau article',
             'inventory.lotRowLotLevel': 'Lot',
             'inventory.lotRowUnassigned': 'Sans lot (reste du stock principal)',
+            'inventory.lotsOverMainStockHint':
+                'Attention : total lots ({l}) > principal ({m}), excédent {x}. Avec suivi FEFO, l’enregistrement rogne les lots (péremption la plus proche d’abord) pour égaler le principal. Si vous baissez seulement le principal, les lots se corrigent à la sauvegarde.',
+            'inventory.lotsOverMainStockTooltip':
+                'Total lots {l} > principal {m} (excédent {x}). Modifiez les lots ou le principal.',
             'inventory.affectedQtyCol': 'Quantité affectée',
             'inventory.affectedExpiredTooltip': 'Unités déjà périmées',
             'inventory.affectedSoonTooltip': 'Unités bientôt périmées',
@@ -4973,15 +5027,28 @@ const I18n = {
             'reports.typeMovementsFiltered': 'Mouvements (filtres de l’historique)',
             'reports.typeMovementsLinesFiltered': 'Mouvements filtrés (une ligne par article)',
             'reports.typeMovementsAll': 'Mouvements (tous)',
-            'reports.typeItemConsumption': 'Historique par article(s) et/ou projet(s)',
+            'reports.typeItemConsumption': 'Historique par article(s), projet(s) et/ou type(s) de mouvement',
+            'reports.itemSearchLabel': 'Rechercher un article',
+            'reports.itemSearchPlaceholder': 'Saisissez et choisissez dans la liste, ou Entrée pour ajouter le texte.',
+            'reports.itemSelectedLabel': 'Articles dans le rapport',
+            'reports.projectSearchLabel': 'Rechercher un projet (id)',
+            'reports.projectSearchPlaceholder': 'Filtrez ou choisissez dans la liste, ou Entrée pour ajouter l’id.',
+            'reports.chipRemoveAria': 'Retirer de la liste',
+            'reports.chipListClearAll': 'Vider la liste',
+            'reports.itemAddSearchLabel': 'Ajouter un article à la liste',
+            'reports.projectAddSearchLabel': 'Ajouter un projet à la liste',
+            'reports.itemChipListEmpty': 'Aucun article. Choisissez dans la liste ou Entrée.',
+            'reports.projectChipListEmpty': 'Aucun projet. Choisissez dans la liste ou Entrée.',
             'reports.itemNeedleLabel': 'Articles (code, description, destinataire ou id article)',
-            'reports.itemNeedlePh': 'Un par ligne ou séparés par virgule ou point-virgule. Vide = tous les articles si vous indiquez des projet(s).',
-            'reports.itemNeedleHint':
-                'Chaque terme est cherché dans le code, la description, le destinataire (conso.), le nom en réception ou l’id article. Plusieurs termes = lignes correspondant à l’un d’eux.',
+            'reports.itemNeedlePh': 'Virgule ou saut de ligne. Vide = tous si projet(s).',
             'reports.projectIdsLabel': 'Projets (seulement les mouvements avec cet id de projet)',
             'reports.projectIdsPh': 'Un id par ligne ou séparés par des virgules. Vide = tous les projets.',
-            'reports.projectIdsHint':
-                'Suggestions d’après les projets déjà présents dans mouvements, transports ou réceptions. Les lignes « Consommation quotidienne » sont exclues si vous filtrez par projet. Combinez avec des termes article pour affiner.',
+            'reports.movementTypeSelectedLabel': 'Types de mouvement',
+            'reports.movementTypeAddSearchLabel': 'Ajouter un type',
+            'reports.movementTypeSearchPlaceholder': 'Filtrez et choisissez dans la liste, ou Entrée (clé ou libellé).',
+            'reports.movementTypeChipListEmpty': 'Aucun type. Choisissez dans la liste ou Entrée.',
+            'reports.movementTypeUnknown': 'Pas de correspondance. Liste ou clé exacte.',
+            'reports.movementTypeAmbiguous': 'Plusieurs correspondances ; choisissez dans la liste.',
             'reports.projectPredictEmpty': 'Aucun id de projet dans mouvements, transports ni réceptions.',
             'reports.columnsLabel': 'Colonnes a exporter',
             'reports.columnsAll': 'Tout selectionner',
@@ -5180,7 +5247,7 @@ const I18n = {
             'msg.dataExported': 'Données exportées',
             'msg.reportEmpty': 'Aucune donnée pour ce rapport.',
             'msg.descriptionCopied': 'Description copiée dans le presse-papiers.',
-            'msg.reportExportNeedleOrProject': 'Indiquez au moins un terme article ou un id de projet.',
+            'msg.reportExportNeedleOrProject': 'Au moins un article, un projet ou un type de mouvement.',
             'msg.reportItemNeedleRequired': 'Indiquez le code ou le texte de l’article.',
             'msg.errorExportingReport': 'Erreur lors de la génération du rapport.',
             'msg.dataImported': 'Données importées',
@@ -5204,6 +5271,8 @@ const I18n = {
             'export.manifest.kindLabel': 'Type',
             'export.manifest.exportedUtcLabel': 'Exporte (UTC)',
             'export.manifest.exportedLocalLabel': 'Exporte (local)',
+            'export.xlsxSheetData': 'Données',
+            'export.xlsxSheetInfo': 'Info',
             'export.manifest.orderLines': 'Commandes fournisseur (export XLSX)',
             'export.manifest.receptions': 'Réceptions (export XLSX)',
             'export.manifest.historyFiltered': 'Historique — mouvements filtrés (résumé)',
@@ -6223,10 +6292,16 @@ const I18n = {
 
     t(key) {
         if (!key) return '';
-        const pack = this.translations[this.currentLang] || {};
-        if (Object.prototype.hasOwnProperty.call(pack, key)) return pack[key];
-        const fb = this.translations['es'] || {};
-        if (Object.prototype.hasOwnProperty.call(fb, key)) return fb[key];
+        const cur = this.currentLang || 'en';
+        const order =
+            cur === 'es' ? ['es', 'en', 'fr'] : cur === 'fr' ? ['fr', 'en', 'es'] : ['en', 'fr', 'es'];
+        const seen = new Set();
+        for (const lang of order) {
+            if (seen.has(lang)) continue;
+            seen.add(lang);
+            const pack = this.translations[lang];
+            if (pack && Object.prototype.hasOwnProperty.call(pack, key)) return pack[key];
+        }
         return key.split('.').pop().replace(/_/g, ' ');
     },
 
@@ -6281,6 +6356,12 @@ const I18n = {
             }
             if (typeof OrderLinesManager !== 'undefined' && OrderLinesManager.render) {
                 OrderLinesManager.render();
+            }
+            if (typeof ReportExporter !== 'undefined' && ReportExporter.syncItemWrap) {
+                const reportModal = document.getElementById('report-modal');
+                if (reportModal && reportModal.classList.contains('active')) {
+                    ReportExporter.syncItemWrap();
+                }
             }
             if (typeof SupplierManager !== 'undefined' && SupplierManager.refreshOrderLineSupplierUI) {
                 SupplierManager.refreshOrderLineSupplierUI();

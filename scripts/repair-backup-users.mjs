@@ -4,6 +4,11 @@
  * - `data["phoenix-movements"]`: fusiona todas las listas de movimientos encontradas en el archivo
  *   (string JSON en phoenix-movements, `_rawMovements`, `movements` legible) y opcionalmente otros JSON
  *   pasados como argv[4…], deduplicando por `id` y conservando la copia más completa por movimiento.
+ * - Tras fusionar: en `COMPRA_STOCK` y `RECEPCION_MATERIAL` fuerza `hadOverdraft: false` y quita
+ *   `overdraftReason` en la raíz del movimiento si existía (misma regla que `MovementManager.effectiveHadOverdraft` en la app).
+ * - Claves `data["phoenix-*"]` presentes en `js/utils.js` (STORAGE_KEYS) y ausentes en el JSON: se rellenan
+ *   con valores por defecto seguros (tema, idioma, vistas, posiciones de globos, layouts) para alinear el
+ *   archivo con la plantilla actual de importación.
  *
  * Compatibilidad: los objetos de movimiento y de cada línea (`items[]`) pueden traer propiedades nuevas
  * o ausentes según la versión que generó el respaldo (p. ej. metadatos de ajuste por caja, notas
@@ -206,6 +211,26 @@ function mergeMovementLists(labeled) {
   return out;
 }
 
+/** Alineado con MovementManager.effectiveHadOverdraft: compra/recepción no usan sobregiro en UI. */
+const NO_OVERDRAFT_MOVEMENT_TYPES = new Set(["COMPRA_STOCK", "RECEPCION_MATERIAL"]);
+
+function normalizeInboundOverdraftFlags(movements) {
+  if (!Array.isArray(movements)) return 0;
+  let n = 0;
+  for (const m of movements) {
+    if (!m || typeof m !== "object") continue;
+    const t = m.type;
+    if (!t || !NO_OVERDRAFT_MOVEMENT_TYPES.has(t)) continue;
+    if (!m.hadOverdraft) continue;
+    m.hadOverdraft = false;
+    if (m.overdraftReason != null && m.overdraftReason !== "") {
+      delete m.overdraftReason;
+    }
+    n++;
+  }
+  return n;
+}
+
 function parseMovementsString(raw) {
   if (raw == null || raw === "") return { ok: true, arr: [] };
   if (typeof raw !== "string") return { ok: false, arr: [] };
@@ -293,8 +318,84 @@ function repairMovementsInBackup(backupRoot, extraMovementFiles) {
     return;
   }
 
+  const fixedOd = normalizeInboundOverdraftFlags(merged);
+  if (fixedOd) {
+    console.log(
+      `Movimientos: ${fixedOd} movimiento(s) COMPRA_STOCK/RECEPCION_MATERIAL con hadOverdraft forzado a false (coherente con la app).`
+    );
+  }
+
   backupRoot.data[MOV_KEY] = JSON.stringify(merged);
   console.log(`Movimientos: ${merged.length} únicos ← ${nonempty.map(s => s.label).join("; ")}`);
+}
+
+/**
+ * Añade en `data` las claves `phoenix-*` definidas en `js/utils.js` (STORAGE_KEYS)
+ * que falten en el respaldo, con valores por defecto seguros para importación.
+ * Muchos respaldos antiguos no traían preferencias de UI (tema, idioma, vistas);
+ * sin ellas el import solo no borra esas claves en localStorage, pero el JSON
+ * queda incompleto respecto a la plantilla actual.
+ */
+function parseStorageKeysFromUtilsFile(utilsPath) {
+  const raw = stripBom(fs.readFileSync(utilsPath, "utf8"));
+  const cut = raw.indexOf("\nconst MOVEMENT_TYPES");
+  const head = cut === -1 ? raw : raw.slice(0, cut);
+  const keys = [];
+  for (const m of head.matchAll(/^\s+[A-Z0-9_]+:\s*'(phoenix[^']+)'/gm)) {
+    keys.push(m[1]);
+  }
+  return keys;
+}
+
+function ensureBackupDataKeysFromUtilsTemplate(backupRoot, rootDir) {
+  if (!backupRoot.data || typeof backupRoot.data !== "object") return;
+  const utilsPath = path.join(rootDir, "js", "utils.js");
+  let templateKeys;
+  try {
+    templateKeys = parseStorageKeysFromUtilsFile(utilsPath);
+  } catch (e) {
+    console.warn("No se pudieron leer claves desde utils.js:", e.message || e);
+    return;
+  }
+  if (!templateKeys.length) {
+    console.warn("Plantilla de claves vacía (utils.js).");
+    return;
+  }
+  /** Valores string tal como van a `localStorage` (mismas convenciones que la app). */
+  const optionalDefaults = {
+    "phoenix-theme": "dark",
+    "phoenix-lang": "es",
+    "phoenix-float-standby-dismissed": "false",
+    "phoenix-float-consumo-dismissed": "false",
+    "phoenix-float-pos-standby": "{}",
+    "phoenix-float-pos-consumo": "{}",
+    "phoenix-float-pos-draft-movement": "{}",
+    "phoenix-float-pos-draft-config": "{}",
+    "phoenix-view-history-ui": "tiles",
+    "phoenix-view-transport-ui": "tiles",
+    "phoenix-view-orderlines-ui": "table",
+    "phoenix-nav-open-target": "same",
+    "phoenix-modal-layouts": "{}",
+    "phoenix-table-column-layouts": "[]"
+  };
+  let added = 0;
+  const unknown = [];
+  for (const k of templateKeys) {
+    if (Object.prototype.hasOwnProperty.call(backupRoot.data, k)) continue;
+    if (Object.prototype.hasOwnProperty.call(optionalDefaults, k)) {
+      backupRoot.data[k] = optionalDefaults[k];
+      added++;
+    } else {
+      unknown.push(k);
+    }
+  }
+  if (added) console.log(`Data: ${added} clave(s) opcional(es) añadida(s) (plantilla utils / importación completa).`);
+  if (unknown.length) {
+    console.warn(
+      "Data: faltan claves respecto a utils.js sin valor por defecto en el script; añádalas manualmente o amplíe optionalDefaults:",
+      unknown.join(", ")
+    );
+  }
 }
 
 const outArg = process.argv[3];
@@ -302,6 +403,12 @@ const outPath = outArg ? path.resolve(outArg) : backupPath;
 
 const extraMovementPaths = process.argv.slice(4).map(p => path.resolve(p));
 repairMovementsInBackup(backup, extraMovementPaths);
+ensureBackupDataKeysFromUtilsTemplate(backup, root);
+
+backup.meta = backup.meta && typeof backup.meta === "object" ? backup.meta : {};
+backup.meta.repairAppliedUtc = new Date().toISOString();
+backup.meta.repairScript =
+  "scripts/repair-backup-users.mjs (users + movement merge + inbound hadOverdraft normalize + phoenix-* defaults)";
 
 fs.writeFileSync(outPath, JSON.stringify(backup, null, 2), "utf8");
 console.log("Listo:", outPath);

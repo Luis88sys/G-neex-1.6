@@ -739,6 +739,10 @@ const InventoryManager = {
     item.boxStocks[idx].qty = next;
     item.boxStocks[idx].updatedAt = new Date().toISOString();
     item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - q);
+    const fefoDeductions =
+      !options.skipFefoExpiration && this.itemTracksExpiration(item)
+        ? this._applyFefoExpirationQtyToItemInPlace(item, q)
+        : [];
     if (next <= 1e-12 && qb <= 0) {
       item.boxStocks.splice(idx, 1);
       item.boxStocks = this._normalizeItemBoxStocks(item).boxStocks;
@@ -751,14 +755,17 @@ const InventoryManager = {
       } else {
         this.save();
       }
-      return { ok: true };
+      return { ok: true, fefoDeductions };
     }
     this.save();
-    return { ok: true };
+    return { ok: true, fefoDeductions };
   },
 
-  /** Igual que retirar de caja: descuenta la fila de stock por ubicación y el principal (mismo criterio que caja). */
-  consumeFromLocationStockAndMain(itemId, locationKey, qty) {
+  /** Igual que retirar de caja: descuenta la fila de stock por ubicación y el principal (mismo criterio que caja).
+   *  Si el artículo tiene caducidad/FEFO activo, también recorta `expirations` en orden FEFO (coherente con salida desde principal).
+   *  @param {{ skipFefoExpiration?: boolean }} [opts] — p. ej. anulación de compra en ubicación o ajustes de caja sin línea de movimiento con `mainFefoDeductions`.
+   */
+  consumeFromLocationStockAndMain(itemId, locationKey, qty, opts = {}) {
     const item = this.getItemById(itemId);
     if (!item) return { ok: false, reason: "item-not-found" };
     const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
@@ -775,8 +782,12 @@ const InventoryManager = {
       item.locationStocks[idx].updatedAt = new Date().toISOString();
     }
     item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - q);
+    const fefoDeductions =
+      !opts.skipFefoExpiration && this.itemTracksExpiration(item)
+        ? this._applyFefoExpirationQtyToItemInPlace(item, q)
+        : [];
     this.save();
-    return { ok: true };
+    return { ok: true, fefoDeductions };
   },
 
   restoreToBoxAndMain(itemId, boxId, qty, options = {}) {
@@ -875,7 +886,10 @@ const InventoryManager = {
       return { ok: true };
     }
     if (kind === "box" && p.boxId) {
-      return this.consumeFromBoxAndMain(itemId, p.boxId, q, { boxNumber: p.boxNumber });
+      return this.consumeFromBoxAndMain(itemId, p.boxId, q, {
+        boxNumber: p.boxNumber,
+        skipFefoExpiration: true
+      });
     }
     if (kind === "box") {
       const it = this.getItemById(itemId);
@@ -883,7 +897,10 @@ const InventoryManager = {
       if (it && this._isValidBoxNumber(n)) {
         const idx = it.boxStocks ? it.boxStocks.findIndex(b => Number(b.boxNumber) === n) : -1;
         if (idx >= 0) {
-          return this.consumeFromBoxAndMain(itemId, it.boxStocks[idx].boxId, q, { boxNumber: n });
+          return this.consumeFromBoxAndMain(itemId, it.boxStocks[idx].boxId, q, {
+            boxNumber: n,
+            skipFefoExpiration: true
+          });
         }
       }
       this.updateStock(itemId, "main", -q);
@@ -891,7 +908,7 @@ const InventoryManager = {
     }
     if (kind === "location" && p.locationKey) {
       const canon = Utils.strictEffectiveWarehouseLocationText(p.locationKey) || String(p.locationKey).trim();
-      if (canon) return this.consumeFromLocationStockAndMain(itemId, canon, q);
+      if (canon) return this.consumeFromLocationStockAndMain(itemId, canon, q, { skipFefoExpiration: true });
     }
     this.updateStock(itemId, "main", -q);
     return { ok: true };
@@ -923,27 +940,77 @@ const InventoryManager = {
   },
 
   /**
+   * `itemId` presentes en movimientos **no anulados**, **no pendientes**, con
+   * sobregiro efectivo (`MovementManager.effectiveHadOverdraft`, misma regla que
+   * historial e informes: compra/recepción no cuentan aunque un respaldo viejo
+   * tenga `hadOverdraft: true`).
+   * @returns {Set<string>}
+   */
+  _itemIdsWithEffectiveOverdraftMovements() {
+    const out = new Set();
+    if (typeof MovementManager === "undefined" || !Array.isArray(MovementManager.movements)) return out;
+    const eff =
+      typeof MovementManager.effectiveHadOverdraft === "function"
+        ? m => MovementManager.effectiveHadOverdraft(m)
+        : m => {
+            if (!m) return false;
+            const t = m.type;
+            if (t && typeof MOVEMENT_TYPES !== "undefined" && MOVEMENT_TYPES[t]) {
+              const sf = MOVEMENT_TYPES[t].specialForm;
+              if (sf === "compra" || sf === "recepcion") return false;
+            }
+            return !!m.hadOverdraft;
+          };
+    for (const m of MovementManager.movements) {
+      if (!m || m.annulled || m.pending) continue;
+      if (!eff(m)) continue;
+      for (const li of m.items || []) {
+        if (!li || li.annulled) continue;
+        const id = li.itemId != null ? String(li.itemId).trim() : "";
+        if (id) out.add(id);
+      }
+    }
+    return out;
+  },
+
+  /**
    * Vista previa (sin aplicar) de la reconciliación: lista artículos cuyo
    * `mainStock` está por debajo de la **suma real** de cajas + ubicaciones.
-   * No incluye artículos con **principal negativo**: ese saldo suele reflejar
-   * un sobregiro aceptado al procesar un movimiento; subir el principal hasta
-   * la suma de cajas/ubicaciones borraría esa deuda y desalinearía el inventario
-   * respecto al historial (los movimientos no deben reinterpretarse aquí).
-   * @returns {{items: Array<{id:string, code:string, description:string, main:number, boxes:number, locs:number, sum:number, delta:number}>, totalDelta:number}}
+   * **Omite** artículos con **principal negativo** (deuda / sobregiro en principal).
+   * **Omite** artículos que figuran en algún movimiento con sobregiro efectivo:
+   * subir el principal automáticamente podría contradecir salidas ya aceptadas
+   * con descubierto; esos casos requieren revisión manual o nuevos movimientos.
+   * Los movimientos no se reescriben; esta rutina solo propone subidas de principal.
+   * @returns {{items: Array<{id:string, code:string, description:string, main:number, boxes:number, locs:number, sum:number, delta:number}>, totalDelta:number, skippedNegativeMain: Array<{id:string, code:string, main:number, sum:number}>, skippedOverdraftHistory: Array<{id:string, code:string, main:number, sum:number}>}}
    */
   previewReconcileMainStock() {
     const out = [];
+    const skippedNegativeMain = [];
+    const skippedOverdraftHistory = [];
     let totalDelta = 0;
+    const overdraftItemIds = this._itemIdsWithEffectiveOverdraftMovements();
     for (const it of this.items || []) {
       if (!it || it.inventoryConsumable) continue;
       const boxes = this._sumBoxStockQtyForItem(it);
       const locs = this._sumLocationStockQtyForItem(it);
       const sum = Utils.roundDecimal(boxes + locs);
       const main = Utils.roundDecimal(parseFloat(it.mainStock) || 0);
+      const idStr = String(it.id ?? "").trim();
+      const wouldLift = sum > main;
+      const skipRow = wouldLift
+        ? { id: it.id, code: it.code || "", description: it.description || "", main, boxes, locs, sum, delta: Utils.roundDecimal(sum - main) }
+        : null;
       /* Principal negativo: no reconciliar (preserva sobregiro / coherencia con movimientos). */
-      if (main < 0) continue;
-      if (sum > main) {
-        const delta = Utils.roundDecimal(sum - main);
+      if (main < 0) {
+        if (skipRow) skippedNegativeMain.push(skipRow);
+        continue;
+      }
+      if (idStr && overdraftItemIds.has(idStr)) {
+        if (skipRow) skippedOverdraftHistory.push(skipRow);
+        continue;
+      }
+      if (wouldLift) {
+        const delta = skipRow.delta;
         out.push({
           id: it.id,
           code: it.code || "",
@@ -957,7 +1024,7 @@ const InventoryManager = {
         totalDelta = Utils.roundDecimal(totalDelta + delta);
       }
     }
-    return { items: out, totalDelta };
+    return { items: out, totalDelta, skippedNegativeMain, skippedOverdraftHistory };
   },
 
   /**
@@ -968,7 +1035,8 @@ const InventoryManager = {
    * de la suma real. **No reduce** el principal en ningún caso: solo lo lleva al
    * alza cuando hace falta (porque el principal puede incluir además un sobrante
    * no asignado a cajas/ubicaciones). **Omite** artículos cuyo principal es
-   * **negativo** (no toca deudas / sobregiros reflejados en `mainStock`).
+   * **negativo** y los que aparecen en **movimientos con sobregiro efectivo**
+   * (no toca deudas ni salidas con descubierto ya archivadas en el historial).
    * @returns {{changed:number, totalDelta:number, items:Array<object>}}
    */
   reconcileMainStockFromContainers() {
@@ -982,7 +1050,13 @@ const InventoryManager = {
       this.save();
       this.render(this.search(document.getElementById("inventory-search")?.value || ""));
     }
-    return { changed: preview.items.length, totalDelta: preview.totalDelta, items: preview.items };
+    return {
+      changed: preview.items.length,
+      totalDelta: preview.totalDelta,
+      items: preview.items,
+      skippedNegativeMain: preview.skippedNegativeMain,
+      skippedOverdraftHistory: preview.skippedOverdraftHistory
+    };
   },
 
   /**
@@ -1149,9 +1223,11 @@ const InventoryManager = {
    *    cualquier residuo heredado de respaldos antiguos.
    * 2. **Reconciliación de stock principal** (`reconcileMainStockFromContainers`):
    *    eleva `mainStock` a la suma de cajas + ubicaciones cuando esté por debajo,
-   *    **solo si el principal actual es ≥ 0**. Con principal negativo (deuda /
-   *    sobregiro reflejado en inventario) no se toca, para no desmentir el historial
-   *    de movimientos. Solo sube, nunca baja.
+   *    **solo si el principal actual es ≥ 0** y el artículo **no** aparece en un
+   *    movimiento con sobregiro efectivo (`effectiveHadOverdraft`, excluye compra/recepción).
+   *    Con principal negativo o historial de descubierto en movimientos no se sube
+   *    el principal automáticamente, para no contradecir salidas ya aceptadas.
+   *    Solo sube, nunca baja.
    * 3. **Migración de caducidades por lote** (`refreshLotExpiriesFromShelfLife`):
    *    libera `lot.date` solo cuando es redundante con `expDate + vidaUtil`.
    *    Caducidades personalizadas del envase se preservan.
@@ -1168,7 +1244,20 @@ const InventoryManager = {
     const norm = this.previewNormalizeStorageDrift();
     const recon = this.previewReconcileMainStock();
     const lots = this.previewRefreshLotExpiriesFromShelfLife();
+    const reconSkipNeg = recon.skippedNegativeMain || [];
+    const reconSkipOd = recon.skippedOverdraftHistory || [];
+    const reconSkipTotal = reconSkipNeg.length + reconSkipOd.length;
     if (!norm.items.length && !recon.items.length && !lots.items.length) {
+      if (reconSkipTotal > 0) {
+        Utils.showToast(
+          (I18n.t("inventory.refreshDataNothingButReconcileSkips") ||
+            "Sin normalizaciones ni caducidades pendientes. No se sube el principal automáticamente: {n} artículo(s) con principal negativo, {o} por historial de sobregiro en movimientos.")
+            .replace("{n}", String(reconSkipNeg.length))
+            .replace("{o}", String(reconSkipOd.length)),
+          "info"
+        );
+        return;
+      }
       Utils.showToast(
         I18n.t("inventory.refreshDataNothing") ||
           "Nada que actualizar: stock principal, ubicaciones y caducidades de lotes ya están al día.",
@@ -1197,25 +1286,51 @@ const InventoryManager = {
       return `${head}\n${sample}${extra}`;
     })();
     const reconBlock = (() => {
-      if (!recon.items.length) {
-        return `• ${I18n.t("inventory.refreshDataReconcileSkip") || "Stock principal: ya cuadra con cajas + ubicaciones."}`;
+      const skipNeg = reconSkipNeg;
+      const skipOd = reconSkipOd;
+      const fmtLift = r => {
+        const pieces = [];
+        if (r.boxes > 0) pieces.push(`cajas: ${Utils.formatDecimalDisplay(r.boxes)}`);
+        if (r.locs > 0) pieces.push(`ubicaciones: ${Utils.formatDecimalDisplay(r.locs)}`);
+        const breakdown = pieces.join(" + ") || "—";
+        return `   ${r.code} — ${Utils.formatDecimalDisplay(r.main)} → ${Utils.formatDecimalDisplay(r.sum)} (${breakdown})`;
+      };
+      const blocks = [];
+      if (recon.items.length) {
+        const sample = recon.items.slice(0, 5).map(fmtLift).join("\n");
+        const extra = recon.items.length > 5 ? `\n   …y ${recon.items.length - 5} más` : "";
+        const head = (I18n.t("inventory.refreshDataReconcileHead") ||
+          "• Stock principal: {n} artículo(s), Δ total = +{d}")
+          .replace("{n}", String(recon.items.length))
+          .replace("{d}", Utils.formatDecimalDisplay(recon.totalDelta));
+        blocks.push(`${head}\n${sample}${extra}`);
+      } else {
+        const fallback = I18n.t("inventory.refreshDataReconcileSkip") || "Stock principal: ya cuadra con cajas + ubicaciones.";
+        if (skipNeg.length || skipOd.length) {
+          blocks.push(
+            `• ${I18n.t("inventory.refreshDataReconcileSkipDeferred") || fallback}`
+          );
+        } else {
+          blocks.push(`• ${fallback}`);
+        }
       }
-      const sample = recon.items
-        .slice(0, 5)
-        .map(r => {
-          const pieces = [];
-          if (r.boxes > 0) pieces.push(`cajas: ${Utils.formatDecimalDisplay(r.boxes)}`);
-          if (r.locs > 0) pieces.push(`ubicaciones: ${Utils.formatDecimalDisplay(r.locs)}`);
-          const breakdown = pieces.join(" + ") || "—";
-          return `   ${r.code} — ${Utils.formatDecimalDisplay(r.main)} → ${Utils.formatDecimalDisplay(r.sum)} (${breakdown})`;
-        })
-        .join("\n");
-      const extra = recon.items.length > 5 ? `\n   …y ${recon.items.length - 5} más` : "";
-      const head = (I18n.t("inventory.refreshDataReconcileHead") ||
-        "• Stock principal: {n} artículo(s), Δ total = +{d}")
-        .replace("{n}", String(recon.items.length))
-        .replace("{d}", Utils.formatDecimalDisplay(recon.totalDelta));
-      return `${head}\n${sample}${extra}`;
+      if (skipNeg.length) {
+        const sample = skipNeg.slice(0, 5).map(fmtLift).join("\n");
+        const extra = skipNeg.length > 5 ? `\n   …y ${skipNeg.length - 5} más` : "";
+        const sub = (I18n.t("inventory.refreshDataReconcileSkippedNegativeHead") ||
+          "   Principal negativo ({n}): no se modifica el principal.")
+          .replace("{n}", String(skipNeg.length));
+        blocks.push(`${sub}\n${sample}${extra}`);
+      }
+      if (skipOd.length) {
+        const sample = skipOd.slice(0, 5).map(fmtLift).join("\n");
+        const extra = skipOd.length > 5 ? `\n   …y ${skipOd.length - 5} más` : "";
+        const sub = (I18n.t("inventory.refreshDataReconcileSkippedOverdraftHead") ||
+          "   Historial de movimientos con sobregiro ({n}): no se sube el principal automáticamente.")
+          .replace("{n}", String(skipOd.length));
+        blocks.push(`${sub}\n${sample}${extra}`);
+      }
+      return blocks.join("\n\n");
     })();
     const lotsBlock = (() => {
       if (!lots.items.length) {
@@ -1239,7 +1354,7 @@ const InventoryManager = {
     const head = I18n.t("inventory.refreshDataConfirmHead") ||
       "Se actualizará el inventario con tres pasadas de mantenimiento:";
     const tail = I18n.t("inventory.refreshDataConfirmTail") ||
-      "\n\nNo se reducirá ningún stock principal y las caducidades personalizadas se conservan. ¿Continuar?";
+      "\n\nNo se reducirá ningún stock principal. No se sube el principal si está en negativo o si el artículo aparece en un movimiento con sobregiro efectivo (salidas con descubierto). No se reescriben movimientos. Las caducidades personalizadas se conservan. ¿Continuar?";
     const prompt = `${head}\n\n${normBlock}\n\n${reconBlock}\n\n${lotsBlock}${tail}`;
     const apply = () => {
       /* Orden estricto: 1) normalizar 2) reconciliar 3) caducidades. Cambiar el
@@ -1927,6 +2042,10 @@ const InventoryManager = {
       measureStockUnitId: String(data.measureStockUnitId || "").trim(),
       measureAltUnitId: String(data.measureAltUnitId || "").trim()
     }, { recomputeNumBoxes: true });
+    if (this.itemTracksExpiration(item)) {
+      const r = this.clampExpirationLotsToMainStockDetailed(item.expirations, item.mainStock, item);
+      item.expirations = r.lots;
+    }
     this.items.push(this._normalizeItemBoxStocks(item));
     this.save();
     if (
@@ -1955,6 +2074,15 @@ const InventoryManager = {
     next.priceCurrency = this._normalizePriceCurrency(
       Object.prototype.hasOwnProperty.call(next, "priceCurrency") ? next.priceCurrency : this.items[i].priceCurrency
     );
+    const mergedPre = { ...this.items[i], ...next };
+    if (!mergedPre.inventoryConsumable && this.itemTracksExpiration(mergedPre)) {
+      const newMain = Utils.roundDecimal(parseFloat(mergedPre.mainStock) || 0);
+      const srcExp = Object.prototype.hasOwnProperty.call(next, "expirations")
+        ? next.expirations
+        : this.items[i].expirations;
+      const { lots } = this.clampExpirationLotsToMainStockDetailed(srcExp, newMain, mergedPre);
+      next.expirations = lots;
+    }
     const merged = this._normalizeItemCoreFields({ ...this.items[i], ...next }, { recomputeNumBoxes: shouldRecomputeBoxes });
     this.items[i] = merged;
     this.save(); this.render();
@@ -2139,6 +2267,70 @@ const InventoryManager = {
   },
 
   /**
+   * Suma de `qty` en `item.expirations` frente al stock principal.
+   * Si la suma supera `mainStock`, los datos están incoherentes (p. ej. salidas sin FEFO en lotes).
+   * @returns {{ lotted: number, main: number, overBy: number } | null}
+   */
+  getExpirationLotsOverMainStock(item) {
+    if (!item || item.inventoryConsumable) return null;
+    const main = Utils.roundDecimal(parseFloat(item.mainStock) || 0);
+    let lotted = 0;
+    for (const l of Array.isArray(item.expirations) ? item.expirations : []) {
+      const q = Utils.roundDecimal(parseFloat(l?.qty) || 0);
+      if (q > 0) lotted = Utils.roundDecimal(lotted + q);
+    }
+    const overBy = Utils.roundDecimal(lotted - main);
+    /* Tolera polvo decimal por toFixed / importaciones (p. ej. 10 vs 9.9999). */
+    if (overBy <= 0.0001) return null;
+    return { lotted, main, overBy };
+  },
+
+  /**
+   * Si Σ cantidades en lotes > mainStock, recorta en orden FEFO (igual que salidas).
+   * @returns {{ lots: Array, trimmed: number }} `trimmed` = unidades quitadas de lotes.
+   */
+  clampExpirationLotsToMainStockDetailed(expIn, mainStock, itemCtx) {
+    const main = Utils.roundDecimal(parseFloat(mainStock) || 0);
+    const exp = Array.isArray(expIn) ? expIn.map(l => ({ ...l })) : [];
+    let lotted = 0;
+    for (const l of exp) {
+      const q = Utils.roundDecimal(parseFloat(l.qty) || 0);
+      if (q > 0) lotted = Utils.roundDecimal(lotted + q);
+    }
+    if (lotted <= main + 0.0001) {
+      return { lots: exp.filter(l => Utils.roundDecimal(parseFloat(l.qty) || 0) > 1e-9), trimmed: 0 };
+    }
+    let excess = Utils.roundDecimal(lotted - main);
+    const trimmedStart = excess;
+    const indexed = exp
+      .map((l, idx) => ({
+        idx,
+        q: Utils.roundDecimal(parseFloat(l.qty) || 0),
+        eff: this.getLotEffectiveExpiryDate(l, itemCtx)
+      }))
+      .filter(x => x.q > 0);
+    if (!indexed.length) {
+      return { lots: exp.filter(l => Utils.roundDecimal(parseFloat(l.qty) || 0) > 1e-9), trimmed: 0 };
+    }
+    indexed.sort((a, b) => {
+      if (!a.eff && !b.eff) return a.idx - b.idx;
+      if (!a.eff) return 1;
+      if (!b.eff) return -1;
+      return new Date(a.eff) - new Date(b.eff) || a.idx - b.idx;
+    });
+    for (const row of indexed) {
+      if (excess <= 0) break;
+      const curQ = Utils.roundDecimal(parseFloat(exp[row.idx].qty) || 0);
+      if (curQ <= 0) continue;
+      const take = Utils.roundDecimal(Math.min(excess, curQ));
+      exp[row.idx].qty = Utils.roundDecimal(curQ - take);
+      excess = Utils.roundDecimal(excess - take);
+    }
+    const lots = exp.filter(l => Utils.roundDecimal(parseFloat(l.qty) || 0) > 1e-9);
+    return { lots, trimmed: Utils.roundDecimal(trimmedStart - excess) };
+  },
+
+  /**
    * Fila «sintética» con el remanente de stock principal que **no está asignado**
    * a ningún lote (mainStock − Σ qty lotes con qty > 0). Aparece cuando hay
    * lotes reales pero la suma no cubre el stock principal: así el tooltip y la
@@ -2239,8 +2431,17 @@ const InventoryManager = {
       const lab = this._lotRowKindLabel(r.kind);
       return `${lab}: ${fmt(r.qty)} · ${I18n.t("inventory.lotTooltipExpiry")} ${expL} · ${I18n.t("inventory.lotTooltipExped")} ${expd} · ${dy} · ${st}`;
     });
-    const title = Utils.escapeAttr(tipLines.join("\n"));
-    return `<td class="inv-lots-cell" title="${title}"><span class="inv-lots-pills">${pillParts.join("")}</span></td>`;
+    const over = this.getExpirationLotsOverMainStock(it);
+    const overNote = over
+      ? "\n" +
+        (I18n.t("inventory.lotsOverMainStockTooltip") || "")
+          .replace("{l}", fmt(over.lotted))
+          .replace("{m}", fmt(over.main))
+          .replace("{x}", fmt(over.overBy))
+      : "";
+    const title = Utils.escapeAttr(tipLines.join("\n") + overNote);
+    const cls = over ? "inv-lots-cell inv-lots-cell--overalloc" : "inv-lots-cell";
+    return `<td class="${cls}" title="${title}"><span class="inv-lots-pills">${pillParts.join("")}</span></td>`;
   },
 
   /** Etiqueta «Origen» para cada tipo de fila de la tabla/tooltip de lotes. */
@@ -2276,6 +2477,15 @@ const InventoryManager = {
         </tr>`;
       })
       .join("");
+    const over = this.getExpirationLotsOverMainStock(item);
+    const overBlock = over
+      ? `<p class="form-hint inv-lots-overalloc" role="status">${this.esc(
+          (I18n.t("inventory.lotsOverMainStockHint") || "")
+            .replace("{l}", fmt(over.lotted))
+            .replace("{m}", fmt(over.main))
+            .replace("{x}", fmt(over.overBy))
+        )}</p>`
+      : "";
     return `<div class="inv-lots-section">
       <h4 class="inv-lots-heading">${this.esc(I18n.t("inventory.lotsBreakdownTitle"))}</h4>
       <div class="inventory-table-container inventory-table-container--nested">
@@ -2291,6 +2501,7 @@ const InventoryManager = {
           <tbody>${body}</tbody>
         </table>
       </div>
+      ${overBlock}
       <p class="form-hint muted inv-lots-legend">${this.esc(I18n.t("inventory.lotsBreakdownLegend"))}</p>
     </div>`;
   },
@@ -2774,17 +2985,15 @@ const InventoryManager = {
   },
 
   /**
-   * Salida del stock principal: descuenta lotes en orden FEFO; sin lotes, descuenta solo el principal.
-   * @returns {{ ok: boolean, deductions?: Array<{date?: string, expDate?: string, qty: number, untracked?: boolean}> }}
+   * Solo muta `item.expirations` por FEFO (mismo orden que consumeFromMainStockFefo).
+   * No modifica mainStock ni guarda.
+   * @returns {Array<{date?: string, expDate?: string, qty: number, untracked?: boolean}>}
    */
-  consumeFromMainStockFefo(itemId, qty) {
-    const item = this.getItemById(itemId);
-    if (!item) return { ok: false, reason: "item-not-found" };
-    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
-    if (q <= 0) return { ok: false, reason: "invalid-qty" };
-    if (!this.itemTracksExpiration(item)) {
-      this.updateStock(itemId, "main", -q);
-      return { ok: true, deductions: [{ untracked: true, qty: q }] };
+  _applyFefoExpirationQtyToItemInPlace(item, qtyAbs) {
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qtyAbs) || 0));
+    if (q <= 0) return [];
+    if (!item || item.inventoryConsumable || !this.itemTracksExpiration(item)) {
+      return [{ untracked: true, qty: q }];
     }
     const exp = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
     const indexed = exp
@@ -2796,8 +3005,7 @@ const InventoryManager = {
       }))
       .filter(x => x.q > 0);
     if (!indexed.length) {
-      this.updateStock(itemId, "main", -q);
-      return { ok: true, deductions: [{ untracked: true, qty: q }] };
+      return [{ untracked: true, qty: q }];
     }
     const sorted = indexed.sort((a, b) => {
       if (!a.eff && !b.eff) return a.idx - b.idx;
@@ -2825,23 +3033,53 @@ const InventoryManager = {
     if (need > 1e-9) {
       deductions.push({ untracked: true, qty: need });
     }
+    return deductions;
+  },
+
+  /**
+   * Salida del stock principal: descuenta lotes en orden FEFO; sin lotes, descuenta solo el principal.
+   * @returns {{ ok: boolean, deductions?: Array<{date?: string, expDate?: string, qty: number, untracked?: boolean}> }}
+   */
+  consumeFromMainStockFefo(itemId, qty) {
+    const item = this.getItemById(itemId);
+    if (!item) return { ok: false, reason: "item-not-found" };
+    const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (q <= 0) return { ok: false, reason: "invalid-qty" };
+    if (!this.itemTracksExpiration(item)) {
+      this.updateStock(itemId, "main", -q);
+      return { ok: true, deductions: [{ untracked: true, qty: q }] };
+    }
+    const deductionsPreview = this._applyFefoExpirationQtyToItemInPlace(item, q);
+    const onlyUntracked =
+      deductionsPreview.length === 1 && deductionsPreview[0] && deductionsPreview[0].untracked;
+    if (onlyUntracked) {
+      this.updateStock(itemId, "main", -q);
+      return { ok: true, deductions: deductionsPreview };
+    }
     item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) - q);
     this.save();
     this.render();
-    return { ok: true, deductions };
+    return { ok: true, deductions: deductionsPreview };
   },
 
-  /** Anula consumo FEFO guardando los mismos recortes de lote. */
-  restoreMainStockFefo(itemId, deductions) {
+  /**
+   * Anula consumo FEFO guardando los mismos recortes de lote.
+   * @param {{ adjustMainStock?: boolean }} [opts] — si `adjustMainStock === false`, solo restaura filas de
+   *   `expirations` (no toca mainStock). Útil cuando el principal ya se revierte con caja/ubicación.
+   */
+  restoreMainStockFefo(itemId, deductions, opts = {}) {
     if (!deductions?.length) return;
     const item = this.getItemById(itemId);
     if (!item) return;
+    const adjustMain = opts.adjustMainStock !== false;
     let mainAdd = 0;
     const exp = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
     for (const d of deductions) {
       const dq = Utils.roundDecimal(parseFloat(d.qty) || 0);
       if (dq <= 0) continue;
-      mainAdd = Utils.roundDecimal(mainAdd + dq);
+      if (adjustMain) {
+        mainAdd = Utils.roundDecimal(mainAdd + dq);
+      }
       if (d.untracked) continue;
       const k = `${String(d.date || "").slice(0, 10)}|${String(d.expDate || "").slice(0, 10)}`;
       let idx = exp.findIndex(
@@ -2856,13 +3094,19 @@ const InventoryManager = {
       }
     }
     item.expirations = exp;
-    item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) + mainAdd);
+    if (adjustMain) {
+      item.mainStock = Utils.roundDecimal((parseFloat(item.mainStock) || 0) + mainAdd);
+    }
     this.save();
     this.render();
   },
 
   /**
-   * COMPRA hacia principal: acumula cantidad por fecha de caducidad / expedición de lote.
+   * COMPRA (principal, caja o ubicación): acumula cantidad por fecha de caducidad / expedición de lote en `expirations`.
+   *
+   * Registro de fila: basta **caducidad explícita** en la compra **o** **fecha de expedición** válida
+   * (YYYY-MM-DD). La vida útil en meses del **artículo** no es obligatoria: si es 0, se guarda solo
+   * `expDate` + cantidad y la caducidad efectiva se calcula al fijar meses de vida útil en el artículo.
    *
    * Reglas de almacenamiento (fix vida-útil 2026-05):
    * - Si el usuario fija explícitamente la fecha de caducidad → se guarda en `lot.date`.
@@ -2883,8 +3127,8 @@ const InventoryManager = {
     const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
     const hasExplicitExpiry = /^\d{4}-\d{2}-\d{2}$/.test(explicitExpiry);
     const hasExpedition = /^\d{4}-\d{2}-\d{2}$/.test(expStr);
-    /* Sin caducidad explícita ni base (expedición + vida útil) no hay nada que registrar. */
-    if (!hasExplicitExpiry && !(hasExpedition && months > 0)) return;
+    /* Sin ninguna fecha de lote en la compra no hay fila que registrar. */
+    if (!hasExplicitExpiry && !hasExpedition) return;
     const arr = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
     /* Clave estable: usa la expiración explícita si existe; si no, solo la expedición
        (para que cambios futuros de vida útil no creen duplicados). */
@@ -2942,10 +3186,9 @@ const InventoryManager = {
     if (q <= 0) return;
     const explicitExpiry = String(line.compraLotExpiry || "").trim().slice(0, 10);
     const expStr = String(line.compraLotExpedition || "").trim().slice(0, 10);
-    const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
     const hasExplicitExpiry = /^\d{4}-\d{2}-\d{2}$/.test(explicitExpiry);
     const hasExpedition = /^\d{4}-\d{2}-\d{2}$/.test(expStr);
-    if (!hasExplicitExpiry && !(hasExpedition && months > 0)) return;
+    if (!hasExplicitExpiry && !hasExpedition) return;
     const arr = Array.isArray(item.expirations) ? item.expirations.map(l => ({ ...l })) : [];
     const storedDate = hasExplicitExpiry ? explicitExpiry : "";
     const k1 = `${storedDate}|${expStr}`;

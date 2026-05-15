@@ -3713,7 +3713,9 @@ const MovementManager = {
                 item.compraPlace = { kind: 'main' };
             }
             if (
-                place0.kind === 'main' &&
+                r &&
+                r.ok &&
+                (place0.kind === 'main' || place0.kind === 'box' || place0.kind === 'location') &&
                 typeof InventoryManager !== 'undefined' &&
                 typeof InventoryManager.mergeCompraLotIntoExpirations === 'function'
             ) {
@@ -3755,7 +3757,10 @@ const MovementManager = {
                 const r0 = InventoryManager.restoreToBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
                 if (!r0 || !r0.ok) InventoryManager.updateStock(item.itemId, "main", d);
             } else if (InventoryManager.consumeFromBoxAndMain) {
-                const r = InventoryManager.consumeFromBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
+                const r = InventoryManager.consumeFromBoxAndMain(item.itemId, bid, Math.abs(d), {
+                    boxNumber: m.boxNumber,
+                    skipFefoExpiration: true
+                });
                 if (!r || !r.ok) InventoryManager.updateStock(item.itemId, "main", d);
             }
             return;
@@ -3787,6 +3792,10 @@ const MovementManager = {
                     boxNumber: item.boxNumber
                 });
                 if (!r || !r.ok) InventoryManager.updateStock(item.itemId, tgt, qty);
+                else {
+                    if (r.fefoDeductions && r.fefoDeductions.length) item.mainFefoDeductions = r.fefoDeductions;
+                    else delete item.mainFefoDeductions;
+                }
                 return;
             }
             if (src.startsWith('ibox:')) {
@@ -3802,6 +3811,10 @@ const MovementManager = {
                 }
                 const r = InventoryManager.consumeFromLocationStockAndMain(item.itemId, locKey, qAbs);
                 if (!r || !r.ok) InventoryManager.updateStock(item.itemId, tgt, qty);
+                else {
+                    if (r.fefoDeductions && r.fefoDeductions.length) item.mainFefoDeductions = r.fefoDeductions;
+                    else delete item.mainFefoDeductions;
+                }
                 return;
             }
         }
@@ -3869,7 +3882,10 @@ const MovementManager = {
             const bid = String(m.boxId || "").trim();
             if (!bid || typeof InventoryManager.consumeFromBoxAndMain !== "function") return;
             if (d > 0) {
-                const r = InventoryManager.consumeFromBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
+                const r = InventoryManager.consumeFromBoxAndMain(item.itemId, bid, Math.abs(d), {
+                    boxNumber: m.boxNumber,
+                    skipFefoExpiration: true
+                });
                 if (!r || !r.ok) InventoryManager.updateStock(item.itemId, "main", -d);
             } else if (InventoryManager.restoreToBoxAndMain) {
                 const r = InventoryManager.restoreToBoxAndMain(item.itemId, bid, Math.abs(d), { boxNumber: m.boxNumber });
@@ -3892,6 +3908,15 @@ const MovementManager = {
                 return;
             }
             if (src.startsWith('box:') && InventoryManager.restoreToBoxAndMain) {
+                if (
+                    item.mainFefoDeductions &&
+                    item.mainFefoDeductions.length &&
+                    typeof InventoryManager.restoreMainStockFefo === 'function'
+                ) {
+                    InventoryManager.restoreMainStockFefo(item.itemId, item.mainFefoDeductions, {
+                        adjustMainStock: false
+                    });
+                }
                 const r = InventoryManager.restoreToBoxAndMain(item.itemId, src.slice(4), qAbs, {
                     boxNumber: item.boxNumber
                 });
@@ -3908,6 +3933,15 @@ const MovementManager = {
                     locKey = decodeURIComponent(src.slice(4));
                 } catch (e) {
                     locKey = '';
+                }
+                if (
+                    item.mainFefoDeductions &&
+                    item.mainFefoDeductions.length &&
+                    typeof InventoryManager.restoreMainStockFefo === 'function'
+                ) {
+                    InventoryManager.restoreMainStockFefo(item.itemId, item.mainFefoDeductions, {
+                        adjustMainStock: false
+                    });
                 }
                 const fromRow = item.locationConsumedFromStockRow === true;
                 if (fromRow && InventoryManager.restoreToLocationStockAndMain) {
