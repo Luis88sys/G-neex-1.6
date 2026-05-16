@@ -30,7 +30,7 @@ Si tiene Node.js, una alternativa es `npx --yes serve -l 8765` en la misma carpe
 - **CSV/XLSX inventario:** columnas opcionales finales `UnidadStockSimbolo` y `UnidadEquivalenteSimbolo` (coincidencia por símbolo, sin distinguir mayúsculas).
 - **Permiso:** acción fina `cfgTabMeasureUnits` (por defecto alineada con **Consumibles** / nivel de movimientos en la matriz).
 - **Limitación:** los formularios de **movimientos** muestran cantidades numéricas como antes; la coherencia con la unidad del artículo es responsabilidad operativa (documentado en manuales).
-- **Importar respaldo:** solo se sobrescribe o borra en `localStorage` lo que **vaya explícitamente** en el JSON; una clave ausente en un archivo viejo **no** vacía datos nuevos del navegador (p. ej. catálogo de unidades).
+- **Importar respaldo:** solo se sobrescribe o borra en `localStorage` lo que **vaya explícitamente** en el JSON; una clave ausente en un archivo viejo **no** vacía datos nuevos del navegador (p. ej. catálogo de unidades). También se aceptan **mapas planos** antiguos (claves `phoenix-*` en la raíz sin contenedor `data`) y se **fusionan** listas de movimientos (`phoenix-movements`, `_rawMovements`, `movements`) como en `repair-backup-users.mjs`.
 
 ### Lista corta antes de producción (humo manual)
 

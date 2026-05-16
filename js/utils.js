@@ -2141,6 +2141,127 @@ th.print-cell-code,td.print-cell-code{
         return null;
     },
 
+    /** Prioriza movimientos con más detalle (misma política que `scripts/repair-backup-users.mjs`). */
+    _movementFullnessForBackupMerge(m) {
+        if (!m || typeof m !== "object") return 0;
+        let n = Object.keys(m).length;
+        if (Array.isArray(m.items)) {
+            n += m.items.length * 3;
+            for (const it of m.items) {
+                if (it && typeof it === "object") n += Object.keys(it).length;
+            }
+        }
+        return n;
+    },
+
+    _parseJsonMovementArrayForBackup(raw) {
+        if (raw == null || raw === "") return [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw !== "string") return [];
+        try {
+            const a = JSON.parse(raw);
+            return Array.isArray(a) ? a : [];
+        } catch {
+            return [];
+        }
+    },
+
+    _mergeMovementListsForFullBackupImport(labeled) {
+        const byId = new Map();
+        for (const { arr } of labeled) {
+            if (!Array.isArray(arr)) continue;
+            for (const m of arr) {
+                if (!m || typeof m !== "object") continue;
+                const id = m.id != null ? String(m.id) : "";
+                if (!id) continue;
+                const prev = byId.get(id);
+                if (!prev) {
+                    byId.set(id, m);
+                    continue;
+                }
+                const fp = this._movementFullnessForBackupMerge(prev);
+                const fn = this._movementFullnessForBackupMerge(m);
+                if (fn > fp) byId.set(id, m);
+                else if (fn === fp && JSON.stringify(m).length > JSON.stringify(prev).length) byId.set(id, m);
+            }
+        }
+        const out = Array.from(byId.values());
+        out.sort((a, b) => {
+            const ta = new Date(a?.date || 0).getTime();
+            const tb = new Date(b?.date || 0).getTime();
+            const va = Number.isFinite(ta) ? ta : 0;
+            const vb = Number.isFinite(tb) ? tb : 0;
+            if (va !== vb) return va - vb;
+            return String(a?.id || "").localeCompare(String(b?.id || ""));
+        });
+        return out;
+    },
+
+    _looksLikeFlatPhoenixStorageMap(obj) {
+        if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+        if (obj.data != null && typeof obj.data === "object" && !Array.isArray(obj.data)) return false;
+        return Object.keys(obj).some(k => k.startsWith("phoenix-"));
+    },
+
+    /**
+     * Fusiona `phoenix-movements` con listas alternativas (`_rawMovements`, `movements`) en `data`
+     * y, si existen solo en la raíz del archivo, en `fileRoot`.
+     */
+    _consolidateLegacyMovementSourcesIntoData(data, fileRoot) {
+        const movKey = STORAGE_KEYS.MOVEMENTS;
+        /** @type {{ arr: unknown[] }[]} */
+        const labeled = [];
+        const seen = new Set();
+        const pushUnique = arr => {
+            if (!Array.isArray(arr) || !arr.length) return;
+            if (seen.has(arr)) return;
+            seen.add(arr);
+            labeled.push({ arr });
+        };
+        pushUnique(this._parseJsonMovementArrayForBackup(data[movKey]));
+        pushUnique(this._parseJsonMovementArrayForBackup(data._rawMovements));
+        pushUnique(this._parseJsonMovementArrayForBackup(data.movements));
+        if (fileRoot && fileRoot !== data) {
+            pushUnique(this._parseJsonMovementArrayForBackup(fileRoot[movKey]));
+            pushUnique(this._parseJsonMovementArrayForBackup(fileRoot._rawMovements));
+            pushUnique(this._parseJsonMovementArrayForBackup(fileRoot.movements));
+        }
+        if (!labeled.length) return;
+        const merged = this._mergeMovementListsForFullBackupImport(labeled);
+        data[movKey] = JSON.stringify(merged);
+    },
+
+    /**
+     * Acepta respaldo estándar `{ data: { "phoenix-*": … } }`, `data` como string JSON (doble capa),
+     * o mapa plano con al menos una clave `phoenix-*` en la raíz. Unifica movimientos desde listas legacy.
+     * @returns {Record<string, unknown>|null}
+     */
+    normalizeFullBackupImportPayload(parsed) {
+        if (!parsed || typeof parsed !== "object") return null;
+        let fileRoot = parsed;
+        let innerData = parsed.data;
+        if (typeof innerData === "string") {
+            try {
+                const once = JSON.parse(innerData);
+                if (once && typeof once === "object" && !Array.isArray(once)) {
+                    fileRoot = { ...parsed, data: once };
+                    innerData = once;
+                }
+            } catch {
+                return null;
+            }
+        }
+        let data = null;
+        if (innerData && typeof innerData === "object" && !Array.isArray(innerData)) {
+            data = { ...innerData };
+        } else if (this._looksLikeFlatPhoenixStorageMap(fileRoot)) {
+            data = { ...fileRoot };
+        }
+        if (!data || typeof data !== "object") return null;
+        this._consolidateLegacyMovementSourcesIntoData(data, fileRoot);
+        return data;
+    },
+
     async exportMovementsJSON() {
         if (typeof Auth !== "undefined" && !Auth.guardImportExportFeatures()) return;
         try {
@@ -2942,7 +3063,7 @@ th.print-cell-code,td.print-cell-code{
         reader.onload = e => {
             try {
                 const parsed = JSON.parse(e.target.result);
-                const data = parsed?.data;
+                const data = this.normalizeFullBackupImportPayload(parsed);
                 if (!data || typeof data !== "object") {
                     throw new Error(I18n.t("msg.invalidBackupFormat"));
                 }

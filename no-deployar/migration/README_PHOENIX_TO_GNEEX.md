@@ -98,7 +98,7 @@ El archivo que importa la app tiene esta forma:
 
 **Importante:** en `data`, cada valor debe ser **string** (como devuelve `localStorage.getItem`). Los arrays se serializan con `JSON.stringify` una vez.
 
-La importación recorre **todas** las claves definidas en `STORAGE_KEYS` en `js/utils.js` (incluye `phoenix-employees`, `phoenix-occasional-recipients`, `phoenix-suppliers`, `phoenix-me-legacy`, etc.). Si una clave **no** viene en `data`, la app **borra** esa entrada del almacenamiento. Por eso un respaldo de migración debe incluir **todas** las claves con un valor seguro (por ejemplo `[]`, `{}`, `""`) o usar el script de esta carpeta, que rellena valores por defecto.
+La importación recorre **todas** las claves definidas en `STORAGE_KEYS` en `js/utils.js` (incluye `phoenix-employees`, `phoenix-occasional-recipients`, `phoenix-suppliers`, `phoenix-me-legacy`, etc.). Si una clave **no** viene en `data`, la app **no modifica** esa entrada en `localStorage` (no borra datos locales que el archivo no menciona). Si una clave viene con valor **`null`**, se **elimina** del almacenamiento. Para un respaldo de migración que deba sustituir todo el estado, conviene que el JSON incluya **todas** las claves con un valor seguro (por ejemplo `[]`, `{}`, `""`) o usar `build-gneex-backup.mjs`, que rellena valores por defecto.
 
 ---
 
