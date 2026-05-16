@@ -53,6 +53,8 @@ const STORAGE_KEYS = {
     SUPPLIERS: 'phoenix-suppliers',
     /** Artículos consumibles (solo constancia de recepción COMPRA, sin stock). */
     CONSUMABLES: 'phoenix-consumables',
+    /** Empresas / talleres de transformación (maestro; stock transformación por empresa). */
+    TRANSFORMATION_COMPANIES: 'phoenix-transformation-companies',
     /** Catálogo global de unidades de medida y equivalencias (JSON). */
     MEASURE_UNITS_CATALOG: 'phoenix-measure-units-catalog',
     /** Espejo del catálogo anterior (recuperación si el principal queda corrupto o incompleto). */

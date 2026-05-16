@@ -180,6 +180,14 @@ Al entrar a la aplicación, se muestra un panel con información del día. En la
 
 Pulsar **Ocultar** / **Mostrar** para colapsar/expandir el panel.
 
+### Carrusel del panel y consejo del día
+
+Encima del carrusel, un **recuadro fijo «Consejo del día»** muestra un texto elaborado rotativo: **366** variaciones alineadas al **día del año civil** en **hora local** (incluido **29 de febrero** en año bisiesto), en el **idioma seleccionado** (ES / EN / FR).
+
+El **carrusel** (flechas laterales; avanza solo cada pocos segundos; **se pausa** al pasar el ratón) muestra tarjetas: resumen, actividad de hoy, vistas de transporte si aplican, pendientes Stand-by / consumo diario, líneas de pedido, caducidad próxima y cajas con fila en cantidad 0 — **sin** repetir el consejo en una diapositiva.
+
+El **logo** de la barra superior lanza **Actualizar inventario** (normalizar, stock principal, caducidades de lotes, N.º cajas) — véase herramientas de inventario y README.
+
 ---
 
 ## 2.3 Inventario
@@ -221,7 +229,30 @@ Columnas: Código, Descripción, Categoría, Precio por defecto, Stock Principal
 
 En la columna **Descripción**, el icono **📝** (más suave si el artículo aún no tiene notas) abre, cuando esté activo, un cuadro para **ver y editar las notas**; **Guardar** persiste los cambios. Si el control no ofrece edición pero el artículo **sí tiene notas**, a menudo puede abrirse el cuadro en **solo lectura**; si no hay notas, la celda se muestra como texto normal.
 
-Los colores de las filas y celdas indican el estado del artículo (rojo = negativo, amarillo = bajo, naranja = expirando, verde = bien, etc.). Además: si **toda la fila** muestra un **resaltado violeta/indigo suave con borde**, es la fila **seleccionada con el teclado** (flechas arriba/abajo en la tabla). Si solo la **primera celda (código)** tiene una **banda vertical violeta**, el artículo está marcado como **consumible de inventario**. En la celda de **stock principal**, un **recuadro violeta** puede indicar **sobre-stock** (por encima del máximo configurado).
+Los colores usan **varias capas** a la vez; pueden combinarse. Resumen:
+
+### Colores y marcas en la tabla de inventario
+
+**Pastilla de stock principal** (número en la columna Stock principal)
+
+- **Rojo intenso**: stock total **negativo** (la regla usa los depósitos que cuenta la fila).
+- **Violeta / morado**: **sobre-stock** (por encima del máximo configurado).
+- **Naranja**: visión de **caducado** (lotes / fechas).
+- **Ámbar / amarillo**: **próximo a caducar** (dentro del umbral de alerta), stock **bajo** o franja **media** entre mínimo y un punto intermedio; use el matiz y el contexto, o abra el modal de alertas.
+- **Verde**: nivel holgado.
+- **Cero en rojo remarcado**: cantidad **exactamente cero** (distinto del estilo de negativo).
+
+**Barras y contorno en toda la fila**
+
+- **Barra naranja** pegada a la izquierda: hay cantidad **dentro de la ventana de alerta de caducidad** (próximo).
+- **Barra morada** pegada a la izquierda: el **control de caducidad está activado** pero aún **no hay fecha efectiva calculable**, o hay **stock con control activado** y **ningún dato de caducidad** (vida útil, fechas, lotes).
+- **Contorno turquesa** alrededor de la fila: faltan **campos importantes del editor** para cálculos o reglas (p. ej. cantidad por caja con stock en cajas, máximo de caja negra en modo incontable, lotes con expedición sin meses de vida útil). **Pase el ratón por la fila** para ver el texto del `title` con el detalle.
+
+**Otras marcas**
+
+- **Marca solo en la celda de código**: artículo **consumible de inventario**.
+- **Pastilla roja pulsante** en código y/o descripción: nota de **«problemas con el artículo»** en el editor.
+- **Realce violeta/indigo en toda la fila** (fino contorno o fondo): la fila está **seleccionada con teclado** (↑/↓ en la tabla); no indica por sí sola un fallo de stock.
 
 Si la ventana es estrecha, puede **desplazar la tabla horizontalmente** para ver todas las columnas sin comprimir los encabezados.
 
@@ -266,6 +297,8 @@ Pestaña **Movimientos** (➕ en la barra superior): la cuadrícula de tipos y, 
 5. **Origen de stock** (tipos que **restan** inventario): si aparece la columna **Origen stock**, elija **de qué depósito** sale la cantidad: **Almacén general** (stock principal, con cantidad visible); cada **caja** (la misma cantidad que en **Gestión de stock por caja**); **ubicaciones** del stock por ubicación detallado (solo la etiqueta en la lista); y, cuando corresponda, **stock de producción** o **stock de transformación** (con cantidad visible). Puede **añadir varias líneas** del mismo artículo para repartir cantidades entre orígenes. En tipos que muestran también una columna **Destino** (p. ej. Ferretería, M.E. Producción, M.E. Obra), el **origen** es el depósito físico del que se descuenta; el **destino** clasifica el movimiento y puede ser distinto del origen. En **Venta directa** y **Expedición de stock** solo puede tomar stock del **principal**, **cajas** o **ubicaciones** (no producción ni transformación).
 6. Revisar y ajustar **cantidades** en la lista antes de procesar
 7. Pulsar **Procesar movimiento**. Si el tipo es **M.E. obra**, aparece una pregunta por el **total de cajas** de ese envío (no por artículo); la aplicación reparte esas cajas entre las líneas según las cantidades de cada una para el stock M.E. obra
+
+**Calculadora de cantidad (🧮):** junto al campo numérico de cada línea, el botón **🧮** abre un **modal** con calculadora: números, operaciones **+ − × ÷**, paréntesis, memoria (**Mr**, **Mr−**, **Mr+**), raíz cuadrada y **%** (añade `/100` a la expresión mostrada). Pulse **Usar en cantidad** para aplicar el resultado a esa línea; **Esc** o **Cancelar** cierra sin cambios.
 
 Si **todas** las cantidades son **0**, la aplicación **no** permite procesar el movimiento (no hay cambio de stock).
 

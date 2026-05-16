@@ -11,6 +11,8 @@ const TransportManager = {
   _boardEventsBound: false,
   /** Id del transporte con el panel de detalle abierto (null = todos plegados). */
   _expandedTransportId: null,
+  /** Filtro de lista de transportes (pestaña Transporte). */
+  _transportBoardSearch: "",
 
   _TRANSPORT_VIEWS: ["tiles"],
 
@@ -747,6 +749,69 @@ const TransportManager = {
 
     const createBtn = document.getElementById("transport-create-btn");
     if (createBtn) createBtn.addEventListener("click", () => this.createManualTransport());
+
+    const searchInp = document.getElementById("transport-board-search");
+    if (searchInp && !searchInp.dataset.gneexTransportSearchBound) {
+      searchInp.dataset.gneexTransportSearchBound = "1";
+      searchInp.value = this._transportBoardSearch || "";
+      searchInp.addEventListener("input", () => {
+        this._transportBoardSearch = searchInp.value;
+        this.render();
+      });
+    }
+    const searchReset = document.getElementById("transport-board-search-reset");
+    if (searchReset && !searchReset.dataset.gneexTransportSearchResetBound) {
+      searchReset.dataset.gneexTransportSearchResetBound = "1";
+      searchReset.addEventListener("click", () => {
+        this._transportBoardSearch = "";
+        const el = document.getElementById("transport-board-search");
+        if (el) el.value = "";
+        this.render();
+        el?.focus();
+      });
+    }
+  },
+
+  /** Texto acumulado para filtro insensible a mayúsculas (proyecto, refs, líneas, adjuntos, notas…). */
+  _transportBoardSearchHaystack(t) {
+    if (!t) return "";
+    const parts = [
+      String(t.id || ""),
+      String(t.projectId || ""),
+      this.getTransportLabel(t),
+      I18n.t("transport.truckLabel"),
+      String(t.shipmentDate || ""),
+      String(t.status || ""),
+      t.expeditionAnnulled
+        ? I18n.t("transport.cellStatusAnnulled")
+        : t.status === "Listo"
+          ? I18n.t("transport.cellStatusListo")
+          : I18n.t("transport.cellStatusParcial"),
+      String(t.notes || ""),
+      t.expeditionAnnulled ? "annulled annulado anulado" : "",
+      t.expeditionShippedAt ? "shipped shippedat expedido enviado" : ""
+    ];
+    const pushRefs = arr => {
+      for (const r of arr || []) {
+        if (!r) continue;
+        parts.push(String(r.ref || ""), String(r.movementId || ""));
+      }
+    };
+    pushRefs(t.checklistRefs);
+    pushRefs(t.elecObraRefs);
+    pushRefs(t.elecProdRefs);
+    for (const a of t.attachments || []) {
+      if (a) parts.push(String(a.fileName || ""), String(a.label || ""));
+    }
+    for (const line of t.lines || []) {
+      parts.push(this.lineTitle(line), String(line.id || ""));
+    }
+    return parts.join(" ").toLowerCase();
+  },
+
+  _transportMatchesBoardSearch(t, qLower) {
+    if (!qLower) return true;
+    return this._transportBoardSearchHaystack(t).includes(qLower);
   },
 
   async createManualTransport() {
@@ -2243,22 +2308,34 @@ const TransportManager = {
 
     const view = this._getTransportView();
     const sorted = this.transports
+      .slice()
       .sort((a, b) => {
         if (!!a.expeditionAnnulled !== !!b.expeditionAnnulled) return a.expeditionAnnulled ? 1 : -1;
         const da = a.shipmentDate && !a.expeditionAnnulled ? a.shipmentDate : "9999-12-31";
         const db = b.shipmentDate && !b.expeditionAnnulled ? b.shipmentDate : "9999-12-31";
         return da.localeCompare(db);
       });
-    const stripHtml = sorted.map(t => this.renderTransportStripRow(t)).join("");
+    const searchEl = document.getElementById("transport-board-search");
+    if (searchEl && String(searchEl.value) !== String(this._transportBoardSearch)) {
+      searchEl.value = this._transportBoardSearch;
+    }
+    const q = String(this._transportBoardSearch || "").trim().toLowerCase();
+    const filtered = q ? sorted.filter(t => this._transportMatchesBoardSearch(t, q)) : sorted;
+    if (this._expandedTransportId && !filtered.some(t => t.id === this._expandedTransportId)) {
+      this._expandedTransportId = null;
+    }
+    const stripHtml = filtered.map(t => this.renderTransportStripRow(t)).join("");
     const expT = this._expandedTransportId ? this.transports.find(x => x.id === this._expandedTransportId) : null;
     const detailHtml = expT ? this.renderTransportDetailPanel(expT) : "";
-    const grid =
-      stripHtml || detailHtml
-        ? `<div class="transport-board-stack">
+    let grid = "";
+    if (stripHtml || detailHtml) {
+      grid = `<div class="transport-board-stack">
             <div class="transport-cells-container transport-cells--${view}">${stripHtml}</div>
             ${detailHtml ? `<div class="transport-detail-slot">${detailHtml}</div>` : ""}
-          </div>`
-        : "";
+          </div>`;
+    } else if (sorted.length > 0 && q) {
+      grid = `<p class="transport-empty transport-search-empty">${this.esc(I18n.t("transport.searchNoResults"))}</p>`;
+    }
     board.innerHTML = preparedPanel + pendingBanner + grid;
     this._syncTransportViewToolbar();
   }

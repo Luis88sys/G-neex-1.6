@@ -6,6 +6,8 @@ const TRANSPORT_READINESS_DAYS_BEFORE = 7;
 const Dashboard = {
   _collapsed: false,
   _interactivityBound: false,
+  _heroCarouselBound: false,
+  _heroCarouselTimer: null,
 
   init() {
     const toggle = document.getElementById("dashboard-toggle");
@@ -19,6 +21,7 @@ const Dashboard = {
     }
     this._setupInteractivity();
     this._setupAlertsModal();
+    this._setupHeroCarousel();
     this.refresh();
   },
 
@@ -401,6 +404,206 @@ const Dashboard = {
     }
   },
 
+  /** Carrusel horizontal del hero: anchos fijos, recorte sin bleed, omite diapos vacías. */
+  _setupHeroCarousel() {
+    if (this._heroCarouselBound) return;
+    const root = document.getElementById("dashboard-hero-carousel");
+    const vp = root?.querySelector(".dashboard-carousel-viewport");
+    const track = document.getElementById("dashboard-carousel-track");
+    const prevBtn = document.getElementById("dashboard-carousel-prev");
+    const nextBtn = document.getElementById("dashboard-carousel-next");
+    if (!root || !vp || !track || !prevBtn || !nextBtn) return;
+
+    this._heroCarouselBound = true;
+
+    const visibleSlides = () =>
+      Array.from(track.querySelectorAll(".dashboard-carousel-slide")).filter(
+        s => !s.classList.contains("dashboard-carousel-slide--skip")
+      );
+
+    let slideIndex = 0;
+    let scrollQuietTimer = null;
+
+    const clearTimer = () => {
+      if (this._heroCarouselTimer) {
+        clearInterval(this._heroCarouselTimer);
+        this._heroCarouselTimer = null;
+      }
+    };
+
+    const updateNavState = () => {
+      const vis = visibleSlides();
+      const dis = vis.length < 2;
+      prevBtn.disabled = dis;
+      nextBtn.disabled = dis;
+      prevBtn.setAttribute("aria-disabled", dis ? "true" : "false");
+      nextBtn.setAttribute("aria-disabled", dis ? "true" : "false");
+    };
+
+    const applySlideWidths = () => {
+      const w = Math.max(1, Math.floor(vp.getBoundingClientRect().width));
+      const all = Array.from(track.querySelectorAll(".dashboard-carousel-slide"));
+      all.forEach(sl => {
+        if (sl.classList.contains("dashboard-carousel-slide--skip")) {
+          sl.style.flex = "0 0 0";
+          sl.style.width = "0";
+          sl.style.minWidth = "0";
+        } else {
+          sl.style.flex = `0 0 ${w}px`;
+          sl.style.width = `${w}px`;
+          sl.style.minWidth = `${w}px`;
+        }
+      });
+    };
+
+    const scrollToVisibleIndex = (idx, smooth) => {
+      const vis = visibleSlides();
+      if (!vis.length) return;
+      const n = vis.length;
+      slideIndex = ((idx % n) + n) % n;
+      vp.scrollTo({
+        left: vis[slideIndex].offsetLeft,
+        behavior: smooth === false ? "auto" : "smooth"
+      });
+    };
+
+    const goNext = () => scrollToVisibleIndex(slideIndex + 1, true);
+    const goPrev = () => scrollToVisibleIndex(slideIndex - 1, true);
+
+    const syncIndexFromScroll = () => {
+      const vis = visibleSlides();
+      if (!vis.length) return;
+      const mid = vp.scrollLeft + vp.clientWidth / 2;
+      let best = 0;
+      let bestDist = Infinity;
+      vis.forEach((el, i) => {
+        const c = el.offsetLeft + el.offsetWidth / 2;
+        const d = Math.abs(mid - c);
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      });
+      slideIndex = best;
+    };
+
+    const clampScrollToValidSlide = () => {
+      const vis = visibleSlides();
+      if (!vis.length) {
+        vp.scrollTo({ left: 0, behavior: "auto" });
+        return;
+      }
+      const prevScroll = vp.scrollLeft;
+      let best = 0;
+      let bestDist = Infinity;
+      vis.forEach((el, i) => {
+        const d = Math.abs(prevScroll - el.offsetLeft);
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      });
+      slideIndex = Math.min(best, vis.length - 1);
+      vp.scrollTo({ left: vis[slideIndex].offsetLeft, behavior: "auto" });
+    };
+
+    const applyLayoutAndClamp = () => {
+      applySlideWidths();
+      clampScrollToValidSlide();
+      updateNavState();
+    };
+
+    const arm = () => {
+      clearTimer();
+      if (visibleSlides().length < 2) return;
+      this._heroCarouselTimer = setInterval(goNext, 4000);
+    };
+
+    const fullResync = () => {
+      applyLayoutAndClamp();
+      arm();
+    };
+
+    this._heroCarouselApplyLayout = fullResync;
+
+    prevBtn.addEventListener("click", () => {
+      goPrev();
+      arm();
+    });
+    nextBtn.addEventListener("click", () => {
+      goNext();
+      arm();
+    });
+
+    vp.addEventListener("scroll", () => {
+      clearTimeout(scrollQuietTimer);
+      scrollQuietTimer = setTimeout(syncIndexFromScroll, 120);
+    });
+
+    root.addEventListener("mouseenter", clearTimer);
+    root.addEventListener("mouseleave", arm);
+
+    window.addEventListener(
+      "resize",
+      () => {
+        applyLayoutAndClamp();
+        arm();
+      },
+      { passive: true }
+    );
+
+    fullResync();
+  },
+
+  /** Oculta diapositivas sin contenido visible y recalcula el carrusel (llamar tras actualizar el panel). */
+  _syncHeroCarouselSlides() {
+    const track = document.getElementById("dashboard-carousel-track");
+    if (!track) return;
+    const setSkip = (key, skip) => {
+      const el = track.querySelector(`[data-carousel-slide="${key}"]`);
+      if (el) el.classList.toggle("dashboard-carousel-slide--skip", !!skip);
+    };
+    const pend = document.getElementById("dashboard-pending-movements");
+    setSkip("pending", !pend || window.getComputedStyle(pend).display === "none");
+    const urg = document.getElementById("dashboard-transport-expedition-urgent");
+    setSkip("urgent", !urg || window.getComputedStyle(urg).display === "none");
+    const read = document.getElementById("dashboard-transport-readiness");
+    setSkip("readiness", !read || window.getComputedStyle(read).display === "none");
+    const remInner = track.querySelector('[data-carousel-slide="reminders"] .dashboard-reminders-preview');
+    setSkip("reminders", !remInner || window.getComputedStyle(remInner).display === "none");
+    const mx = typeof Auth !== "undefined" && Auth.getSessionMatrix ? Auth.getSessionMatrix() : {};
+    let ordersOpen = 0;
+    if (typeof OrderLinesManager !== "undefined" && OrderLinesManager.lines && mx.tabOrderlines !== "none") {
+      const S = OrderLinesManager.STATUS;
+      ordersOpen = (OrderLinesManager.lines || []).filter(
+        l => l && l.status !== S.CANCELADA && l.status !== S.RECEPCION_TOTAL
+      ).length;
+    }
+    setSkip("orders-pending", mx.tabOrderlines === "none" || ordersOpen === 0);
+    let expN = 0;
+    if (typeof InventoryManager !== "undefined" && InventoryManager.getItemsExpirationAlert && mx.tabInventory !== "none") {
+      expN = InventoryManager.getItemsExpirationAlert().length;
+    }
+    setSkip("expiring", mx.tabInventory === "none" || expN === 0);
+    let zb = 0;
+    if (typeof InventoryManager !== "undefined" && InventoryManager._collectZeroQtyBoxRows && mx.tabInventory !== "none") {
+      zb = InventoryManager._collectZeroQtyBoxRows().length;
+    }
+    setSkip("empty-boxes", mx.tabInventory === "none" || zb === 0);
+    const authOk = typeof Auth !== "undefined" && Auth.getCurrentUser && Auth.getCurrentUser();
+    if (authOk && typeof Auth.getSessionActionLevel === "function") {
+      const noOverview =
+        Auth.getSessionActionLevel("dashOverview") === "none" ||
+        (typeof Auth.hasFullInventoryInsightWidgets === "function" && !Auth.hasFullInventoryInsightWidgets());
+      setSkip("overview", noOverview);
+      setSkip("today", Auth.getSessionActionLevel("dashToday") === "none");
+    } else {
+      setSkip("overview", false);
+      setSkip("today", false);
+    }
+    if (typeof this._heroCarouselApplyLayout === "function") this._heroCarouselApplyLayout();
+  },
+
   _setupInteractivity() {
     const root = document.getElementById("dashboard-tab");
     if (!root || this._interactivityBound) return;
@@ -437,6 +640,26 @@ const Dashboard = {
         setTimeout(() => {
           document.getElementById("transport-tab")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 80);
+        return;
+      }
+      if (e.target.closest("#dashboard-carousel-goto-expiring")) {
+        e.preventDefault();
+        if (typeof App !== "undefined" && App.switchTab) App.switchTab("inventory");
+        setTimeout(() => {
+          if (typeof InventoryManager !== "undefined" && InventoryManager.openInsightModal) {
+            InventoryManager.openInsightModal("expiration");
+          }
+        }, 120);
+        return;
+      }
+      if (e.target.closest("#dashboard-carousel-goto-empty-boxes")) {
+        e.preventDefault();
+        if (typeof App !== "undefined" && App.switchTab) App.switchTab("inventory");
+        setTimeout(() => {
+          if (typeof InventoryManager !== "undefined" && InventoryManager.openZeroQtyBoxesModal) {
+            InventoryManager.openZeroQtyBoxesModal();
+          }
+        }, 120);
         return;
       }
 
@@ -525,6 +748,22 @@ const Dashboard = {
     if (toggle) {
       toggle.textContent = I18n.t(this._collapsed ? "dashboard.expand" : "dashboard.collapse");
     }
+    this._updateCarouselDashboardSlides();
+    this._syncHeroCarouselSlides();
+    this._refreshDailyTipCarousel();
+  },
+
+  /** Consejo del día: un texto por día del año (366); solo el cuerpo, sin contadores. */
+  _refreshDailyTipCarousel() {
+    const bodyIn = document.getElementById("dash-inline-daily-tip-body");
+    if (!bodyIn) return;
+    if (typeof globalThis.DashboardDailyTipsData === "undefined" || !DashboardDailyTipsData.getTip) {
+      bodyIn.textContent = "";
+      return;
+    }
+    const lang = (typeof I18n !== "undefined" && I18n.currentLang) || "en";
+    const idx = DashboardDailyTipsData.dayIndex();
+    bodyIn.textContent = DashboardDailyTipsData.getTip(idx, lang) || "";
   },
 
   _updateOverviewStats() {
@@ -711,6 +950,118 @@ const Dashboard = {
       rows.push(`<p class="muted">${this._esc(I18n.t("dashboard.transportPreviewNoDate"))}</p>`);
     }
     host.innerHTML = `<div class="dashboard-transport-preview-rows">${rows.join("")}</div>`;
+  },
+
+  _updateCarouselDashboardSlides() {
+    const mx = typeof Auth !== "undefined" && Auth.getSessionMatrix ? Auth.getSessionMatrix() : {};
+    this._fillCarouselOrdersSlide(mx);
+    this._fillCarouselExpiringSlide(mx);
+    this._fillCarouselEmptyBoxesSlide(mx);
+  },
+
+  _fillCarouselOrdersSlide(mx) {
+    const summaryEl = document.getElementById("dash-carousel-orders-summary");
+    const listEl = document.getElementById("dash-carousel-orders-list");
+    if (!summaryEl || !listEl) return;
+    if (mx.tabOrderlines === "none" || typeof OrderLinesManager === "undefined" || !OrderLinesManager.lines) {
+      summaryEl.textContent = "";
+      listEl.innerHTML = "";
+      return;
+    }
+    const S = OrderLinesManager.STATUS;
+    const open = (OrderLinesManager.lines || []).filter(
+      l => l && l.status !== S.CANCELADA && l.status !== S.RECEPCION_TOTAL
+    );
+    const n = open.length;
+    if (!n) {
+      summaryEl.textContent = I18n.t("dashboard.carouselOrdersNone");
+      listEl.innerHTML = "";
+      return;
+    }
+    summaryEl.textContent = I18n.t("dashboard.carouselOrdersSummary").replace("{n}", String(n));
+    const lineT = l => {
+      const t = new Date(l.orderedAt || l.createdAt || 0).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+    const sorted = open.slice().sort((a, b) => lineT(a) - lineT(b));
+    const take = sorted.slice(0, 8);
+    listEl.innerHTML = take
+      .map(l => {
+        const ref = OrderLinesManager.formatLineRef(l);
+        const rem = Math.max(0, (parseFloat(l.orderedQty) || 0) - (parseFloat(l.receivedQty) || 0));
+        const st = OrderLinesManager.statusLabel(l.status);
+        const desc = String(l.description || "").trim();
+        const shortDesc = desc.length > 48 ? `${desc.slice(0, 46)}…` : desc;
+        const line2 = shortDesc
+          ? `<div class="muted dashboard-carousel-insight-desc">${this._esc(shortDesc)}</div>`
+          : "";
+        return `<li class="dashboard-carousel-insight-item"><span class="muted">${this._esc(ref)}</span> <strong>${this._esc(
+          l.code || ""
+        )}</strong> · ${this._esc(st)} · ${this._esc(I18n.t("dashboard.carouselOrdersRemaining").replace("{q}", String(rem)))}${line2}</li>`;
+      })
+      .join("");
+  },
+
+  _fillCarouselExpiringSlide(mx) {
+    const summaryEl = document.getElementById("dash-carousel-expiring-summary");
+    const listEl = document.getElementById("dash-carousel-expiring-list");
+    if (!summaryEl || !listEl) return;
+    if (mx.tabInventory === "none" || typeof InventoryManager === "undefined" || !InventoryManager.getItemsExpirationAlert) {
+      summaryEl.textContent = "";
+      listEl.innerHTML = "";
+      return;
+    }
+    const items = InventoryManager.getItemsExpirationAlert();
+    const n = items.length;
+    if (!n) {
+      summaryEl.textContent = I18n.t("dashboard.carouselExpiringNone");
+      listEl.innerHTML = "";
+      return;
+    }
+    summaryEl.textContent = I18n.t("dashboard.carouselExpiringSummary").replace("{n}", String(n));
+    listEl.innerHTML = items.slice(0, 8).map(it => {
+      const x = InventoryManager.getExpirationInsight(it);
+      const d = x.days;
+      const meta =
+        d == null
+          ? ""
+          : x.expired
+            ? I18n.t("dashboard.carouselExpiringExpired")
+            : I18n.t("dashboard.carouselExpiringDays").replace("{d}", String(d));
+      const desc = String(it.description || "").trim();
+      const shortDesc = desc.length > 48 ? `${desc.slice(0, 46)}…` : desc;
+      const line2 = shortDesc
+        ? `<div class="muted dashboard-carousel-insight-desc">${this._esc(shortDesc)}</div>`
+        : "";
+      return `<li class="dashboard-carousel-insight-item"><strong>${this._esc(it.code || "")}</strong> · ${this._esc(meta)}${line2}</li>`;
+    }).join("");
+  },
+
+  _fillCarouselEmptyBoxesSlide(mx) {
+    const summaryEl = document.getElementById("dash-carousel-empty-boxes-summary");
+    const listEl = document.getElementById("dash-carousel-empty-boxes-list");
+    if (!summaryEl || !listEl) return;
+    if (mx.tabInventory === "none" || typeof InventoryManager === "undefined" || !InventoryManager._collectZeroQtyBoxRows) {
+      summaryEl.textContent = "";
+      listEl.innerHTML = "";
+      return;
+    }
+    const rows = InventoryManager._collectZeroQtyBoxRows();
+    const n = rows.length;
+    if (!n) {
+      summaryEl.textContent = I18n.t("dashboard.carouselEmptyBoxesNone");
+      listEl.innerHTML = "";
+      return;
+    }
+    summaryEl.textContent = I18n.t("dashboard.carouselEmptyBoxesSummary").replace("{n}", String(n));
+    listEl.innerHTML = rows.slice(0, 10).map(r => {
+      const loc = String(r.locationLabel || "").trim();
+      const locDisp = loc || "—";
+      const emptyNote = r.empty ? ` · ${this._esc(I18n.t("inventory.boxMgrBadgeEmpty"))}` : "";
+      return `<li class="dashboard-carousel-insight-item"><strong>${this._esc(r.code || "")}</strong> · ${this._esc(
+        I18n.t("inventory.boxFilterOption").replace("{n}", String(r.boxNumber))
+      )} · ${this._esc(locDisp)}${emptyNote}</li>`;
+    }).join("");
   },
 
   _updateLastBackup() {

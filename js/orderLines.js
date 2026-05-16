@@ -673,23 +673,35 @@ const OrderLinesManager = {
       const remaining =
         Math.max(0, parseFloat(chosen.orderedQty) || 0) - Math.max(0, parseFloat(chosen.receivedQty) || 0);
       const itemLabel = [String(g.code || "").trim(), String(g.description || "").trim()].filter(Boolean).join(" — ");
+      const itemDisp =
+        itemLabel ||
+        (typeof I18n !== "undefined" && I18n.t ? I18n.t("orderLines.compraMatchItemFallback") : "—");
+      const supDisp = String(chosen.supplier || "").trim() || "—";
+      const poDisp = String(chosen.poNumber || "").trim() || "—";
+      const remDisp = String(Utils.roundDecimal(remaining));
       const sameOrder = await App.showConfirmAsync(
-        `Se encontró un pedido pendiente para el artículo «${itemLabel || "sin código"}» (proveedor: ${chosen.supplier || "—"}, PO: ${chosen.poNumber || "—"}). ¿Esta compra corresponde a ese pedido?`,
+        I18n.t("orderLines.compraMatchPendingOrder")
+          .replace("{item}", itemDisp)
+          .replace("{supplier}", supDisp)
+          .replace("{po}", poDisp),
         { yesNo: true }
       );
       if (!sameOrder) continue;
       if (g.received < remaining - 1e-9) {
         const partial = await App.showConfirmAsync(
-          `La compra (${g.received}) es parcial frente al pendiente (${Utils.roundDecimal(remaining)}). ¿Registrar recepcion parcial?`,
+          I18n.t("orderLines.compraMatchPartialReceipt")
+            .replace("{received}", String(g.received))
+            .replace("{remaining}", remDisp),
           { yesNo: true }
         );
         if (!partial) continue;
       } else if (g.received > remaining + 1e-9) {
         const suggested = Utils.roundDecimal(Math.max(0, parseFloat(chosen.receivedQty) || 0) + g.received);
         const grow = await App.showConfirmAsync(
-          `La compra (${g.received}) supera lo pendiente (${Utils.roundDecimal(
-            remaining
-          )}). ¿Actualizar cantidad pedida a ${suggested} para asociar este pedido?`,
+          I18n.t("orderLines.compraMatchGrowOrdered")
+            .replace("{received}", String(g.received))
+            .replace("{remaining}", remDisp)
+            .replace("{suggested}", String(suggested)),
           { yesNo: true }
         );
         if (!grow) continue;

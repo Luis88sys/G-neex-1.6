@@ -164,6 +164,7 @@ const Auth = {
     "cfgTabEmployees",
     "cfgTabSuppliers",
     "cfgTabConsumables",
+    "cfgTabTransCompanies",
     "cfgTabMeasureUnits",
     "cfgTabItemEdit",
     "cfgTabUsers",
@@ -283,6 +284,7 @@ const Auth = {
     employees: "cfgTabEmployees",
     suppliers: "cfgTabSuppliers",
     consumables: "cfgTabConsumables",
+    transcompanies: "cfgTabTransCompanies",
     measureunits: "cfgTabMeasureUnits",
     itemedit: "cfgTabItemEdit",
     users: "cfgTabUsers",
@@ -309,6 +311,7 @@ const Auth = {
       case "cfgTabEmployees":
       case "cfgTabSuppliers":
       case "cfgTabConsumables":
+      case "cfgTabTransCompanies":
       case "cfgTabMeasureUnits":
         return tm;
       case "cfgTabItemEdit":
@@ -902,6 +905,7 @@ const Auth = {
     act.cfgTabEmployees = "view";
     act.cfgTabSuppliers = "view";
     act.cfgTabConsumables = "view";
+    act.cfgTabTransCompanies = "view";
     act.cfgTabMeasureUnits = "view";
     act.cfgActExportTemplate = "view";
     act.cfgActMovementsExport = "view";
@@ -1034,6 +1038,7 @@ const Auth = {
       "cfgTabEmployees",
       "cfgTabSuppliers",
       "cfgTabConsumables",
+      "cfgTabTransCompanies",
       "cfgTabMeasureUnits",
       "cfgTabItemEdit",
       "cfgActWipeDb",
@@ -1561,6 +1566,7 @@ const Auth = {
           "cfgTabEmployees",
           "cfgTabSuppliers",
           "cfgTabConsumables",
+          "cfgTabTransCompanies",
           "cfgTabMeasureUnits"
         ].includes(key)
       )
@@ -2891,6 +2897,10 @@ const Auth = {
 
     if (typeof HistoryManager !== "undefined" && HistoryManager.applyMaterialReceptionHistoryLock) {
       HistoryManager.applyMaterialReceptionHistoryLock();
+    }
+
+    if (typeof Dashboard !== "undefined" && typeof Dashboard.refresh === "function") {
+      Dashboard.refresh();
     }
 
     this.updateUserBar();

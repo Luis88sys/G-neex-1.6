@@ -26,7 +26,7 @@ Cuando el usuario escribe **`Bankai`** (sin importar mayúsculas), ejecutar el p
    - `no-deployar/docs/BACKEND_ALINEACION.md`, `no-deployar/migration/README_PHOENIX_TO_GNEEX.md`, `README.md`.
    - Revisar `gneex-hosted-api/` si hay cambios de forma de datos o sync.
 
-5. **Textos y manuales**: `no-deployar/User Manual/`, `no-deployar/Presentation/`, `js/i18n.js` — mismos conceptos que la UI (tipos de movimiento, filtros, SO/PR, etc.).
+5. **Textos y manuales**: `no-deployar/User Manual/`, `no-deployar/Presentation/`, `js/i18n.js` — mismos conceptos que la UI (tipos de movimiento, filtros, SO/PR, etc.). **Leyenda de colores del inventario** (pastilla de stock principal, barras naranja/morada, contorno turquesa, consumible, problemas, selección con teclado) y **consejo del día** (recuadro fijo **encima** del carrusel del panel; **366** textos por día civil en hora local e idioma activo; carrusel **sin** diapositiva duplicada del consejo) deben coincidir con `js/inventory.js`, `css/styles.css`, `js/dashboard.js`, `js/dashboard-daily-tips-data.js` y `index.html`.
 
 6. **Bugs, inconsistencias y código muerto** (obligatorio en cada Bankai; priorizar `index.html`, `js/`, `css/styles.css`; ampliar solo si hay señales claras):
    - **Bugs**: buscar fallos evidentes por lectura o por prueba mínima (flujos que contradigan reglas ya documentadas, accesos sin comprobación, listeners duplicados, promesas sin `catch` en código nuevo obvio, `querySelector` que puede devolver `null`); revisar `TODO` / `FIXME` / `HACK` en el diff o en `js/`; corregir solo lo bloqueante o de bajo riesgo para un deploy estable (no abrir refactors grandes aquí).

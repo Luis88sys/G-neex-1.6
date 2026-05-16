@@ -68,7 +68,7 @@ It manages the entire material lifecycle:
 | **Automatic alerts** | Low stock, negative stock, overstock, and upcoming expirations |
 | **Low-stock detail modal** | Columns: ignore alert, **Actions** (🛒 add to purchase list), **Code**, then the rest of the item fields |
 | **As-of date mode** | View inventory exactly as it was on a selected date |
-| **Color coding** | Rows colored by item status for immediate visual identification |
+| **Color coding** | Main stock uses a **pill** (negative red, over-max violet, expired orange, soon amber, OK green, zero emphasized). **Orange / purple inset bars** on the row: expiring inside the alert window vs expiry data still incomplete. **Turquoise outline**: missing key editor fields for calculations (**hover the row**). Red pulse on code/description = item problems note. Consumable marker on first cell. **Violet / indigo row wash**: keyboard selection (↑/↓). A **fixed box above the carousel** shows **Tip of the day** (366 calendar-day tips, local time, active language). The **dashboard carousel** shows overview, today’s activity, transport, pending flows, orders, expiry, and zero-qty boxes. |
 | **Export & print** | Downloadable XLSX (themed table styling) and formatted print view |
 
 ---
@@ -96,6 +96,8 @@ On the **Movements** tab, choosing a type opens the form in an **in-app overlay 
 For types that **subtract stock**, **Stock source** lets you choose **which depot** the quantity comes from: **main** (General warehouse), **boxes**, **locations** (labels only in the list), **production stock**, and **transformation stock** (quantity shown when applicable); the same SKU can appear on **multiple lines** with different sources. When both **Destination** and source appear, **source** drives the physical deduction and **destination** may differ. **Direct sale** and **Stock dispatch** allow **main, boxes, or locations only** (not production or transformation); direct sale requires **SO** (`SO` + 4–6 digits); dispatch requires **project** and **PR** (`PR` + 4–6 digits). Movement refs: **VDT** and **EXP** prefixes + 6 digits per type.
 
 **Site E.M.:** line **quantities** are inventory; **Process movement** asks for **total boxes** for the shipment (allocated across lines by quantity).
+
+**Quantity calculator (🧮):** next to each line’s quantity opens a **modal** for numbers and operators (+ − × ÷, parentheses, memory); **Use as quantity** applies the result to that line.
 
 Each movement automatically records:
 - **Who** performed it

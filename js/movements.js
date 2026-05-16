@@ -1923,6 +1923,9 @@ const MovementManager = {
 
         if (type === 'TRANSFORMACION') {
             this.resetTransformationTargetForm();
+            if (typeof TransformationCompaniesManager !== 'undefined' && TransformationCompaniesManager.refreshDatalists) {
+                TransformationCompaniesManager.refreshDatalists();
+            }
         } else {
             this.transformationTargetItemId = null;
         }
@@ -1952,6 +1955,9 @@ const MovementManager = {
         }
 
         this.renderSelectedItems();
+        if (typeof TransformationCompaniesManager !== 'undefined' && TransformationCompaniesManager.refreshDatalists) {
+            TransformationCompaniesManager.refreshDatalists();
+        }
         this.renderStandbyFloat();
         this.renderConsumoCartFloat();
         this.refreshMovementTypeIndicators();
@@ -2146,7 +2152,7 @@ const MovementManager = {
      * Insumo de transformación elegido desde la tabla de stock (clic o teclado).
      * @param {'transformation'|'production'} depot
      */
-    pickTransformationInsumo(itemId, depot) {
+    pickTransformationInsumo(itemId, depot, transformationCompanyId) {
         if (this.currentType !== 'TRANSFORMACION') return;
         const item = InventoryManager.items.find(i => String(i.id) === String(itemId));
         if (!item) return;
@@ -2154,16 +2160,24 @@ const MovementManager = {
             Utils.showToast(I18n.t("msg.inventoryConsumableNoMovement"), "warning");
             return;
         }
+        const target = depot === 'production' ? 'production' : 'transformation';
+        const tco = target === 'transformation' ? String(transformationCompanyId ?? '').trim() : '';
         const stock =
             depot === 'production'
                 ? parseFloat(item.prodStock) || 0
-                : parseFloat(item.transStock) || 0;
+                : typeof InventoryManager.getTransformationSplitQty === 'function'
+                  ? InventoryManager.getTransformationSplitQty(item.id, tco)
+                  : parseFloat(item.transStock) || 0;
         if (stock <= 0) {
             Utils.showToast(I18n.t('msg.transformationInsumoNoStock'), 'error');
             return;
         }
-        const target = depot === 'production' ? 'production' : 'transformation';
-        const exists = this.selectedItems.find(i => i.itemId === item.id && i.target === target);
+        const exists = this.selectedItems.find(
+            i =>
+                i.itemId === item.id &&
+                i.target === target &&
+                String(i.transformationCompanyId ?? '') === tco
+        );
         if (exists) {
             Utils.showToast(I18n.t('msg.itemAlreadyAdded'), 'warning');
             return;
@@ -2174,6 +2188,7 @@ const MovementManager = {
             description: item.description,
             quantity: -1,
             target,
+            transformationCompanyId: tco,
             location: item.location || ''
         });
         this.renderSelectedItems();
@@ -2189,38 +2204,70 @@ const MovementManager = {
 
         const esc = s => Utils.escapeHtml(s);
         const escA = s => Utils.escapeAttr(s);
+        const TCM = typeof TransformationCompaniesManager !== 'undefined' ? TransformationCompaniesManager : null;
+        const coLabel = cid => {
+            const s = String(cid ?? '').trim();
+            if (!s) return I18n.t('transCompanies.unassignedBucket');
+            return (TCM && TCM.getName(s)) || s;
+        };
 
         const items = InventoryManager.items || [];
-        const transItems = items
-            .filter(i => (parseFloat(i.transStock) || 0) > 0)
-            .sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, { sensitivity: 'base' }));
+        const transRows = [];
+        for (const it of items) {
+            if (typeof InventoryManager._normalizeTransformationStockSplitsOnItem === 'function') {
+                InventoryManager._normalizeTransformationStockSplitsOnItem(it);
+            }
+            const splits = it.transStockSplits && typeof it.transStockSplits === 'object' ? it.transStockSplits : {};
+            const keys = Object.keys(splits).filter(k => (parseFloat(splits[k]) || 0) > 1e-9);
+            if (keys.length) {
+                for (const k of keys.sort((a, b) => a.localeCompare(b))) {
+                    transRows.push({ item: it, companyId: k, qty: parseFloat(splits[k]) || 0 });
+                }
+            } else if ((parseFloat(it.transStock) || 0) > 0) {
+                transRows.push({ item: it, companyId: '', qty: parseFloat(it.transStock) || 0 });
+            }
+        }
+        transRows.sort((a, b) => {
+            const c = String(a.item.code || '').localeCompare(String(b.item.code || ''), undefined, { sensitivity: 'base' });
+            if (c !== 0) return c;
+            return String(a.companyId).localeCompare(String(b.companyId));
+        });
+
         const prodItems = items
             .filter(i => (parseFloat(i.prodStock) || 0) > 0)
             .sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, { sensitivity: 'base' }));
 
-        const isSelected = (id, depot) =>
+        const isSelected = (id, depot, companyId) =>
             this.selectedItems.some(
                 si =>
                     String(si.itemId) === String(id) &&
-                    si.target === (depot === 'production' ? 'production' : 'transformation')
+                    si.target === (depot === 'production' ? 'production' : 'transformation') &&
+                    String(si.transformationCompanyId ?? '') === String(companyId ?? '')
             );
 
-        const rowHtml = (item, depot, qtyVal) => {
-            const sel = isSelected(item.id, depot) ? ' mov-tf-stock-row--selected' : '';
+        const rowHtml = (row, depot, qtyVal) => {
+            const item = row.item || row;
+            const companyId = depot === 'transformation' ? String(row.companyId ?? '') : '';
+            const sel = isSelected(item.id, depot, companyId) ? ' mov-tf-stock-row--selected' : '';
             const qv = typeof qtyVal === 'number' ? qtyVal : parseFloat(qtyVal) || 0;
             const q = Utils.formatDecimalDisplay(qv);
             const title = esc(I18n.t('movements.transformationStockRowTitle'));
-            return `<tr class="mov-tf-stock-row${sel}" data-item-id="${escA(String(item.id))}" data-depot="${depot}" role="button" tabindex="0" title="${title}">
+            const coCell =
+                depot === 'transformation'
+                    ? `<td class="mov-tf-stock-co">${esc(coLabel(companyId))}</td>`
+                    : '';
+            return `<tr class="mov-tf-stock-row${sel}" data-item-id="${escA(String(item.id))}" data-depot="${depot}" data-trans-co="${escA(companyId)}" role="button" tabindex="0" title="${title}">
                 <td class="app-code-copy-cell"><strong>${esc(item.code)}</strong></td>
                 <td class="app-desc-copy-cell">${esc(item.description)}</td>
+                ${coCell}
                 <td>${esc(q)}</td>
             </tr>`;
         };
 
-        transBody.innerHTML = transItems.map(i => rowHtml(i, 'transformation', parseFloat(i.transStock) || 0)).join('');
-        prodBody.innerHTML = prodItems.map(i => rowHtml(i, 'production', parseFloat(i.prodStock) || 0)).join('');
+        transBody.innerHTML = transRows.map(r => rowHtml(r, 'transformation', r.qty)).join('');
+        prodBody.innerHTML = prodItems.map(i => rowHtml({ item: i }, 'production', parseFloat(i.prodStock) || 0)).join('');
 
-        if (emptyT) emptyT.style.display = transItems.length ? 'none' : 'block';
+        if (emptyT) emptyT.style.display = transRows.length ? 'none' : 'block';
         if (emptyP) emptyP.style.display = prodItems.length ? 'none' : 'block';
     },
 
@@ -2367,6 +2414,8 @@ const MovementManager = {
                 transferTo: transferDefaults.to,
                 transferFromBoxId: '',
                 transferToBoxId: '',
+                transferTransformationFromCompanyId: '',
+                transferTransformationToCompanyId: '',
                 target: 'main',
                 location: item.location || ''
             });
@@ -2391,7 +2440,10 @@ const MovementManager = {
             const prod = parseFloat(item.prodStock) || 0;
             const defaultTarget = trans > 0 ? 'transformation' : 'production';
             const dup = this.selectedItems.find(
-                i => i.itemId === item.id && i.target === defaultTarget
+                i =>
+                    i.itemId === item.id &&
+                    i.target === defaultTarget &&
+                    String(i.transformationCompanyId ?? '') === ''
             );
             if (dup) {
                 Utils.showToast(I18n.t('msg.itemAlreadyAdded'), 'warning');
@@ -2403,6 +2455,7 @@ const MovementManager = {
                 description: item.description,
                 quantity: 0,
                 target: defaultTarget,
+                transformationCompanyId: '',
                 location: item.location || ''
             });
         } else {
@@ -2485,6 +2538,10 @@ const MovementManager = {
                     item.transferToBoxId = pt.boxId;
                     this._transferDraftFrom = item.transferFrom;
                     this._transferDraftTo = item.transferTo;
+                    const fromCoSel = row ? row.querySelector('select.mov-transfer-tf-co-select[data-tf-co-role="from"]') : null;
+                    const toCoSel = row ? row.querySelector('select.mov-transfer-tf-co-select[data-tf-co-role="to"]') : null;
+                    if (fromCoSel) item.transferTransformationFromCompanyId = String(fromCoSel.value || '').trim();
+                    if (toCoSel) item.transferTransformationToCompanyId = String(toCoSel.value || '').trim();
                 }
             } else {
                 let qty = this._parseQuantityInputValue(raw);
@@ -3250,6 +3307,11 @@ const MovementManager = {
 
     async openQuantityCalculator(index) {
         if (!Number.isFinite(index) || index < 0 || index >= this.selectedItems.length) return;
+        if (typeof QtyCalculator !== "undefined" && typeof QtyCalculator.openAsync === "function") {
+            const val = await QtyCalculator.openAsync(index);
+            if (val != null) this.updateItemQuantity(index, String(val));
+            return;
+        }
         const promptMsg = I18n.t("movements.qtyCalcPrompt");
         const currentAbs = Math.abs(parseFloat(this.selectedItems[index]?.quantity) || 0);
         let raw = null;
@@ -3818,7 +3880,11 @@ const MovementManager = {
                 return;
             }
         }
-        InventoryManager.updateStock(item.itemId, tgt, qty);
+        const tfOpts =
+            tgt === "transformation" && item.transformationCompanyId !== undefined && item.transformationCompanyId !== null
+                ? { transformationCompanyId: item.transformationCompanyId }
+                : {};
+        InventoryManager.updateStock(item.itemId, tgt, qty, tfOpts);
     },
 
     /**
@@ -3952,7 +4018,11 @@ const MovementManager = {
                 return;
             }
         }
-        InventoryManager.updateStock(item.itemId, tgt, -qty);
+        const tfOpts =
+            tgt === "transformation" && item.transformationCompanyId !== undefined && item.transformationCompanyId !== null
+                ? { transformationCompanyId: item.transformationCompanyId }
+                : {};
+        InventoryManager.updateStock(item.itemId, tgt, -qty, tfOpts);
     },
 
     /**
@@ -3989,6 +4059,7 @@ const MovementManager = {
         const it = this.selectedItems[index];
         it.transferFrom = p.depot;
         it.transferFromBoxId = p.boxId;
+        if (it.transferFrom !== 'transformation' || it.transferFromBoxId) it.transferTransformationFromCompanyId = '';
         this._transferDraftFrom = it.transferFrom;
         this.renderSelectedItems();
     },
@@ -4000,6 +4071,7 @@ const MovementManager = {
         const it = this.selectedItems[index];
         it.transferTo = p.depot;
         it.transferToBoxId = p.boxId;
+        if (it.transferTo !== 'transformation' || it.transferToBoxId) it.transferTransformationToCompanyId = '';
         this._transferDraftTo = it.transferTo;
         this.renderSelectedItems();
     },
@@ -4134,6 +4206,13 @@ const MovementManager = {
             }
         }
 
+        const isXferUi =
+            lineConf.id === "TRANSFERENCIA" ||
+            (this.currentType === "STANDBY" && lineConf.id === "TRANSFERENCIA");
+        if (isXferUi && typeof InventoryManager.resolveTransferLineTransformationCompanyIds === "function") {
+            this.selectedItems.forEach(li => InventoryManager.resolveTransferLineTransformationCompanyIds(li));
+        }
+
         tbody.innerHTML = this.selectedItems.map((item, index) => {
             const ord = this._renderLineOrderTd(index, this.selectedItems.length);
             if (lineConf.id === 'TRANSFERENCIA') {
@@ -4142,9 +4221,13 @@ const MovementManager = {
                 const fromBox = item.transferFromBoxId || '';
                 const toBox = item.transferToBoxId || '';
                 const q = Math.abs(parseFloat(item.quantity) || 0);
+                const fromCoArg =
+                    from === "transformation" && !fromBox
+                        ? String(item.transferTransformationFromCompanyId ?? "").trim()
+                        : undefined;
                 const curFrom =
                     typeof InventoryManager.getTransferenciaEndpointQty === 'function'
-                        ? InventoryManager.getTransferenciaEndpointQty(item.itemId, from, fromBox)
+                        ? InventoryManager.getTransferenciaEndpointQty(item.itemId, from, fromBox, fromCoArg)
                         : parseFloat(InventoryManager.getStock(item.itemId, from)) || 0;
                 const curTo =
                     typeof InventoryManager.getTransferenciaEndpointQty === 'function'
@@ -4159,6 +4242,19 @@ const MovementManager = {
                     <select class="target-select" data-transfer-role="from" data-line-index="${index}">${fromOpts}</select>`;
                 const toSelect = `
                     <select class="target-select" data-transfer-role="to" data-line-index="${index}">${toOpts}</select>`;
+                const showFromCo = from === "transformation" && !fromBox;
+                const showToCo = to === "transformation" && !toBox;
+                const TCM = typeof TransformationCompaniesManager !== "undefined" ? TransformationCompaniesManager : null;
+                const fromCoSel = showFromCo && TCM
+                    ? `<div style="margin-top:0.35rem"><span class="transfer-depot-label">${esc(I18n.t("movements.transferFromTransformationCompany"))}</span><select class="form-input mov-transfer-tf-co-select" data-tf-co-role="from" data-line-index="${index}">${TCM.buildOptionsHtml(item.transferTransformationFromCompanyId)}</select></div>`
+                    : "";
+                const toCoSel = showToCo && TCM
+                    ? `<div style="margin-top:0.35rem"><span class="transfer-depot-label">${esc(I18n.t("movements.transferToTransformationCompany"))}</span><select class="form-input mov-transfer-tf-co-select" data-tf-co-role="to" data-line-index="${index}">${TCM.buildOptionsHtml(item.transferTransformationToCompanyId)}</select>
+                    <div style="margin-top:0.25rem;display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center;">
+                      <input type="text" class="form-input" style="min-width:8rem;max-width:14rem;" data-tf-co-new="${index}" data-i18n-placeholder="transCompanies.addInlinePlaceholder" placeholder="" />
+                      <button type="button" class="btn btn-secondary btn-sm" data-tf-co-save="${index}">${esc(I18n.t("transCompanies.addInlineBtn"))}</button>
+                    </div></div>`
+                    : "";
                 return `
                 <tr class="${exceedsStock ? 'row-overdraft-pending' : ''}">
                     ${ord}
@@ -4170,6 +4266,8 @@ const MovementManager = {
                             <div><span class="transfer-depot-label">${esc(I18n.t('movements.transferFrom'))}</span>${fromSelect}</div>
                             <div><span class="transfer-depot-label">${esc(I18n.t('movements.transferTo'))}</span>${toSelect}</div>
                         </div>
+                        ${fromCoSel}
+                        ${toCoSel}
                     </td>
                     <td>
                         <small>${esc(I18n.t('movements.transferFrom'))}:</small> ${fmt(curFrom)} → <strong class="${exceedsStock ? 'stock-negative' : ''}">${fmt(newFrom)}</strong><br>
@@ -4398,7 +4496,17 @@ const MovementManager = {
                 </tr>`;
             }
 
-            const currentStock = InventoryManager.getStock(item.itemId, this._resolveStockTargetForLine(item));
+            let currentStock = InventoryManager.getStock(item.itemId, this._resolveStockTargetForLine(item));
+            if (
+                lineConf.id === "TRANSFORMACION" &&
+                item.target === "transformation" &&
+                typeof InventoryManager.getTransformationSplitQty === "function"
+            ) {
+                currentStock = InventoryManager.getTransformationSplitQty(
+                    item.itemId,
+                    item.transformationCompanyId
+                );
+            }
             const signedQty =
                 this.currentType === "STANDBY"
                     ? this.normalizeQuantityForType(item.quantity, lineConf.id)
@@ -4411,7 +4519,20 @@ const MovementManager = {
             if (lineConf.multiTarget) {
                 if (lineConf.id === 'TRANSFORMACION') {
                     const depKey = item.target === 'production' ? 'production' : 'transformation';
-                    targetSelect = `<span class="mov-tf-insumo-depot-label">${esc(I18n.t(`target.${depKey}`))}</span>`;
+                    const TCM = typeof TransformationCompaniesManager !== 'undefined' ? TransformationCompaniesManager : null;
+                    const co =
+                        depKey === 'transformation'
+                            ? (() => {
+                                  const id = String(item.transformationCompanyId ?? '').trim();
+                                  if (!id) return I18n.t('transCompanies.unassignedBucket');
+                                  return (TCM && TCM.getName(id)) || id;
+                              })()
+                            : '';
+                    const coHtml =
+                        depKey === 'transformation'
+                            ? ` <span class="muted">(${esc(co)})</span>`
+                            : '';
+                    targetSelect = `<span class="mov-tf-insumo-depot-label">${esc(I18n.t(`target.${depKey}`))}${coHtml}</span>`;
                 } else {
                     const al = this._escHtml(I18n.t('table.target'));
                     targetSelect = `
@@ -4447,6 +4568,15 @@ const MovementManager = {
                 </tr>
             `;
         }).join('');
+        if (
+            this.currentType === "TRANSFERENCIA" ||
+            (this.currentType === "STANDBY" && lineConf.id === "TRANSFERENCIA")
+        ) {
+            document.querySelectorAll('#selected-items-body input[data-i18n-placeholder][data-tf-co-new]').forEach(el => {
+                const k = el.getAttribute("data-i18n-placeholder");
+                if (k && I18n.t) el.setAttribute("placeholder", I18n.t(k));
+            });
+        }
         if (this.currentType === 'TRANSFORMACION') {
             this.renderTransformationStockTables();
         }
@@ -4624,6 +4754,16 @@ const MovementManager = {
                 if (q > 0 && from === to) {
                     Utils.showToast(I18n.t('msg.transferSameDepot'), 'error');
                     return false;
+                }
+                if (typeof InventoryManager.validateTransferLineTransformationBuckets === 'function') {
+                    const v = InventoryManager.validateTransferLineTransformationBuckets(it);
+                    if (!v.ok) {
+                        Utils.showToast(
+                            I18n.t(v.reason === 'trans-company-required' ? 'msg.transferTransCompanyRequired' : 'msg.transferApplyFailed'),
+                            'error'
+                        );
+                        return false;
+                    }
                 }
             }
         }
@@ -5423,6 +5563,9 @@ const MovementManager = {
         if (this.currentType === 'TRANSFORMACION') {
             const tv = document.getElementById('mov-transformacion-vendor')?.value?.trim() || '';
             if (tv) movement.transformationVendor = tv;
+            if (tv && typeof TransformationCompaniesManager !== 'undefined' && TransformationCompaniesManager.ensureByName) {
+                TransformationCompaniesManager.ensureByName(tv);
+            }
             if (transformationTargetItemId) {
                 movement.transformationTargetItemId = transformationTargetItemId;
                 movement.transformationTargetCode = transformationTargetCode;
@@ -6806,14 +6949,14 @@ const MovementManager = {
             tfStockWrap.addEventListener('click', e => {
                 const row = e.target.closest('.mov-tf-stock-row');
                 if (!row || row.dataset.itemId == null || !row.dataset.depot) return;
-                this.pickTransformationInsumo(row.dataset.itemId, row.dataset.depot);
+                this.pickTransformationInsumo(row.dataset.itemId, row.dataset.depot, row.dataset.transCo || '');
             });
             tfStockWrap.addEventListener('keydown', e => {
                 if (e.key !== 'Enter' && e.key !== ' ') return;
                 const row = e.target.closest('.mov-tf-stock-row');
                 if (!row || row.dataset.itemId == null || !row.dataset.depot) return;
                 e.preventDefault();
-                this.pickTransformationInsumo(row.dataset.itemId, row.dataset.depot);
+                this.pickTransformationInsumo(row.dataset.itemId, row.dataset.depot, row.dataset.transCo || '');
             });
         }
 
@@ -6910,6 +7053,41 @@ const MovementManager = {
                 if (!Number.isFinite(idx)) return;
                 if (role === "from") this.updateItemTransferFrom(idx, sel.value);
                 else if (role === "to") this.updateItemTransferTo(idx, sel.value);
+            });
+        }
+        if (selectedItemsBody && !this._transferTfCoChangeBound) {
+            this._transferTfCoChangeBound = true;
+            selectedItemsBody.addEventListener("change", e => {
+                const sel = e.target.closest("select.mov-transfer-tf-co-select[data-tf-co-role]");
+                if (!sel || !selectedItemsBody.contains(sel)) return;
+                if (this.currentType !== "TRANSFERENCIA") return;
+                const idx = parseInt(String(sel.getAttribute("data-line-index") || ""), 10);
+                if (!Number.isFinite(idx) || !this.selectedItems[idx]) return;
+                const role = sel.getAttribute("data-tf-co-role");
+                const v = String(sel.value || "").trim();
+                if (role === "from") this.selectedItems[idx].transferTransformationFromCompanyId = v;
+                if (role === "to") this.selectedItems[idx].transferTransformationToCompanyId = v;
+                this.renderSelectedItems();
+            });
+            selectedItemsBody.addEventListener("click", e => {
+                const btn = e.target.closest("button[data-tf-co-save]");
+                if (!btn || !selectedItemsBody.contains(btn)) return;
+                if (this.currentType !== "TRANSFERENCIA") return;
+                const idx = parseInt(String(btn.getAttribute("data-tf-co-save") || ""), 10);
+                if (!Number.isFinite(idx) || !this.selectedItems[idx]) return;
+                const row = btn.closest("tr");
+                const inp = row ? row.querySelector(`input[data-tf-co-new="${idx}"]`) : null;
+                const name = String(inp?.value || "").trim();
+                if (!name || typeof TransformationCompaniesManager === "undefined") return;
+                const id = TransformationCompaniesManager.ensureByName(name);
+                if (!id) {
+                    Utils.showToast(I18n.t("transCompanies.nameRequired"), "warning");
+                    return;
+                }
+                this.selectedItems[idx].transferTransformationToCompanyId = id;
+                if (inp) inp.value = "";
+                Utils.showToast(I18n.t("transCompanies.added"), "success");
+                this.renderSelectedItems();
             });
         }
         if (selectedItemsBody && !this._selectedItemsStockSourceChangeBound) {

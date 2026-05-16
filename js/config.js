@@ -39,6 +39,19 @@ const ConfigManager = {
     return Utils.escapeHtml(s);
   },
 
+  _syncBlackBoxUncountableEditorUi() {
+    const cb = document.getElementById("edit-black-box-uncountable");
+    const wrap = document.getElementById("edit-black-box-max-units-wrap");
+    const inp = document.getElementById("edit-black-box-max-units");
+    if (!cb || !wrap) return;
+    const on = !!cb.checked;
+    wrap.hidden = !on;
+    if (inp) {
+      inp.disabled = !on;
+      if (!on) inp.value = "";
+    }
+  },
+
   /** Etiquetas del desplegable de nivel; las filas `tab*` explican «no ver la pestaña», etc. */
   _matrixLevelOptionLabel(matrixKey, level) {
     const genKey = `auth.matrix.level.${level}`;
@@ -73,6 +86,7 @@ const ConfigManager = {
         "employees",
         "suppliers",
         "consumables",
+        "transcompanies",
         "measureunits"
       ];
       t = "about";
@@ -132,6 +146,7 @@ const ConfigManager = {
       "config-item-search",
       "suppliers-add-name",
       "consumables-add-name",
+      "trans-companies-add-name",
       "employees-add-name",
       "employees-occasional-add-name",
       "config-location-catalog-input",
@@ -1294,6 +1309,12 @@ const ConfigManager = {
         ConsumableManager.refreshDatalists();
       }
     }
+    if (tab === "transcompanies") {
+      if (typeof TransformationCompaniesManager !== "undefined") {
+        TransformationCompaniesManager.renderConfigList();
+        TransformationCompaniesManager.refreshDatalists();
+      }
+    }
     if (tab === "measureunits") {
       if (typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.renderConfigList) {
         MeasureUnitsManager.renderConfigList();
@@ -1367,6 +1388,7 @@ const ConfigManager = {
               prev === "employees" ||
               prev === "suppliers" ||
               prev === "consumables" ||
+              prev === "transcompanies" ||
               prev === "measureunits"
             ) {
               this.switchConfigTab("import");
@@ -1404,6 +1426,10 @@ const ConfigManager = {
         if (active === "consumables" && typeof ConsumableManager !== "undefined") {
           ConsumableManager.renderConfigList();
           ConsumableManager.refreshDatalists();
+        }
+        if (active === "transcompanies" && typeof TransformationCompaniesManager !== "undefined") {
+          TransformationCompaniesManager.renderConfigList();
+          TransformationCompaniesManager.refreshDatalists();
         }
         if (active === "measureunits" && typeof MeasureUnitsManager !== "undefined" && MeasureUnitsManager.renderConfigList) {
           MeasureUnitsManager.renderConfigList();
@@ -1773,6 +1799,11 @@ const ConfigManager = {
       };
       stockEl.addEventListener("input", syncBoxes);
       qtyPerBoxEl.addEventListener("input", syncBoxes);
+    }
+
+    if (!this._blackBoxUncountableEditorBound) {
+      this._blackBoxUncountableEditorBound = true;
+      document.getElementById("edit-black-box-uncountable")?.addEventListener("change", () => this._syncBlackBoxUncountableEditorUi());
     }
 
     /* === Editor de lotes en el modal de edición de artículo ============== */
@@ -2448,6 +2479,10 @@ const ConfigManager = {
       this._setEditLocationSelections("");
       const consEl = document.getElementById("edit-inventory-consumable");
       if (consEl) consEl.checked = false;
+      const ub0 = document.getElementById("edit-black-box-uncountable");
+      if (ub0) ub0.checked = false;
+      set("edit-black-box-max-units", "");
+      this._syncBlackBoxUncountableEditorUi();
       document.getElementById("config-item-delete-btn") && (document.getElementById("config-item-delete-btn").disabled = true);
       this._editLotsState = [];
       this._renderEditLotsEditor();
@@ -2481,6 +2516,10 @@ const ConfigManager = {
     set("edit-item-problems-note", item.itemProblemsNote);
     const ignLowEl = document.getElementById("edit-ignore-low-stock-alert");
     if (ignLowEl) ignLowEl.checked = !!item.ignoreLowStockAlert;
+    const uEl = document.getElementById("edit-black-box-uncountable");
+    if (uEl) uEl.checked = !!item.blackBoxUncountable;
+    set("edit-black-box-max-units", item.blackBoxMaxUnitsInBox > 0 ? item.blackBoxMaxUnitsInBox : "");
+    this._syncBlackBoxUncountableEditorUi();
     const consEl = document.getElementById("edit-inventory-consumable");
     if (consEl) consEl.checked = !!item.inventoryConsumable;
     const trkEl = document.getElementById("edit-tracks-expiration");
@@ -2755,6 +2794,17 @@ const ConfigManager = {
         ? round4(mainStock / qtyPerBox)
         : 0;
 
+    const blackBoxUncountable = !!document.getElementById("edit-black-box-uncountable")?.checked;
+    let blackBoxMaxUnitsInBox = round4(toNum("edit-black-box-max-units"));
+    if (blackBoxUncountable) {
+      if (!(blackBoxMaxUnitsInBox > 0)) {
+        Utils.showToast(I18n.t("config.blackBoxUncountableMaxRequired"), "error");
+        return;
+      }
+    } else {
+      blackBoxMaxUnitsInBox = 0;
+    }
+
     const updated = {
       code: get("edit-code").trim(),
       description: get("edit-description").trim(),
@@ -2780,10 +2830,16 @@ const ConfigManager = {
       shelfLifeMonths,
       inventoryConsumable: !!document.getElementById("edit-inventory-consumable")?.checked,
       ignoreLowStockAlert: !!document.getElementById("edit-ignore-low-stock-alert")?.checked,
+      blackBoxUncountable,
+      blackBoxMaxUnitsInBox,
       tracksExpiration: document.getElementById("edit-inventory-consumable")?.checked
         ? false
         : !!document.getElementById("edit-tracks-expiration")?.checked
     };
+
+    if (blackBoxUncountable) {
+      updated.boxSlotTreatAsBulk = false;
+    }
 
     let measureStockUnitId = get("edit-measure-stock-unit").trim();
     let measureAltUnitId = get("edit-measure-alt-unit").trim();
@@ -2863,6 +2919,8 @@ const ConfigManager = {
         shelfLifeMonths: updated.shelfLifeMonths,
         inventoryConsumable: updated.inventoryConsumable,
         ignoreLowStockAlert: updated.ignoreLowStockAlert,
+        blackBoxUncountable: updated.blackBoxUncountable,
+        blackBoxMaxUnitsInBox: updated.blackBoxMaxUnitsInBox,
         tracksExpiration: updated.tracksExpiration,
         measureStockUnitId: updated.measureStockUnitId,
         measureAltUnitId: updated.measureAltUnitId,

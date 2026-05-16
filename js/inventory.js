@@ -54,6 +54,8 @@ const InventoryManager = {
   standaloneBoxes: [], // cajas reservadas sin artículo asociado
   purchaseList: [],   // productos a comprar
   expAlertDays: 30,   // umbral para aviso de vencimiento (días)
+  /** Suma máx. de «N.º cajas» (paquetes/cajas pequeñas) por caja negra (número de caja). */
+  BLACK_BOX_MAX_SMALL_SLOTS: 12,
   /** Última lista mostrada en la tabla (completa o filtrada por buscador). */
   _inventoryViewList: [],
   _inventorySearchQuery: "",
@@ -173,6 +175,7 @@ const InventoryManager = {
     out.mainStock = Utils.roundDecimal(parseFloat(out.mainStock) || 0);
     out.prodStock = Utils.roundDecimal(parseFloat(out.prodStock) || 0);
     out.transStock = Utils.roundDecimal(parseFloat(out.transStock) || 0);
+    this._normalizeTransformationStockSplitsOnItem(out);
     out.qtyPerBox = Utils.roundDecimal(parseFloat(out.qtyPerBox) || 0);
     out.numBoxes = options.recomputeNumBoxes
       ? this._computeNumBoxesFromMainStock(out.mainStock, out.qtyPerBox)
@@ -182,6 +185,15 @@ const InventoryManager = {
     out.defaultPrice = Utils.roundDecimal(parseFloat(out.defaultPrice) || 0, 2);
     out.priceCurrency = this._normalizePriceCurrency(out.priceCurrency);
     out.ignoreLowStockAlert = !!out.ignoreLowStockAlert;
+    out.boxSlotTreatAsBulk = !!out.boxSlotTreatAsBulk;
+    out.blackBoxUncountable = !!out.blackBoxUncountable;
+    let bbMax = Utils.roundDecimal(parseFloat(out.blackBoxMaxUnitsInBox) || 0, 4);
+    if (!out.blackBoxUncountable) bbMax = 0;
+    else if (!(bbMax > 0)) {
+      out.blackBoxUncountable = false;
+      bbMax = 0;
+    }
+    out.blackBoxMaxUnitsInBox = bbMax;
     let ms = String(out.measureStockUnitId || "").trim();
     let ma = String(out.measureAltUnitId || "").trim();
     if (!ms) ma = "";
@@ -448,6 +460,43 @@ const InventoryManager = {
     const q = this._parseBoxStockQtyValue(raw);
     if (!Number.isFinite(q)) return 0;
     return Math.max(0, Math.round(q));
+  },
+
+  /**
+   * N.º cajas pequeñas: cantidad en la caja ÷ cantidad por caja del artículo (redondeo al entero, mínimo 0).
+   * @returns {number|null} entero ≥ 0, o null si no aplica (sin `qtyPerBox` > 0, consumible, etc.).
+   */
+  _computeQtyBoxesSmallFromBoxQty(item, qtyRaw) {
+    if (!item || item.inventoryConsumable) return null;
+    const perBox = Utils.roundDecimal(parseFloat(item.qtyPerBox) || 0, 4);
+    if (!(perBox > 1e-9)) return null;
+    const q = Utils.roundDecimal(this._parseBoxStockQtyValue(qtyRaw), 4);
+    return Math.max(0, Math.round(q / perBox));
+  },
+
+  /** Actualiza «N.º cajas» en el formulario del gestor por caja cuando aplica cantidad por caja del artículo. */
+  _syncBoxManagerAutoQtyBoxesField() {
+    const qEl = document.getElementById("inventory-box-qty");
+    const qbEl = document.getElementById("inventory-box-qty-boxes");
+    const emptyCb = document.getElementById("inventory-box-mark-empty");
+    if (!qEl || !qbEl) return;
+    if (emptyCb?.checked) {
+      qbEl.readOnly = true;
+      qbEl.removeAttribute("title");
+      return;
+    }
+    const item = this.getItemById(this._boxMgrItemId);
+    const auto = this._computeQtyBoxesSmallFromBoxQty(item, qEl.value);
+    if (auto !== null) {
+      qbEl.value = String(auto);
+      qbEl.readOnly = true;
+      if (typeof I18n !== "undefined" && I18n.t) {
+        qbEl.setAttribute("title", I18n.t("inventory.boxMgrQtyBoxesAutoTitle"));
+      }
+    } else {
+      qbEl.readOnly = false;
+      qbEl.removeAttribute("title");
+    }
   },
 
   _normalizeItemBoxStocks(item) {
@@ -1213,8 +1262,65 @@ const InventoryManager = {
   },
 
   /**
+   * Vista previa (sin aplicar): alinea `qtyBoxes` con cantidad en caja ÷
+   * `qtyPerBox` (misma regla que el gestor por caja). Usa `_normalizeItemBoxStocks`
+   * solo como instantánea canónica (fusiones por número de caja); no muta datos.
+   * Omite cajas marcadas `empty`, artículos consumibles y artículos sin cantidad por caja.
+   * @returns {{ rows: Array<{id:string,code:string,boxId:string,boxNumber:number,from:number,to:number,qty:number}>, itemsChanged:number, boxesChanged:number }}
+   */
+  previewRecalcBoxQtyBoxesSmall() {
+    const rows = [];
+    const itemIds = new Set();
+    for (const it of this.items || []) {
+      if (!it || typeof it !== "object" || it.inventoryConsumable) continue;
+      const snap = this._normalizeItemBoxStocks(it);
+      const boxes = Array.isArray(snap.boxStocks) ? snap.boxStocks : [];
+      for (const box of boxes) {
+        if (!box || box.empty) continue;
+        const auto = this._computeQtyBoxesSmallFromBoxQty(it, box.qty);
+        if (auto === null) continue;
+        const cur = this._parseBoxStockQtyBoxesValue(box.qtyBoxes);
+        if (cur === auto) continue;
+        rows.push({
+          id: String(it.id),
+          code: it.code || "",
+          boxId: String(box.boxId || ""),
+          boxNumber: parseInt(box.boxNumber, 10) || 0,
+          from: cur,
+          to: auto,
+          qty: box.qty
+        });
+        itemIds.add(String(it.id));
+      }
+    }
+    return { rows, itemsChanged: itemIds.size, boxesChanged: rows.length };
+  },
+
+  /**
+   * Aplica `qtyBoxes` = cantidad ÷ cantidad por caja donde corresponda (post-normalización).
+   * @returns {{ rows: Array<{id:string,code:string,boxId:string,boxNumber:number,from:number,to:number,qty:number}>, itemsChanged:number, boxesChanged:number }}
+   */
+  recalcBoxQtyBoxesSmallFromQty() {
+    const preview = this.previewRecalcBoxQtyBoxesSmall();
+    if (!preview.rows.length) return preview;
+    for (const row of preview.rows) {
+      const it = this.getItemById(row.id);
+      if (!it) continue;
+      const box = (Array.isArray(it.boxStocks) ? it.boxStocks : []).find(b => String(b?.boxId) === row.boxId);
+      if (!box || box.empty) continue;
+      const auto = this._computeQtyBoxesSmallFromBoxQty(it, box.qty);
+      if (auto === null) continue;
+      if (this._parseBoxStockQtyBoxesValue(box.qtyBoxes) === auto) continue;
+      box.qtyBoxes = auto;
+    }
+    this.save();
+    this.render(this.search(document.getElementById("inventory-search")?.value || ""));
+    return preview;
+  },
+
+  /**
    * Acción combinada **«Actualizar inventario»**: encadena en una sola
-   * confirmación las tres rutinas de mantenimiento:
+   * confirmación las cuatro rutinas de mantenimiento:
    *
    * 1. **Normalización de almacenamiento** (`normalizeStorageDrift`): para cada
    *    artículo, re-aplica el mismo paso de saneo que se hace al guardar desde
@@ -1231,6 +1337,9 @@ const InventoryManager = {
    * 3. **Migración de caducidades por lote** (`refreshLotExpiriesFromShelfLife`):
    *    libera `lot.date` solo cuando es redundante con `expDate + vidaUtil`.
    *    Caducidades personalizadas del envase se preservan.
+   * 4. **N.º cajas en stock por caja** (`recalcBoxQtyBoxesSmallFromQty`): donde
+   *    haya `qtyPerBox` y el artículo no sea consumible, ajusta `qtyBoxes` a
+   *    cantidad en caja ÷ cantidad por caja (redondeo). Cajas marcadas vacías no se tocan.
    *
    * Cada rutina genera su propia vista previa y se muestran juntas en una
    * confirmación común. Si ninguna tiene cambios, un toast informativo.
@@ -1244,10 +1353,11 @@ const InventoryManager = {
     const norm = this.previewNormalizeStorageDrift();
     const recon = this.previewReconcileMainStock();
     const lots = this.previewRefreshLotExpiriesFromShelfLife();
+    const qb = this.previewRecalcBoxQtyBoxesSmall();
     const reconSkipNeg = recon.skippedNegativeMain || [];
     const reconSkipOd = recon.skippedOverdraftHistory || [];
     const reconSkipTotal = reconSkipNeg.length + reconSkipOd.length;
-    if (!norm.items.length && !recon.items.length && !lots.items.length) {
+    if (!norm.items.length && !recon.items.length && !lots.items.length && !qb.rows.length) {
       if (reconSkipTotal > 0) {
         Utils.showToast(
           (I18n.t("inventory.refreshDataNothingButReconcileSkips") ||
@@ -1351,31 +1461,54 @@ const InventoryManager = {
         : "";
       return `${head}\n${sample}${extra}${keepNote}`;
     })();
+    const qbBlock = (() => {
+      if (!qb.rows.length) {
+        return `• ${I18n.t("inventory.refreshDataQtyBoxesSkip") || "N.º cajas (stock por caja): ya cuadra con cantidad ÷ cantidad por caja."}`;
+      }
+      const sample = qb.rows
+        .slice(0, 5)
+        .map(r => `   ${r.code} — BOX${r.boxNumber} ${r.from} → ${r.to} (${Utils.formatDecimalDisplay(r.qty)})`)
+        .join("\n");
+      const extra = qb.rows.length > 5 ? `\n   …y ${qb.rows.length - 5} más` : "";
+      const head = (I18n.t("inventory.refreshDataQtyBoxesHead") ||
+        "• N.º cajas (stock por caja): {b} fila(s) en {n} artículo(s) se alinearán con cantidad ÷ cantidad por caja")
+        .replace("{b}", String(qb.boxesChanged))
+        .replace("{n}", String(qb.itemsChanged));
+      return `${head}\n${sample}${extra}`;
+    })();
     const head = I18n.t("inventory.refreshDataConfirmHead") ||
-      "Se actualizará el inventario con tres pasadas de mantenimiento:";
+      "Se actualizará el inventario con cuatro pasadas de mantenimiento:";
     const tail = I18n.t("inventory.refreshDataConfirmTail") ||
-      "\n\nNo se reducirá ningún stock principal. No se sube el principal si está en negativo o si el artículo aparece en un movimiento con sobregiro efectivo (salidas con descubierto). No se reescriben movimientos. Las caducidades personalizadas se conservan. ¿Continuar?";
-    const prompt = `${head}\n\n${normBlock}\n\n${reconBlock}\n\n${lotsBlock}${tail}`;
+      "\n\nNo se reducirá ningún stock principal. No se sube el principal si está en negativo o si el artículo aparece en un movimiento con sobregiro efectivo (salidas con descubierto). No se reescriben movimientos. Las caducidades personalizadas se conservan. Las cajas marcadas como vacías no se recalculan. ¿Continuar?";
+    const prompt = `${head}\n\n${normBlock}\n\n${reconBlock}\n\n${lotsBlock}\n\n${qbBlock}${tail}`;
     const apply = () => {
-      /* Orden estricto: 1) normalizar 2) reconciliar 3) caducidades. Cambiar el
-         orden puede dejar la reconciliación leyendo un `locationStocks` aún
+      /* Orden estricto: 1) normalizar 2) reconciliar 3) caducidades 4) N.º cajas.
+         Cambiar el orden puede dejar la reconciliación leyendo un `locationStocks` aún
          sin normalizar y subir el principal por debajo de lo debido. */
       const resNorm = this.normalizeStorageDrift();
       const resRecon = this.reconcileMainStockFromContainers();
       const resLots = this.refreshLotExpiriesFromShelfLife();
+      const resQb = this.recalcBoxQtyBoxesSmallFromQty();
       const msg = (I18n.t("inventory.refreshDataDone") ||
-        "Actualización aplicada. Normalizados: {p} artículo(s). Stock principal: {n} artículo(s) Δ=+{d}. Caducidades de lotes: {l} lote(s) en {m} artículo(s).")
+        "Actualización aplicada. Normalizados: {p} artículo(s). Stock principal: {n} artículo(s) Δ=+{d}. Caducidades de lotes: {l} lote(s) en {m} artículo(s). N.º cajas: {q} fila(s) en {i} artículo(s).")
         .replace("{p}", String(resNorm.items.length))
         .replace("{n}", String(resRecon.changed))
         .replace("{d}", Utils.formatDecimalDisplay(resRecon.totalDelta))
         .replace("{l}", String(resLots.lotsChanged))
-        .replace("{m}", String(resLots.itemsChanged));
-      const ok = resNorm.items.length > 0 || resRecon.changed > 0 || resLots.lotsChanged > 0;
+        .replace("{m}", String(resLots.itemsChanged))
+        .replace("{q}", String(resQb.boxesChanged))
+        .replace("{i}", String(resQb.itemsChanged));
+      const ok =
+        resNorm.items.length > 0 ||
+        resRecon.changed > 0 ||
+        resLots.lotsChanged > 0 ||
+        resQb.boxesChanged > 0;
       Utils.showToast(msg, ok ? "success" : "info");
       if (typeof window !== "undefined") {
         window.__gneexLastNormalizeReport = resNorm;
         window.__gneexLastReconcileReport = resRecon;
         window.__gneexLastRefreshLotsReport = resLots;
+        window.__gneexLastQtyBoxesReport = resQb;
       }
     };
     if (typeof App !== "undefined" && App.showConfirm) {
@@ -1397,7 +1530,7 @@ const InventoryManager = {
 
   /**
    * Convierte el logo de la cabecera en el atajo rápido para «Actualizar
-   * inventario» (normalizar + reconciliar stock + caducidades de lotes).
+   * inventario» (normalizar + reconciliar stock + caducidades de lotes + N.º cajas).
    *
    * Decisiones de diseño:
    * - **Idempotente**: si el logo ya está cableado lo detectamos con un flag
@@ -1912,7 +2045,7 @@ const InventoryManager = {
     return { ok: true };
   },
 
-  transferBoxToTransStock(itemId, fromBoxId, qty) {
+  transferBoxToTransStock(itemId, fromBoxId, qty, transformationToCompanyId = "") {
     const item = this.getItemById(itemId);
     if (!item) return { ok: false, reason: "item-not-found" };
     const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
@@ -1924,12 +2057,18 @@ const InventoryManager = {
     if (fromCur < q) return { ok: false, reason: "box-overdraft" };
     item.boxStocks[fromIdx].qty = Utils.roundDecimal(fromCur - q);
     item.boxStocks[fromIdx].updatedAt = new Date().toISOString();
-    item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
+    this._normalizeTransformationStockSplitsOnItem(item);
+    const kid = String(transformationToCompanyId ?? "").trim();
+    const cur = Utils.roundDecimal(parseFloat(item.transStockSplits[kid]) || 0);
+    item.transStockSplits[kid] = Utils.roundDecimal(cur + q);
+    item.transStock = Utils.roundDecimal(
+      Object.values(item.transStockSplits).reduce((a, v) => Utils.roundDecimal(a + (parseFloat(v) || 0)), 0)
+    );
     this.save();
     return { ok: true };
   },
 
-  transferTransStockToBox(itemId, toBoxId, qty, toLocationLabel = "") {
+  transferTransStockToBox(itemId, toBoxId, qty, toLocationLabel = "", transformationFromCompanyId = "") {
     const item = this.getItemById(itemId);
     if (!item) return { ok: false, reason: "item-not-found" };
     const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
@@ -1937,11 +2076,18 @@ const InventoryManager = {
     const rawLab = String(toLocationLabel || "").trim();
     const locLab = Utils.strictEffectiveWarehouseLocationText(rawLab);
     if (rawLab && !locLab) return { ok: false, reason: "invalid-location-catalog" };
-    const tq = parseFloat(item.transStock) || 0;
-    if (tq < q) return { ok: false, reason: "trans-overdraft" };
+    this._normalizeTransformationStockSplitsOnItem(item);
+    const kid = String(transformationFromCompanyId ?? "").trim();
+    const cur = Utils.roundDecimal(parseFloat(item.transStockSplits[kid]) || 0);
+    if (cur + 1e-9 < q) return { ok: false, reason: "trans-overdraft" };
+    const next = Utils.roundDecimal(cur - q);
+    if (Math.abs(next) < 1e-9) delete item.transStockSplits[kid];
+    else item.transStockSplits[kid] = next;
+    item.transStock = Utils.roundDecimal(
+      Object.values(item.transStockSplits).reduce((a, v) => Utils.roundDecimal(a + (parseFloat(v) || 0)), 0)
+    );
     const toIdx = this._findBoxIndex(item, toBoxId);
     if (toIdx < 0) return { ok: false, reason: "box-not-found" };
-    item.transStock = Utils.roundDecimal(tq - q);
     item.boxStocks[toIdx].qty = Utils.roundDecimal((this._parseBoxStockQtyValue(item.boxStocks[toIdx].qty)) + q);
     item.boxStocks[toIdx].empty = false;
     item.boxStocks[toIdx].locationLabel = locLab;
@@ -1949,6 +2095,40 @@ const InventoryManager = {
     this._syncItemLocationFromBox(item, item.boxStocks[toIdx].boxId, locLab);
     this.save();
     return { ok: true };
+  },
+
+  /**
+   * Descuenta cantidad de buckets de transformación (preferencia de clave opcional).
+   * @returns {boolean}
+   */
+  consumeTransformationQtyFromSplits(itemId, qty, preferredKey = null) {
+    const item = this.getItemById(itemId);
+    if (!item) return false;
+    let need = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
+    if (need <= 1e-9) return true;
+    this._normalizeTransformationStockSplitsOnItem(item);
+    const keys = Object.keys(item.transStockSplits || {}).filter(
+      k => (parseFloat(item.transStockSplits[k]) || 0) > 1e-9
+    );
+    const order = [];
+    const pk = preferredKey !== undefined && preferredKey !== null ? String(preferredKey) : null;
+    if (pk !== null && keys.includes(pk)) order.push(pk);
+    const rest = keys.filter(k => !order.includes(k)).sort((a, b) => a.localeCompare(b));
+    order.push(...rest);
+    for (const k of order) {
+      const avail = Utils.roundDecimal(parseFloat(item.transStockSplits[k]) || 0);
+      if (avail <= 1e-9) continue;
+      const take = Utils.roundDecimal(Math.min(need, avail));
+      const next = Utils.roundDecimal(avail - take);
+      if (next < 1e-9) delete item.transStockSplits[k];
+      else item.transStockSplits[k] = next;
+      need = Utils.roundDecimal(need - take);
+      if (need < 1e-9) break;
+    }
+    item.transStock = Utils.roundDecimal(
+      Object.values(item.transStockSplits).reduce((a, v) => Utils.roundDecimal(a + (parseFloat(v) || 0)), 0)
+    );
+    return need < 1e-9;
   },
 
   transferProdToTransStock(itemId, qty) {
@@ -1959,8 +2139,7 @@ const InventoryManager = {
     const pq = parseFloat(item.prodStock) || 0;
     if (pq < q) return { ok: false, reason: "prod-overdraft" };
     item.prodStock = Utils.roundDecimal(pq - q);
-    item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
-    this.save();
+    this.updateStock(itemId, "transformation", q, { transformationCompanyId: "" });
     return { ok: true };
   },
 
@@ -1969,9 +2148,7 @@ const InventoryManager = {
     if (!item) return { ok: false, reason: "item-not-found" };
     const q = Utils.roundDecimal(Math.abs(parseFloat(qty) || 0));
     if (q <= 0) return { ok: false, reason: "invalid-qty" };
-    const tq = parseFloat(item.transStock) || 0;
-    if (tq < q) return { ok: false, reason: "trans-overdraft" };
-    item.transStock = Utils.roundDecimal(tq - q);
+    if (!this.consumeTransformationQtyFromSplits(itemId, q, "")) return { ok: false, reason: "trans-overdraft" };
     item.prodStock = Utils.roundDecimal((parseFloat(item.prodStock) || 0) + q);
     this.save();
     return { ok: true };
@@ -1995,18 +2172,119 @@ const InventoryManager = {
     if(!i) return false;
     if (i.inventoryConsumable && !opts.bypassInventoryConsumable) return false;
     const dq = Utils.roundDecimal(qty);
-    switch(target){
-      case "production": i.prodStock = Utils.roundDecimal((i.prodStock||0)+dq); break;
-      case "transformation": i.transStock = Utils.roundDecimal((i.transStock||0)+dq); break;
-      default: i.mainStock = Utils.roundDecimal((i.mainStock||0)+dq);
+    switch (target) {
+      case "production":
+        i.prodStock = Utils.roundDecimal((i.prodStock || 0) + dq);
+        break;
+      case "transformation": {
+        this._normalizeTransformationStockSplitsOnItem(i);
+        const kidRaw = opts && opts.transformationCompanyId;
+        const kid =
+          kidRaw !== undefined && kidRaw !== null && String(kidRaw).trim() !== ""
+            ? String(kidRaw).trim()
+            : "";
+        const cur = Utils.roundDecimal(parseFloat(i.transStockSplits[kid]) || 0);
+        const next = Utils.roundDecimal(cur + dq);
+        if (next < -1e-9) return false;
+        if (Math.abs(next) < 1e-9) delete i.transStockSplits[kid];
+        else i.transStockSplits[kid] = next;
+        i.transStock = Utils.roundDecimal(
+          Object.values(i.transStockSplits).reduce((a, v) => Utils.roundDecimal(a + (parseFloat(v) || 0)), 0)
+        );
+        break;
+      }
+      default:
+        i.mainStock = Utils.roundDecimal((i.mainStock || 0) + dq);
     }
     this.save(); this.render();
     return true;
   },
 
-  // =========================================================
-  // CRUD DE ARTÍCULOS
-  // =========================================================
+  /**
+   * Normaliza `transStockSplits` y alinea `transStock` con la suma de buckets.
+   * @param {object} itemLike
+   */
+  _normalizeTransformationStockSplitsOnItem(itemLike) {
+    const item = itemLike;
+    if (!item || typeof item !== "object") return;
+    let sp = item.transStockSplits;
+    if (!sp || typeof sp !== "object" || Array.isArray(sp)) sp = {};
+    const cleaned = {};
+    for (const [k0, v0] of Object.entries(sp)) {
+      const k = k0 === "__unassigned__" ? "" : String(k0);
+      const q = Utils.roundDecimal(parseFloat(v0) || 0);
+      if (Math.abs(q) < 1e-9) continue;
+      cleaned[k] = Utils.roundDecimal((parseFloat(cleaned[k]) || 0) + q);
+    }
+    if (Object.keys(cleaned).length === 0) {
+      const legacy = Utils.roundDecimal(parseFloat(item.transStock) || 0);
+      if (Math.abs(legacy) > 1e-9) cleaned[""] = legacy;
+    }
+    item.transStockSplits = cleaned;
+    item.transStock = Utils.roundDecimal(
+      Object.values(cleaned).reduce((a, v) => Utils.roundDecimal(a + (parseFloat(v) || 0)), 0)
+    );
+  },
+
+  /** Cantidad en un bucket de transformación (id de empresa o cadena vacía = sin asignar). */
+  getTransformationSplitQty(itemId, companyId) {
+    const item = this.getItemById(itemId);
+    if (!item) return 0;
+    this._normalizeTransformationStockSplitsOnItem(item);
+    const k = companyId === undefined || companyId === null ? "" : String(companyId);
+    return Utils.roundDecimal(parseFloat(item.transStockSplits[k]) || 0);
+  },
+
+  /**
+   * Resuelve empresa de origen en transformación si hay un solo bucket con stock.
+   * Rellena `line.transferTransformationFromCompanyId` cuando falta.
+   */
+  resolveTransferLineTransformationCompanyIds(line) {
+    if (!line || !line.itemId) return;
+    const item = this.getItemById(line.itemId);
+    if (!item) return;
+    this._normalizeTransformationStockSplitsOnItem(item);
+    const from = String(line.transferFrom || "main");
+    const fromBox = String(line.transferFromBoxId || "").trim();
+    if (from === "transformation" && !fromBox) {
+      let c = String(line.transferTransformationFromCompanyId ?? "").trim();
+      if (!c) {
+        const keys = Object.keys(item.transStockSplits || {}).filter(
+          k => (parseFloat(item.transStockSplits[k]) || 0) > 1e-9
+        );
+        if (keys.length === 1) c = keys[0];
+        line.transferTransformationFromCompanyId = c;
+      }
+    }
+  },
+
+  /**
+   * Valida que una línea de transferencia pueda aplicarse respecto a buckets de transformación.
+   * @returns {{ ok: boolean, reason?: string }}
+   */
+  validateTransferLineTransformationBuckets(line) {
+    const item = this.getItemById(line?.itemId);
+    if (!item) return { ok: true };
+    this._normalizeTransformationStockSplitsOnItem(item);
+    const q = Utils.roundDecimal(Math.abs(parseFloat(line.quantity) || 0));
+    if (q <= 1e-9) return { ok: true };
+    const from = String(line.transferFrom || "main");
+    const to = String(line.transferTo || "main");
+    const fromBox = String(line.transferFromBoxId || "").trim();
+    const toBox = String(line.transferToBoxId || "").trim();
+    if (from === "transformation" && !fromBox) {
+      let c = String(line.transferTransformationFromCompanyId ?? "").trim();
+      const keys = Object.keys(item.transStockSplits || {}).filter(
+        k => (parseFloat(item.transStockSplits[k]) || 0) > 1e-9
+      );
+      if (!c && keys.length > 1) return { ok: false, reason: "trans-company-required" };
+      if (!c && keys.length === 1) c = keys[0];
+      const avail = this.getTransformationSplitQty(item.id, c);
+      if (avail + 1e-9 < q) return { ok: false, reason: "trans-split-overdraft" };
+    }
+    return { ok: true };
+  },
+
   addItem(data) {
     const item = this._normalizeItemCoreFields({
       id: Utils.generateId(),
@@ -2039,6 +2317,9 @@ const InventoryManager = {
       locationStocks: Array.isArray(data.locationStocks) ? data.locationStocks : [],
       inventoryConsumable: !!data.inventoryConsumable,
       tracksExpiration: data.tracksExpiration === true,
+      boxSlotTreatAsBulk: !!data.boxSlotTreatAsBulk,
+      blackBoxUncountable: !!data.blackBoxUncountable,
+      blackBoxMaxUnitsInBox: parseFloat(data.blackBoxMaxUnitsInBox) || 0,
       measureStockUnitId: String(data.measureStockUnitId || "").trim(),
       measureAltUnitId: String(data.measureAltUnitId || "").trim()
     }, { recomputeNumBoxes: true });
@@ -2184,6 +2465,55 @@ const InventoryManager = {
     if (!this.itemTracksExpiration(item)) return false;
     if (this._itemAnyDepotStockTotal(item) <= 0) return false;
     return !this.itemHasAnyExpiryRelatedData(item);
+  },
+
+  /**
+   * Datos incompletos en ficha de artículo que afectan cálculos o reglas (caducidad,
+   * cajas, caja negra, lotes). No aplica a consumibles de inventario.
+   * @returns {string[]} mensajes ya traducidos, sin duplicados
+   */
+  _itemEditorImportantFieldGaps(item) {
+    const out = [];
+    const add = msg => {
+      const m = String(msg || "").trim();
+      if (m && !out.includes(m)) out.push(m);
+    };
+    if (!item || item.inventoryConsumable) return out;
+
+    if (this.itemNeedsExpirationConfigComplete(item)) {
+      add(I18n.t("inventory.rowTitleExpiryIncomplete"));
+    }
+    if (this.itemNeedsExpiryDataOrOptOut(item)) {
+      add(I18n.t("inventory.rowTitleExpiryNoData"));
+    }
+
+    const perBox = Utils.roundDecimal(parseFloat(item.qtyPerBox) || 0, 4);
+    if (perBox <= 1e-9 && this._sumBoxStockQtyForItem(item) > 1e-9) {
+      add(I18n.t("inventory.editorGapQtyPerBoxForBoxes"));
+    }
+
+    if (
+      item.blackBoxUncountable &&
+      !(Utils.roundDecimal(parseFloat(item.blackBoxMaxUnitsInBox) || 0, 4) > 1e-9)
+    ) {
+      add(I18n.t("inventory.editorGapBlackBoxMax"));
+    }
+
+    const months = Math.max(0, parseInt(item.shelfLifeMonths, 10) || 0);
+    if (months <= 0 && Array.isArray(item.expirations)) {
+      for (const lot of item.expirations) {
+        const q = Utils.roundDecimal(parseFloat(lot?.qty) || 0, 4);
+        if (q <= 0) continue;
+        const stored = String(lot?.date || "").trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(stored)) continue;
+        const ex = String(lot?.expDate || "").trim().slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ex)) continue;
+        add(I18n.t("inventory.editorGapLotShelfLife"));
+        break;
+      }
+    }
+
+    return out;
   },
 
   /**
@@ -2622,12 +2952,20 @@ const InventoryManager = {
    * @param {string} depot 'main' | 'production' | 'transformation'
    * @param {string} [boxId] si depot==='main' y hay caja, stock de esa fila
    */
-  getTransferenciaEndpointQty(itemId, depot, boxId) {
+  getTransferenciaEndpointQty(itemId, depot, boxId, transformationCompanyId) {
     const item = this.getItemById(itemId);
     if (!item) return 0;
     const d = String(depot || "main");
     if (d === "production") return parseFloat(item.prodStock) || 0;
-    if (d === "transformation") return parseFloat(item.transStock) || 0;
+    if (d === "transformation") {
+      const bid = String(boxId || "").trim();
+      if (bid) return 0;
+      const co = transformationCompanyId;
+      if (co !== undefined && co !== null && String(co).trim() !== "") {
+        return this.getTransformationSplitQty(itemId, String(co).trim());
+      }
+      return parseFloat(item.transStock) || 0;
+    }
     const bid = String(boxId || "").trim();
     if (bid) {
       const idx = this._findBoxIndex(item, bid);
@@ -2661,11 +2999,17 @@ const InventoryManager = {
       return r && r.ok ? { ok: true } : { ok: false, reason: "prod-to-box" };
     }
     if (from === "main" && fromBox && to === "transformation" && !toBox) {
-      const r = this.transferBoxToTransStock(itemId, fromBox, q);
+      this.resolveTransferLineTransformationCompanyIds(line);
+      const toCo = String(line.transferTransformationToCompanyId ?? "").trim();
+      const r = this.transferBoxToTransStock(itemId, fromBox, q, toCo);
       return r && r.ok ? { ok: true } : { ok: false, reason: "box-to-trans" };
     }
     if (from === "transformation" && !fromBox && to === "main" && toBox) {
-      const r = this.transferTransStockToBox(itemId, toBox, q, "");
+      this.resolveTransferLineTransformationCompanyIds(line);
+      const fromCo = String(line.transferTransformationFromCompanyId ?? "").trim();
+      const v = this.validateTransferLineTransformationBuckets(line);
+      if (!v.ok) return v;
+      const r = this.transferTransStockToBox(itemId, toBox, q, "", fromCo);
       return r && r.ok ? { ok: true } : { ok: false, reason: "trans-to-box" };
     }
     if (from === "main" && fromBox && to === "main" && toBox && fromBox !== toBox) {
@@ -2676,8 +3020,14 @@ const InventoryManager = {
     if (fromBox || toBox) {
       return { ok: false, reason: "unsupported-box-endpoint" };
     }
-    this.updateStock(itemId, from, -q);
-    this.updateStock(itemId, to, q);
+    this.resolveTransferLineTransformationCompanyIds(line);
+    const fromCo =
+      from === "transformation" ? String(line.transferTransformationFromCompanyId ?? "").trim() : "";
+    const toCo = to === "transformation" ? String(line.transferTransformationToCompanyId ?? "").trim() : "";
+    const v = this.validateTransferLineTransformationBuckets(line);
+    if (!v.ok) return v;
+    this.updateStock(itemId, from, -q, from === "transformation" ? { transformationCompanyId: fromCo } : {});
+    this.updateStock(itemId, to, q, to === "transformation" ? { transformationCompanyId: toCo } : {});
     return { ok: true };
   },
 
@@ -2715,7 +3065,9 @@ const InventoryManager = {
     if (from === "main" && fromBox && to === "transformation" && !toBox) {
       const idx = this._findBoxIndex(item, fromBox);
       if (idx < 0) return false;
-      item.transStock = Utils.roundDecimal(Math.max(0, (parseFloat(item.transStock) || 0) - q));
+      this.resolveTransferLineTransformationCompanyIds(line);
+      const toCo = String(line.transferTransformationToCompanyId ?? "").trim();
+      this.updateStock(itemId, "transformation", -q, { transformationCompanyId: toCo });
       item.boxStocks[idx].qty = Utils.roundDecimal(this._parseBoxStockQtyValue(item.boxStocks[idx].qty) + q);
       item.boxStocks[idx].updatedAt = new Date().toISOString();
       this.save();
@@ -2724,7 +3076,9 @@ const InventoryManager = {
     if (from === "transformation" && !fromBox && to === "main" && toBox) {
       const idx = this._findBoxIndex(item, toBox);
       if (idx < 0) return false;
-      item.transStock = Utils.roundDecimal((parseFloat(item.transStock) || 0) + q);
+      this.resolveTransferLineTransformationCompanyIds(line);
+      const fromCo = String(line.transferTransformationFromCompanyId ?? "").trim();
+      this.updateStock(itemId, "transformation", q, { transformationCompanyId: fromCo });
       const cur = this._parseBoxStockQtyValue(item.boxStocks[idx].qty);
       item.boxStocks[idx].qty = Utils.roundDecimal(Math.max(0, cur - q));
       item.boxStocks[idx].updatedAt = new Date().toISOString();
@@ -2735,8 +3089,12 @@ const InventoryManager = {
       return this.transferBetweenBoxes(itemId, toBox, fromBox, q, "") ? true : false;
     }
     if (!fromBox && !toBox) {
-      this.updateStock(itemId, from, q);
-      this.updateStock(itemId, to, -q);
+      this.resolveTransferLineTransformationCompanyIds(line);
+      const fromCo =
+        from === "transformation" ? String(line.transferTransformationFromCompanyId ?? "").trim() : "";
+      const toCo = to === "transformation" ? String(line.transferTransformationToCompanyId ?? "").trim() : "";
+      this.updateStock(itemId, from, q, from === "transformation" ? { transformationCompanyId: fromCo } : {});
+      this.updateStock(itemId, to, -q, to === "transformation" ? { transformationCompanyId: toCo } : {});
       return true;
     }
     return false;
@@ -2747,13 +3105,14 @@ const InventoryManager = {
     if (!item || !stockMap || !stockMap.get) return item;
     const row = stockMap.get(item.id);
     if (!row) {
-      return { ...item, mainStock: 0, prodStock: 0, transStock: 0 };
+      return { ...item, mainStock: 0, prodStock: 0, transStock: 0, transStockSplits: undefined };
     }
     return {
       ...item,
       mainStock: row.main,
       prodStock: row.prod,
-      transStock: row.trans
+      transStock: row.trans,
+      transStockSplits: undefined
     };
   },
 
@@ -3324,12 +3683,16 @@ const InventoryManager = {
           ${quickBtn}${addPurchaseBtn}${notesBtn}
         </div>
       </div>`;
+      const descFull = String(it.description ?? "");
+      const descTitleAttr = descFull.trim() ? ` title="${Utils.escapeAttr(descFull)}"` : "";
       if (canEditNotes || hasNotes) {
-        descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}">${this.esc(
+        descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}"${descTitleAttr}>${this.esc(
           it.description
         )}</span></td>`;
       } else {
-        descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}">${this.esc(it.description)}</span></td>`;
+        descTd = `<td class="inv-desc-cell">${rowActions}<span class="${probSpanCls}"${descTitleAttr}>${this.esc(
+          it.description
+        )}</span></td>`;
       }
       const effUi = this.getEffectiveExpirationDateForDisplay(it);
       const insight = this.getExpirationInsight(it);
@@ -3396,20 +3759,24 @@ const InventoryManager = {
       const hasExpiryConfigHint =
         this.itemNeedsExpirationConfigComplete(it) || this.itemNeedsExpiryDataOrOptOut(it);
       const rowExpHint = !rowExpSoon && hasExpiryConfigHint ? " inv-row--expiry-missing-hint" : "";
-      const rowExpTitle = rowExpSoon
+      const rowExpSoonTitle = rowExpSoon
         ? `${I18n.t("inventory.lotStatusSoon")} (${Math.max(1, parseInt(this.expAlertDays, 10) || 30)}d)`
-        : this.itemNeedsExpirationConfigComplete(it)
-          ? I18n.t("inventory.rowTitleExpiryIncomplete")
-          : this.itemNeedsExpiryDataOrOptOut(it)
-            ? I18n.t("inventory.rowTitleExpiryNoData")
-            : "";
+        : "";
+      const editorFieldGaps = this._itemEditorImportantFieldGaps(it);
+      const rowEditorGaps = editorFieldGaps.length ? " inv-row--editor-gaps" : "";
+      const rowTitleParts = [];
+      if (rowExpSoonTitle) rowTitleParts.push(rowExpSoonTitle);
+      for (const m of editorFieldGaps) {
+        if (!rowTitleParts.includes(m)) rowTitleParts.push(m);
+      }
+      const rowTitleAttr = rowTitleParts.length
+        ? ` title="${Utils.escapeAttr(rowTitleParts.join(" · "))}"`
+        : "";
       const mainQtyShown = activeDistributionFilter
         ? this._getItemDistributedQtyForFilter(it, activeDistributionFilter)
         : (it.mainStock || 0);
       return `
-        <tr data-id="${Utils.escapeAttr(it.id)}" class="inv-row inv-row--${cls}${rowCons}${rowExpSoon}${rowExpHint}"${
-          rowExpTitle ? ` title="${Utils.escapeAttr(rowExpTitle)}"` : ""
-        }>
+        <tr data-id="${Utils.escapeAttr(it.id)}" class="inv-row inv-row--${cls}${rowCons}${rowExpSoon}${rowExpHint}${rowEditorGaps}"${rowTitleAttr}>
           <td class="${codeCellClass}"${codeTitle}>${lowIgnoredBadge}${codeInner}${consumableBadge}</td>
           ${descTd}
           <td>${this.esc(it.category||'-')}</td>
@@ -5143,6 +5510,7 @@ const InventoryManager = {
     if (q) q.readOnly = false;
     if (qb) qb.readOnly = false;
     this._syncBoxManagerFormUi();
+    this._syncBoxManagerAutoQtyBoxesField();
   },
 
   _syncEmptyCheckboxUi() {
@@ -5158,6 +5526,7 @@ const InventoryManager = {
       qb.readOnly = on;
       if (on) qb.value = "0";
     }
+    if (!on) this._syncBoxManagerAutoQtyBoxesField();
   },
 
   _syncBoxManagerArticleClearBtn() {
@@ -5303,6 +5672,7 @@ const InventoryManager = {
     this._syncBoxTransferLocationVisibility();
     this._syncBoxManagerAccessUi();
     this._syncZeroTotalBoxToolbarBtn();
+    this._syncBoxManagerAutoQtyBoxesField();
   },
 
   /** Oculta «ubicación destino» si el destino no es una caja física. */
@@ -5683,6 +6053,136 @@ const InventoryManager = {
     return rows;
   },
 
+  /**
+   * Por número de caja negra: ocupación en «huecos» de 0..12 (100% = 12).
+   * - Artículo contable: suma de «N.º cajas» (qtyBoxes) por caja.
+   * - Artículo incontable (`blackBoxUncountable` + `blackBoxMaxUnitsInBox`): la «Cantidad»
+   *   en gestión por caja frente al máximo por caja negra equivale a 12 huecos al 100%.
+   * - `boxSlotTreatAsBulk` (legado): excluye del cómputo si no es incontable con máximo válido.
+   */
+  collectBlackBoxCapacityRows() {
+    const maxSlots = Math.max(1, parseInt(this.BLACK_BOX_MAX_SMALL_SLOTS, 10) || 12);
+    const perItemBox = new Map();
+    for (const item of this.items || []) {
+      if (!item?.id || !Array.isArray(item.boxStocks)) continue;
+      const id = String(item.id);
+      if (!perItemBox.has(id)) perItemBox.set(id, new Map());
+      const inner = perItemBox.get(id);
+      for (const b of item.boxStocks) {
+        const n = parseInt(b?.boxNumber, 10);
+        if (!this._isValidBoxNumber(n)) continue;
+        if (!inner.has(n)) inner.set(n, { sumQty: 0, sumQtyBoxes: 0, locs: new Set() });
+        const cell = inner.get(n);
+        cell.sumQty = Utils.roundDecimal(cell.sumQty + this._parseBoxStockQtyValue(b?.qty));
+        cell.sumQtyBoxes = Utils.roundDecimal(
+          cell.sumQtyBoxes + Math.max(0, this._parseBoxStockQtyBoxesValue(b?.qtyBoxes)),
+          4
+        );
+        const loc = String(b.locationLabel || "").trim();
+        if (loc) cell.locs.add(loc);
+      }
+    }
+    const map = new Map();
+    for (const [itemId, inner] of perItemBox) {
+      const item = this.getItemById(itemId);
+      if (!item) continue;
+      const maxU = Utils.roundDecimal(parseFloat(item.blackBoxMaxUnitsInBox) || 0, 4);
+      const uncount = !!item.blackBoxUncountable && maxU > 1e-9;
+      const bulkLegacy = !!item.boxSlotTreatAsBulk && !uncount;
+      for (const [n, cell] of inner) {
+        let delta = 0;
+        if (uncount) {
+          delta = Utils.roundDecimal((maxSlots * cell.sumQty) / maxU, 4);
+        } else if (!bulkLegacy) {
+          delta = Utils.roundDecimal(cell.sumQtyBoxes, 4);
+        }
+        if (!map.has(n)) {
+          map.set(n, { boxNumber: n, slotsUsed: 0, locs: new Set(), anyRow: false });
+        }
+        const agg = map.get(n);
+        agg.anyRow = true;
+        agg.slotsUsed = Utils.roundDecimal(agg.slotsUsed + delta, 4);
+        for (const loc of cell.locs) agg.locs.add(loc);
+      }
+    }
+    return [...map.values()]
+      .filter(x => x.anyRow)
+      .map(x => {
+        const slots = Utils.roundDecimal(x.slotsUsed, 4);
+        const pct = Math.min(100, Math.round(((slots / maxSlots) * 100 + Number.EPSILON) * 10) / 10);
+        const locArr = [...x.locs];
+        const locSummary =
+          locArr.length === 0 ? "" : locArr.length <= 2 ? locArr.join(", ") : `${locArr.slice(0, 2).join(", ")}…`;
+        return { boxNumber: x.boxNumber, slotsUsed: slots, maxSlots, pct, locSummary };
+      })
+      .sort((a, b) => a.boxNumber - b.boxNumber);
+  },
+
+  openBlackBoxCapacityOverviewModal() {
+    if (
+      typeof Auth !== "undefined" &&
+      Auth.getSessionActionLevel &&
+      Auth.getSessionActionLevel("invBrowse") === "none"
+    ) {
+      return false;
+    }
+    const modal = document.getElementById("inventory-black-box-capacity-modal");
+    const body = document.getElementById("inventory-black-box-capacity-body");
+    if (!modal || !body) return false;
+    const rows = this.collectBlackBoxCapacityRows();
+    const esc = s => this.esc(s);
+    const maxSlots = Math.max(1, parseInt(this.BLACK_BOX_MAX_SMALL_SLOTS, 10) || 12);
+    const hint = `<p class="muted inventory-black-box-capacity-intro">${esc(I18n.t("inventory.blackBoxCapacityIntro").replace("{max}", String(maxSlots)))}</p>`;
+    if (!rows.length) {
+      body.innerHTML = `${hint}<p class="muted">${esc(I18n.t("inventory.blackBoxCapacityEmpty"))}</p>`;
+    } else {
+      const th = k => {
+        const raw = I18n.t(k);
+        const withMax = String(raw).replace(/\{max\}/g, String(maxSlots));
+        return `<th>${esc(withMax)}</th>`;
+      };
+      const head = [
+        "inventory.boxColNumber",
+        "inventory.blackBoxCapacityColSlots",
+        "inventory.blackBoxCapacityColPct",
+        "inventory.boxMgrColUbicacion"
+      ];
+      const trs = rows
+        .map(r => {
+          const w = Math.min(100, Math.max(0, (r.slotsUsed / r.maxSlots) * 100));
+          const over = r.slotsUsed > r.maxSlots + 1e-9;
+          const bar = `<div class="inv-black-box-pct-bar" role="progressbar" style="--inv-black-box-pct:${String(
+            w
+          )}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${String(Math.round(w))}" aria-label="${esc(
+            I18n.t("inventory.blackBoxCapacityColPct")
+          )}"></div>`;
+          const slotsTxt = `${esc(Utils.formatDecimalDisplay(r.slotsUsed))} / ${r.maxSlots}`;
+          const overMark = over ? ` <span class="inv-black-box-over">${esc(I18n.t("inventory.blackBoxCapacityOverfull"))}</span>` : "";
+          return `<tr class="inv-black-box-cap-row is-clickable" tabindex="0" role="button" data-box-number="${Utils.escapeAttr(
+            String(r.boxNumber)
+          )}">
+            <td><strong>📦${r.boxNumber}</strong></td>
+            <td>${slotsTxt}${overMark}</td>
+            <td>${bar}<span class="inv-black-box-pct-num">${esc(String(r.pct))}%</span></td>
+            <td>${esc(r.locSummary || "—")}</td>
+          </tr>`;
+        })
+        .join("");
+      body.innerHTML = `${hint}<div class="inventory-table-container inventory-table-container--nested"><table class="inventory-table"><thead><tr>${head
+        .map(th)
+        .join("")}</tr></thead><tbody>${trs}</tbody></table></div>`;
+    }
+    if (typeof App !== "undefined" && typeof App._bringModalToFront === "function") {
+      App._bringModalToFront(modal);
+    }
+    modal.classList.add("active");
+    return true;
+  },
+
+  closeBlackBoxCapacityOverviewModal() {
+    document.getElementById("inventory-black-box-capacity-modal")?.classList.remove("active");
+  },
+
   _syncZeroBoxesToolbarBtn() {
     const btn = document.getElementById("inventory-zero-boxes-btn");
     if (!btn) return;
@@ -5864,11 +6364,16 @@ const InventoryManager = {
       }
     }
     const boxNumber = parseInt(document.getElementById("inventory-box-number")?.value, 10);
+    const empty = !!document.getElementById("inventory-box-mark-empty")?.checked;
     const qty = parseFloat(document.getElementById("inventory-box-qty")?.value) || 0;
-    const qtyBoxes = parseInt(document.getElementById("inventory-box-qty-boxes")?.value, 10) || 0;
+    let qtyBoxes = parseInt(document.getElementById("inventory-box-qty-boxes")?.value, 10) || 0;
     const locationLabel = document.getElementById("inventory-box-location")?.value || "";
     const notes = document.getElementById("inventory-box-notes")?.value || "";
-    const empty = !!document.getElementById("inventory-box-mark-empty")?.checked;
+    const itemForBox = itemId ? this.getItemById(itemId) : null;
+    if (itemForBox && !empty) {
+      const auto = this._computeQtyBoxesSmallFromBoxQty(itemForBox, qty);
+      if (auto !== null) qtyBoxes = auto;
+    }
     const res = itemId
       ? this.upsertItemBoxStock(
           itemId,
@@ -5966,6 +6471,7 @@ const InventoryManager = {
     const cb = document.getElementById("inventory-box-mark-empty");
     if (cb) cb.checked = !!box.empty;
     this._syncEmptyCheckboxUi();
+    this._syncBoxManagerAutoQtyBoxesField();
     this._syncBoxManagerFormUi();
     document.querySelector(".inventory-box-mgr-form-hint")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   },
@@ -5987,6 +6493,7 @@ const InventoryManager = {
       const cb = document.getElementById("inventory-box-mark-empty");
       if (cb) cb.checked = false;
       this._syncEmptyCheckboxUi();
+      this._syncBoxManagerAutoQtyBoxesField();
       this._syncBoxManagerFormUi();
       this._renderBoxManagerRows();
       document.querySelector(".inventory-box-mgr-form-hint")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -8125,6 +8632,9 @@ const InventoryManager = {
       this.openZeroTotalStockByBoxModal()
     );
     document.getElementById("inventory-box-manager-btn")?.addEventListener("click", () => this.openBoxManagerModal());
+    document.getElementById("inventory-black-box-capacity-btn")?.addEventListener("click", () =>
+      this.openBlackBoxCapacityOverviewModal()
+    );
     document.getElementById("inventory-refresh-data-btn")?.addEventListener("click", () =>
       this.runRefreshInventoryDataAction()
     );
@@ -8272,6 +8782,28 @@ const InventoryManager = {
     this._syncInventoryLowStockIgnoredMenuItemUi();
     this._syncInventoryHeaderFiltersCollapseBtn();
     document.getElementById("close-inventory-box-manager")?.addEventListener("click", () => this.closeBoxManagerModal());
+    document.getElementById("close-inventory-black-box-capacity")?.addEventListener("click", () =>
+      this.closeBlackBoxCapacityOverviewModal()
+    );
+    document.getElementById("inventory-black-box-capacity-modal")?.addEventListener("click", e => {
+      const tr = e.target.closest("tr.inv-black-box-cap-row[data-box-number]");
+      if (!tr) return;
+      const boxNum = parseInt(tr.getAttribute("data-box-number") || "", 10);
+      if (!this._isValidBoxNumber(boxNum)) return;
+      this.closeBlackBoxCapacityOverviewModal();
+      if (typeof App !== "undefined" && App.switchTab) App.switchTab("inventory");
+      if (this._setInventoryBoxFilterByNumber(boxNum)) {
+        Utils.showToast(I18n.t("inventory.boxZeroTotalFilterToast").replace("{n}", String(boxNum)), "info");
+      } else {
+        Utils.showToast(I18n.t("inventory.boxZeroTotalNoJumpToast").replace("{n}", String(boxNum)), "warning");
+      }
+    });
+    document.getElementById("inventory-black-box-capacity-modal")?.addEventListener("keydown", e => {
+      const tr = e.target.closest("tr.inv-black-box-cap-row[data-box-number]");
+      if (!tr || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      tr.click();
+    });
     document.getElementById("inventory-box-item-search")?.addEventListener(
       "input",
       Utils.debounce(e => this._renderBoxManagerSearchResults(e.target.value), 180)
@@ -8295,6 +8827,7 @@ const InventoryManager = {
       this.clearBoxManagerArticleSelection()
     );
     document.getElementById("inventory-box-mark-empty")?.addEventListener("change", () => this._syncEmptyCheckboxUi());
+    document.getElementById("inventory-box-qty")?.addEventListener("input", () => this._syncBoxManagerAutoQtyBoxesField());
     document.getElementById("inventory-box-save-btn")?.addEventListener("click", () => void this.saveBoxManagerBoxFromForm());
     document.getElementById("inventory-box-cancel-edit-btn")?.addEventListener("click", () => this._resetBoxManagerBoxForm());
     document.getElementById("inventory-box-transfer-btn")?.addEventListener("click", () => this.transferBoxManagerStock());

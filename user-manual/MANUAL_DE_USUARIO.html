@@ -250,7 +250,7 @@
 <h2>2.2 Dashboard (Panel de resumen)</h2>
 <p>Al entrar a la aplicación, se muestra un panel con información del día. En la <strong>barra superior</strong> puede cambiar de módulo con los botones (p. ej. <strong>📦 Inventario</strong> hacia §2.3, <strong>➕ Movimientos</strong> hacia §2.4):</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-panel.png?v=1778809043" alt="Panel y barra de navegación" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-panel.png?v=1778904083" alt="Panel y barra de navegación" loading="lazy" decoding="async">
   <figcaption>Panel o dashboard; botones de navegación arriba</figcaption>
 </figure>
 <table>
@@ -265,13 +265,17 @@
   </tbody>
 </table>
 <p>Pulsar <strong>Ocultar</strong> / <strong>Mostrar</strong> para colapsar/expandir el panel.</p>
+<h3>Carrusel del panel y consejo del día</h3>
+<p>Encima del carrusel, un <strong>recuadro fijo «Consejo del día»</strong> muestra un texto elaborado rotativo: <strong>366</strong> variaciones alineadas al <strong>día del año civil</strong> en <strong>hora local</strong> (incluido <strong>29 de febrero</strong> en año bisiesto), en el <strong>idioma seleccionado</strong> (ES / EN / FR).</p>
+<p>El <strong>carrusel</strong> (flechas laterales; avanza solo cada pocos segundos; <strong>se pausa</strong> al pasar el ratón) muestra tarjetas: resumen, actividad de hoy, vistas de transporte si aplican, pendientes Stand-by / consumo diario, líneas de pedido, caducidad próxima y cajas con fila en cantidad 0 — <strong>sin</strong> repetir el consejo en una diapositiva.</p>
+<p>El <strong>logo</strong> de la barra superior lanza <strong>Actualizar inventario</strong> (normalizar, stock principal, caducidades de lotes, N.º cajas) — véase herramientas de inventario y README.</p>
 
 <hr>
 
 <h2>2.3 Inventario</h2>
 <p>Vista al pulsar el botón <strong>Inventario</strong> (📦) en la barra; se ven búsqueda, filtros, tarjetas y la tabla de artículos.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-inventario.png?v=1778809043" alt="Pestaña Inventario" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-inventario.png?v=1778904083" alt="Pestaña Inventario" loading="lazy" decoding="async">
   <figcaption>Pestaña Inventario</figcaption>
 </figure>
 
@@ -300,7 +304,28 @@
 <h3>Tabla de inventario</h3>
 <p>Columnas: Código, Descripción, Categoría, Precio por defecto, Stock Principal, Stock Producción, Stock Transformación, Ubicación, Expiración.</p>
 <p>En la columna <strong>Descripción</strong>, el icono <strong>📝</strong> (más suave si el artículo aún no tiene notas) abre, cuando esté activo, un cuadro para <strong>ver y editar las notas</strong>; <strong>Guardar</strong> persiste los cambios. Si el control no ofrece edición pero el artículo <strong>sí tiene notas</strong>, a menudo puede abrirse el cuadro en <strong>solo lectura</strong>; si no hay notas, la celda se muestra como texto normal.</p>
-<p>Los colores de las filas y celdas indican el estado del artículo (rojo = negativo, amarillo = bajo, naranja = expirando, verde = bien, etc.). Además: si <strong>toda la fila</strong> muestra un <strong>resaltado violeta/indigo suave con borde</strong>, es la fila <strong>seleccionada con el teclado</strong> (flechas arriba/abajo en la tabla). Si solo la <strong>primera celda (código)</strong> tiene una <strong>banda vertical violeta</strong>, el artículo está marcado como <strong>consumible de inventario</strong>. En la celda de <strong>stock principal</strong>, un <strong>recuadro violeta</strong> puede indicar <strong>sobre-stock</strong> (por encima del máximo configurado).</p>
+<p>Los colores usan <strong>varias capas</strong> a la vez; pueden combinarse. Resumen:</p>
+<h4>Pastilla de stock principal</h4>
+<ul>
+  <li><strong>Rojo intenso</strong>: stock total <strong>negativo</strong> (la regla usa los depósitos que cuenta la fila).</li>
+  <li><strong>Violeta / morado</strong>: <strong>sobre-stock</strong> (por encima del máximo configurado).</li>
+  <li><strong>Naranja</strong>: visión de <strong>caducado</strong> (lotes / fechas).</li>
+  <li><strong>Ámbar / amarillo</strong>: <strong>próximo a caducar</strong> (dentro del umbral de alerta), stock <strong>bajo</strong> o franja <strong>media</strong> entre mínimo y un punto intermedio; use el matiz y el contexto, o abra el modal de alertas.</li>
+  <li><strong>Verde</strong>: nivel holgado.</li>
+  <li><strong>Cero en rojo remarcado</strong>: cantidad <strong>exactamente cero</strong> (distinto del estilo de negativo).</li>
+</ul>
+<h4>Barras y contorno en toda la fila</h4>
+<ul>
+  <li><strong>Barra naranja</strong> pegada a la izquierda: hay cantidad <strong>dentro de la ventana de alerta de caducidad</strong> (próximo).</li>
+  <li><strong>Barra morada</strong> pegada a la izquierda: el <strong>control de caducidad está activado</strong> pero aún <strong>no hay fecha efectiva calculable</strong>, o hay <strong>stock con control activado</strong> y <strong>ningún dato de caducidad</strong> (vida útil, fechas, lotes).</li>
+  <li><strong>Contorno turquesa</strong> alrededor de la fila: faltan <strong>campos importantes del editor</strong> para cálculos o reglas (p. ej. cantidad por caja con stock en cajas, máximo de caja negra en modo incontable, lotes con expedición sin meses de vida útil). <strong>Pase el ratón por la fila</strong> para ver el texto del <code>title</code> con el detalle.</li>
+</ul>
+<h4>Otras marcas</h4>
+<ul>
+  <li><strong>Marca solo en la celda de código</strong>: artículo <strong>consumible de inventario</strong>.</li>
+  <li><strong>Pastilla roja pulsante</strong> en código y/o descripción: nota de <strong>«problemas con el artículo»</strong> en el editor.</li>
+  <li><strong>Realce violeta/indigo en toda la fila</strong> (fino contorno o fondo): la fila está <strong>seleccionada con teclado</strong> (↑/↓ en la tabla); no indica por sí sola un fallo de stock.</li>
+</ul>
 <p>Si la ventana es estrecha, puede <strong>desplazar la tabla horizontalmente</strong> para ver todas las columnas sin comprimir los encabezados.</p>
 <p><strong>Ubicación (campo de texto del artículo):</strong> para validaciones (movimientos, importaciones, consistencia de stock) solo cuentan como ubicación <strong>canónica</strong> las etiquetas del <strong>catálogo efectivo de almacén</strong> y las referencias <strong>BOXn</strong>. Si el texto guardado no puede normalizarse por completo a ese conjunto, puede aparecer un <strong>aviso</strong> al guardar desde el editor; ya no se inserta ningún marcador automático de reubicación.</p>
 <p>Hay un selector <strong>Caja / ubicación</strong> para filtrado rápido por número de caja inferido desde el texto de <strong>Ubicación</strong>, desde los <strong>números de caja</strong> con stock en la gestión por caja, y por <strong>ubicaciones de almacén</strong> del catálogo interno (p. ej. E1R, ETOP, BIN 8, CONTAINEUR CHANTIER, ARMOIRE AVEC CLE) cuando el texto de ubicación coincide <strong>o</strong> la misma ubicación aparece solo en <strong>stock por ubicación</strong> (chips con cantidad); en la tabla se muestran etiquetas junto a la celda. Junto a exportar e imprimir, el botón <strong>Resumen por caja (desde ubicación)</strong> agrupa los artículos cuando en <strong>Ubicación</strong> aparece algo como <strong>BOX1</strong>, <strong>BOX 1</strong> u otras variantes («box», «caja» + número; el espacio después de BOX es opcional); puede haber <strong>varias cajas</strong> en el mismo texto, <strong>separadas por comas</strong> (p. ej. «BOX1, caja 2»); en el modal puede <strong>pulsar una fila</strong> para ver la lista de artículos de esa agrupación. Si un artículo tiene varias cajas en su ubicación, aparece contabilizado en <strong>cada caja detectada</strong>. Además, con <strong>Gestión de stock por caja</strong> puede <strong>añadir, editar, eliminar y repartir</strong> stock entre <strong>cajas</strong> y las columnas <strong>Stock producción</strong> / <strong>Stock transformación</strong>; también puede transferir de <strong>caja a ubicación directa (sin caja)</strong>. Esa operación descuenta la caja origen, añade la ubicación al texto del artículo (sin duplicar) y registra cantidad por ubicación (chips como <code>E2R: 12</code>) en la celda de Ubicación. También puede <strong>exportar</strong> todo el stock por caja (mismo formato que la plantilla) para respaldo o edición e <strong>importarlo</strong> de nuevo, descargar una plantilla vacía si la necesita, e importar cantidades por caja. El formato oficial en la primera fila es <strong>Codigo, Caja, UbicacionCaja, CantidadCaja, CantidadCajas, Vacia</strong> (hoja <strong>Datos</strong>, la que genera G-NEEX). En la columna <strong>Vacia</strong> puede usar <code>1/true/sí</code> para marcar la caja como vacía (fuerza cantidad 0). En movimientos de salida/consumo la caja es opcional: si la selecciona, descuenta en caja e inventario general; si no, descuenta solo inventario general. Al <strong>guardar</strong> un cambio de <strong>cantidad por caja</strong> con artículo vinculado, también se registra un <strong>ajuste (AJUSTE)</strong> en Historial (motivo opcional), además de actualizar caja y stock principal.</p>
@@ -330,7 +355,7 @@
 <h2>2.4 Movimientos</h2>
 <p>Pestaña <strong>Movimientos</strong> (➕ en la barra): cuadrícula de tipos; al elegir un tipo, el formulario en ventana superpuesta. La pestaña <strong>Recepciones</strong> (🧱) abre el registro de recepciones en Configuración; el tipo de movimiento «Recepción de material» en la rejilla usa el mismo icono <strong>🧱</strong> en la app. Los <strong>18 tipos</strong> se muestran siempre en <strong>rejilla de 6 columnas × 3 filas</strong>; si el ancho de pantalla es reducido, la zona de la rejilla permite <strong>desplazamiento horizontal</strong> para mantener la alineación.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-movimientos.png?v=1778809043" alt="Pestaña Movimientos" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-movimientos.png?v=1778904083" alt="Pestaña Movimientos" loading="lazy" decoding="async">
   <figcaption>Pestaña Movimientos</figcaption>
 </figure>
 
@@ -344,6 +369,7 @@
   <li>Revisar y ajustar <strong>cantidades</strong> en la lista antes de procesar</li>
   <li>Pulsar <strong>Procesar movimiento</strong>. Si el tipo es <strong>M.E. obra</strong>, aparece una pregunta por el <strong>total de cajas</strong> de ese envío (no por artículo); la aplicación reparte esas cajas entre las líneas según las cantidades de cada una para el stock M.E. obra</li>
 </ol>
+<p><strong>Calculadora de cantidad (🧮):</strong> junto al campo numérico de cada línea, el botón <strong>🧮</strong> abre un <strong>modal</strong> con calculadora: números, operaciones <strong>+ − × ÷</strong>, paréntesis, memoria (<strong>Mr</strong>, <strong>Mr−</strong>, <strong>Mr+</strong>), raíz cuadrada y <strong>%</strong> (añade <code>/100</code> a la expresión mostrada). Pulse <strong>Usar en cantidad</strong> para aplicar el resultado a esa línea; <strong>Esc</strong> o <strong>Cancelar</strong> cierra sin cambios.</p>
 <p>Si <strong>todas</strong> las cantidades son <strong>0</strong>, la aplicación <strong>no</strong> permite procesar el movimiento (no hay cambio de stock).</p>
 <blockquote>Los botones de crear y <strong>Procesar movimiento</strong> se usan cuando aparecen activos; si no, el formulario o la acción no están habilitados en su sesión.</blockquote>
 
@@ -433,7 +459,7 @@
 <h2>2.5 Pedidos a proveedor (órdenes de compra por línea)</h2>
 <p><strong>Ruta:</strong> pestaña <strong>Pedidos</strong> (icono 📋 en la barra superior).</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-pedidos.png?v=1778809043" alt="Pestaña Pedidos" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-pedidos.png?v=1778904083" alt="Pestaña Pedidos" loading="lazy" decoding="async">
   <figcaption>Pedidos a proveedor</figcaption>
 </figure>
 <p>Planifica líneas de pedido vinculadas al inventario (código, descripción, proveedor, cantidad). El <strong>número de OC/PO</strong> se registra al <strong>recibir</strong> en Compra de stock (packing slip), no al crear el borrador.</p>
@@ -476,7 +502,7 @@
 
 <h2>2.6 Historial</h2>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-historial.png?v=1778809043" alt="Pestaña Historial" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-historial.png?v=1778904083" alt="Pestaña Historial" loading="lazy" decoding="async">
   <figcaption>Pestaña Historial</figcaption>
 </figure>
 
@@ -532,7 +558,7 @@
 <h2>2.7 Transporte</h2>
 <p>Acceso: botón <strong>Transporte</strong> (🚚) en la barra superior. En la pestaña verá el tablero y las acciones (crear, expedir, anular, etc.) según aparezcan habilitadas en su pantalla.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-transporte.png?v=1778809043" alt="Pestaña Transporte" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-transporte.png?v=1778904083" alt="Pestaña Transporte" loading="lazy" decoding="async">
   <figcaption>Pestaña Transporte</figcaption>
 </figure>
 
@@ -630,7 +656,7 @@
 <h2>2.13 Recordatorios</h2>
 <p><strong>Ruta:</strong> botón con icono de recordatorio en la barra, pestaña <strong>Recordatorios</strong> cuando la tenga a la vista.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-es-recordatorios.png?v=1778809043" alt="Pestaña Recordatorios" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-es-recordatorios.png?v=1778904083" alt="Pestaña Recordatorios" loading="lazy" decoding="async">
   <figcaption>Pestaña Recordatorios</figcaption>
 </figure>
 <p>Desde ahí se crean y gestionan recordatorios operativos con fecha objetivo y prioridad, cuando el módulo esté accesible en su entorno.</p>

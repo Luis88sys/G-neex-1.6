@@ -244,7 +244,7 @@
 <h2>2.2 Dashboard (Summary panel)</h2>
 <p>Upon entering the application, a panel is displayed with today's information. The <strong>top bar</strong> has module buttons (e.g. <strong>📦 Inventory</strong> in §2.3, <strong>➕ Movements</strong> in §2.4):</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-panel.png?v=1778809043" alt="Dashboard and navigation" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-panel.png?v=1778904083" alt="Dashboard and navigation" loading="lazy" decoding="async">
   <figcaption>Dashboard and main navigation</figcaption>
 </figure>
 <table>
@@ -259,13 +259,17 @@
   </tbody>
 </table>
 <p>Click <strong>Hide</strong> / <strong>Show</strong> to collapse/expand the panel.</p>
+<h3>Hero carousel and tip of the day</h3>
+<p><strong>Above the carousel</strong>, a fixed <strong>Tip of the day</strong> box shows a longer rotating hint: <strong>366</strong> variants tied to the <strong>civil calendar day</strong> in <strong>local time</strong> (including <strong>29 February</strong> in leap years), in the <strong>selected language</strong> (ES / EN / FR).</p>
+<p>The <strong>header carousel</strong> (side arrows; auto-advances a few seconds; <strong>pauses on hover</strong>) cycles through cards: overview, today’s activity, transport previews when relevant, pending Stand-by / daily consumption, supplier order lines, soon-to-expire stock, and zero-quantity box rows — <strong>without</strong> duplicating the tip on a slide.</p>
+<p>The <strong>logo</strong> in the top bar runs <strong>Update inventory</strong> (maintenance pass) — see inventory tools and README.</p>
 
 <hr>
 
 <h2>2.3 Inventory</h2>
 <p>View after clicking <strong>Inventory</strong> (📦): search, filters, stat cards, and the article table.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-inventario.png?v=1778809043" alt="Inventory tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-inventario.png?v=1778904083" alt="Inventory tab" loading="lazy" decoding="async">
   <figcaption>Inventory tab</figcaption>
 </figure>
 
@@ -294,7 +298,28 @@
 <h3>Inventory table</h3>
 <p>Columns: Code, Description, Category, Default price, Main Stock, Production Stock, Transformation Stock, Location, Expiration.</p>
 <p>In the <strong>Description</strong> column, the <strong>📝</strong> control (faded more when the item has no notes yet) opens a dialog to <strong>view and edit</strong> notes when it is active; <strong>Save</strong> persists changes. If editing is not offered but the item <strong>has</strong> notes, you can often open the same dialog in <strong>read-only</strong> mode; if there are no notes, the cell is plain text.</p>
-<p>Row and cell colors indicate the article's status (red = negative, yellow = low, orange = expiring, green = OK, etc.). Additionally: a <strong>soft violet/indigo highlight with outline on the whole row</strong> means the row is <strong>keyboard-selected</strong> (Up/Down in the table). A <strong>vertical violet bar</strong> on the <strong>first cell (code)</strong> only marks <strong>inventory consumable</strong> items. In the <strong>main stock</strong> cell, a <strong>violet badge</strong> can mean <strong>overstock</strong> (above the configured maximum).</p>
+<p>Row and cell colours use <strong>several layers</strong>; more than one can apply.</p>
+<h4>Main stock pill</h4>
+<ul>
+  <li><strong>Strong red</strong>: negative total stock.</li>
+  <li><strong>Violet / purple</strong>: over max (above configured maximum).</li>
+  <li><strong>Orange</strong>: expired insight (lots / dates).</li>
+  <li><strong>Amber / yellow</strong>: expiring soon (alert window), low stock, or mid band — use context or open the alerts modal.</li>
+  <li><strong>Green</strong>: comfortable level.</li>
+  <li><strong>Emphasised red “zero”</strong>: exactly zero stock.</li>
+</ul>
+<h4>Row-level bars and outline</h4>
+<ul>
+  <li><strong>Orange left inset bar</strong>: quantity within the expiry alert window (soon).</li>
+  <li><strong>Purple left inset bar</strong>: expiry tracking on but no display date yet, or stock with tracking on and no expiry-related data.</li>
+  <li><strong>Turquoise outline</strong>: important article-editor fields missing for calculations (hover the row for the tooltip).</li>
+</ul>
+<h4>Other markers</h4>
+<ul>
+  <li><strong>Vertical accent on the code cell only</strong>: inventory consumable item.</li>
+  <li><strong>Red pulsing pill</strong> on code/description: “Problems with this item” note in the editor.</li>
+  <li><strong>Violet / indigo wash on the whole row</strong> (thin outline or background): the row is <strong>keyboard-selected</strong> (↑/↓ in the table); by itself it is not a stock fault.</li>
+</ul>
 <p>If the window is narrow, <strong>scroll the table horizontally</strong> to see all columns without squashing the headers.</p>
 <p><strong>Location (article text field):</strong> for validations (movements, imports, stock consistency) only <strong>effective warehouse catalog</strong> labels and <strong>BOXn</strong> references count as <strong>canonical</strong> location. If stored text cannot be fully normalized to those tokens, saving from the editor may show a <strong>warning</strong>; no automatic relocation placeholder is inserted anymore.</p>
 <p>Use the <strong>Box / location</strong> dropdown for quick visual filtering by box number inferred from <strong>Location</strong> text and from <strong>box numbers</strong> that have stock in box management, and by <strong>predefined warehouse locations</strong> in the app catalog (e.g. E1R, ETOP, BIN 8, CONTAINEUR CHANTIER, ARMOIRE AVEC CLE) when the location text matches <strong>or</strong> the same location appears only in <strong>per-location stock</strong> (quantity chips); tags appear next to the cell. Next to export and print, <strong>Box summary (from location text)</strong> groups items when <strong>Location</strong> looks like <strong>BOX1</strong>, <strong>BOX 1</strong>, or variants (“box”, “caja” + number; optional space after BOX). Several boxes may appear in the same field, <strong>comma-separated</strong> (e.g. “BOX1, caja 2”). In that modal, <strong>click a row</strong> to see the article lines for that group. If an item has multiple boxes in location, it is counted under <strong>each detected box</strong>. Also, in <strong>Box stock management</strong>, you can <strong>add, edit, delete, and redistribute</strong> stock between <strong>boxes</strong> and <strong>Production</strong> / <strong>Transformation</strong> stock columns; you can also transfer from <strong>box to direct location (no box)</strong>. That action deducts from the origin box, appends the location to item text (without duplicates), and stores per-location quantity (chips such as <code>E2R: 12</code>) in the Location cell. You can still <strong>export</strong> all box stock (same layout as the template) for backup or editing and <strong>re-import</strong> it, download an empty template when needed, and import box quantities. The official first row is <strong>Codigo, Caja, UbicacionCaja, CantidadCaja, CantidadCajas, Vacia</strong> (<strong>Datos</strong> sheet, the one G-NEEX generates). In <strong>Vacia</strong>, use <code>1/true/yes</code> to mark a box as empty (forces quantity 0). For negative movements (consumption/output), box selection is optional: if selected, stock is discounted from both box and main inventory; if not selected, discount applies only to main inventory. When you <strong>save</strong> a quantity change in <strong>Box stock management</strong> for a <strong>linked item</strong>, the app also records an <strong>Adjustment (AJUSTE)</strong> movement in History (optional reason), in addition to updating box and main stock.</p>
@@ -324,7 +349,7 @@
 <h2>2.4 Movements</h2>
 <p><strong>Movements</strong> (➕) in the bar: type grid; choosing a type opens the overlay form. The <strong>Receptions</strong> tab (🧱) opens the receptions register under Settings; the <strong>Material reception</strong> movement type in the grid uses the same <strong>🧱</strong> icon in the app. All <strong>18 types</strong> are shown in a fixed <strong>6-column × 3-row</strong> grid; on narrow screens the grid area allows <strong>horizontal scrolling</strong> so the layout stays aligned.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-movimientos.png?v=1778809043" alt="Movements tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-movimientos.png?v=1778904083" alt="Movements tab" loading="lazy" decoding="async">
   <figcaption>Movements tab</figcaption>
 </figure>
 
@@ -338,6 +363,7 @@
   <li>Review and adjust <strong>quantities</strong> in the list before processing</li>
   <li>Click <strong>Process movement</strong>. For <strong>Site E.M.</strong>, you are asked for the <strong>total boxes</strong> for that shipment (not per item); boxes are allocated across lines by line quantity for Site E.M. stock</li>
 </ol>
+<p><strong>Quantity calculator (🧮):</strong> next to each line’s quantity field, <strong>🧮</strong> opens a <strong>modal</strong> calculator: numbers, <strong>+ − × ÷</strong>, parentheses, memory (<strong>Mr</strong>, <strong>Mr−</strong>, <strong>Mr+</strong>), square root, and <strong>%</strong> (appends <code>/100</code> to the expression). Tap <strong>Use as quantity</strong> to apply the result to that line; <strong>Esc</strong> or <strong>Cancel</strong> closes without changes.</p>
 <p>If <strong>all</strong> quantities are <strong>0</strong>, the app <strong>blocks</strong> processing (no stock change).</p>
 <blockquote>Use <strong>Create</strong> and <strong>Process movement</strong> when they appear; if they stay inactive, the form or action is not enabled for the current state.</blockquote>
 
@@ -427,7 +453,7 @@
 <h2>2.5 Supplier orders (order lines)</h2>
 <p><strong>Path:</strong> <strong>Orders</strong> tab (📋 in the top bar).</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-pedidos.png?v=1778809043" alt="Orders tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-pedidos.png?v=1778904083" alt="Orders tab" loading="lazy" decoding="async">
   <figcaption>Orders</figcaption>
 </figure>
 <p>Plan supplier lines tied to inventory (code, description, supplier, quantity). The <strong>PO/OC number</strong> is captured when you <strong>receive</strong> in Stock purchase (packing slip), not when you create the draft.</p>
@@ -470,7 +496,7 @@
 
 <h2>2.6 History</h2>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-historial.png?v=1778809043" alt="History tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-historial.png?v=1778904083" alt="History tab" loading="lazy" decoding="async">
   <figcaption>History tab</figcaption>
 </figure>
 
@@ -526,7 +552,7 @@
 <h2>2.7 Transport</h2>
 <p>Open the <strong>Transport</strong> (🚚) button. The tab shows the board and actions (create, ship, void, and so on) as enabled for your current screen.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-transporte.png?v=1778809043" alt="Transport tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-transporte.png?v=1778904083" alt="Transport tab" loading="lazy" decoding="async">
   <figcaption>Transport tab</figcaption>
 </figure>
 
@@ -624,7 +650,7 @@
 <h2>2.13 Reminders</h2>
 <p><strong>Path:</strong> reminders button in the top bar, <strong>Reminders</strong> tab when you can open it.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-en-recordatorios.png?v=1778809043" alt="Reminders tab" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-en-recordatorios.png?v=1778904083" alt="Reminders tab" loading="lazy" decoding="async">
   <figcaption>Reminders</figcaption>
 </figure>
 <p>You create and manage operational reminders with due date and priority from that screen when the module is available in your environment.</p>

@@ -239,7 +239,7 @@
 <h2>2.2 Tableau de bord (Panneau de résumé)</h2>
 <p>À l'entrée dans l'application, un panneau s'affiche avec les informations du jour. La <strong>barre supérieure</strong> contient les accès aux modules (p. ex. <strong>📦 Inventaire</strong> — §2.3) :</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-panel.png?v=1778809043" alt="Tableau de bord" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-panel.png?v=1778904083" alt="Tableau de bord" loading="lazy" decoding="async">
   <figcaption>Tableau de bord et barre de navigation</figcaption>
 </figure>
 <table>
@@ -254,13 +254,17 @@
   </tbody>
 </table>
 <p>Cliquer sur <strong>Masquer</strong> / <strong>Afficher</strong> pour réduire/développer le panneau.</p>
+<h3>Carrousel d’en-tête et conseil du jour</h3>
+<p><strong>Au-dessus du carrousel</strong>, un encadré fixe <strong>Conseil du jour</strong> propose un texte rotatif plus détaillé : <strong>366</strong> variantes alignées sur le <strong>jour civil</strong> en <strong>heure locale</strong> (y compris le <strong>29 février</strong> les années bissextiles), dans la <strong>langue sélectionnée</strong> (ES / EN / FR).</p>
+<p>Le <strong>carrousel</strong> sous le titre du tableau de bord (flèches ; défilement automatique ; <strong>pause au survol</strong>) enchaîne les cartes : synthèse, activité du jour, aperçus transport, Stand-by / consommation, commandes fournisseur, péremption et caisses à quantité 0 — <strong>sans</strong> dupliquer le conseil dans une diapositive.</p>
+<p>Le <strong>logo</strong> de la barre supérieure lance <strong>Mettre à jour l’inventaire</strong> (normalisation, stock principal, lots, petites caisses).</p>
 
 <hr>
 
 <h2>2.3 Inventaire</h2>
 <p>Vue en cliquant sur <strong>Inventaire</strong> (📦) dans la barre : recherche, filtres, cartes et tableau.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-inventario.png?v=1778809043" alt="Onglet Inventaire" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-inventario.png?v=1778904083" alt="Onglet Inventaire" loading="lazy" decoding="async">
   <figcaption>Onglet Inventaire</figcaption>
 </figure>
 
@@ -289,7 +293,28 @@
 <h3>Tableau d'inventaire</h3>
 <p>Colonnes : Code, Description, Catégorie, Prix par défaut, Stock Principal, Stock Production, Stock Transformation, Emplacement, Expiration.</p>
 <p>Dans la colonne <strong>Description</strong>, l’icône <strong>📝</strong> (plus discrète si l’article n’a pas encore de notes) ouvre, lorsqu’elle est active, une fenêtre pour <strong>voir et modifier les notes</strong> ; <strong>Enregistrer</strong> enregistre les changements. Si l’édition n’est pas proposée mais l’article <strong>a</strong> des notes, la même fenêtre s’ouvre souvent en <strong>lecture seule</strong> ; sans notes, la cellule reste du texte simple.</p>
-<p>Les couleurs des lignes et des cellules indiquent l'état de l'article (rouge = négatif, jaune = bas, orange = bientôt expiré, vert = correct, etc.). En outre : un <strong>léger surlignage violet/indigo avec contour sur toute la ligne</strong> correspond à la ligne <strong>sélectionnée au clavier</strong> (flèches haut/bas dans le tableau). Une <strong>barre verticale violette</strong> sur la <strong>première cellule (code)</strong> seule indique un article <strong>consommable d'inventaire</strong>. Dans la cellule <strong>stock principal</strong>, un <strong>encadré violet</strong> peut signifier un <strong>surstock</strong> (au-dessus du maximum configuré).</p>
+<p>Les couleurs se superposent <strong>par couches</strong> ; plusieurs indices peuvent s’appliquer à la même ligne.</p>
+<h4>Pastille « stock principal »</h4>
+<ul>
+  <li><strong>Rouge marqué</strong> : stock total <strong>négatif</strong>.</li>
+  <li><strong>Violet</strong> : <strong>surstock</strong> (au-dessus du maximum configuré).</li>
+  <li><strong>Orange</strong> : lot / date perçu comme <strong>périmé</strong>.</li>
+  <li><strong>Ambre / jaune</strong> : <strong>bientôt périmé</strong> (fenêtre d’alerte), stock <strong>bas</strong> ou zone <strong>intermédiaire</strong> entre le minimum et un palier ; se fier à la teinte et au contexte, ou ouvrir le modal d’alertes.</li>
+  <li><strong>Vert</strong> : niveau confortable.</li>
+  <li><strong>Zéro en rouge</strong> : quantité <strong>exactement nulle</strong> (style distinct du négatif).</li>
+</ul>
+<h4>Barres et contour sur toute la ligne</h4>
+<ul>
+  <li><strong>Bandeau orange</strong> à gauche : quantité dans la <strong>fenêtre d’alerte de péremption</strong> (proche).</li>
+  <li><strong>Bandeau violet</strong> à gauche : suivi de péremption <strong>activé</strong> mais <strong>pas encore de date affichable</strong>, ou stock avec suivi <strong>sans aucune donnée</strong> (durée de vie, dates, lots).</li>
+  <li><strong>Contour turquoise</strong> : <strong>champs importants manquants</strong> dans l’article pour les calculs (ex. quantité par caisse avec du stock en caisse, max caisse noire en mode inquantifiable, lots avec date d’expédition sans mois de durée de vie). <strong>Survoler la ligne</strong> pour lire l’infobulle combinée.</li>
+</ul>
+<h4>Autres repères</h4>
+<ul>
+  <li><strong>Accent sur la seule cellule code</strong> : article <strong>consommable d’inventaire</strong>.</li>
+  <li><strong>Pastille rouge pulsante</strong> sur le code ou la description : note <strong>« problèmes avec l’article »</strong> dans l’éditeur.</li>
+  <li><strong>Surbrillance violet / indigo sur toute la ligne</strong> (léger contour ou fond) : <strong>sélection clavier</strong> (↑/↓ dans le tableau) ; ce n’est pas à elle seule une alerte de stock.</li>
+</ul>
 <p>Si la fenêtre est étroite, faites <strong>défiler le tableau horizontalement</strong> pour voir toutes les colonnes sans comprimer les en-têtes.</p>
 <p><strong>Emplacement (champ texte de l’article) :</strong> pour les validations (mouvements, imports, cohérence des stocks), seules les étiquettes du <strong>catalogue d’entrepôt effectif</strong> et les références <strong>BOXn</strong> comptent comme emplacement <strong>canonique</strong>. Si le texte enregistré ne peut pas être entièrement normalisé vers ces jetons, un <strong>avertissement</strong> peut s’afficher à l’enregistrement depuis l’éditeur ; aucun marqueur automatique de réaffectation n’est plus inséré.</p>
 <p>Le menu <strong>Caisse / emplacement</strong> sert au filtrage visuel rapide selon le numéro déduit du texte d’<strong>Emplacement</strong>, selon les <strong>numéros de caisse</strong> avec stock dans la gestion par caisse, et selon les <strong>emplacements d’entrepôt</strong> du catalogue interne (ex. E1R, ETOP, BIN 8, CONTAINEUR CHANTIER, ARMOIRE AVEC CLE) lorsque le texte correspond <strong>ou</strong> que le même emplacement figure uniquement dans le <strong>stock par emplacement</strong> (pastilles avec quantités) ; des pastilles s’affichent à côté de la cellule. À côté d’exporter et imprimer, <strong>Résumé par caisse (selon emplacement)</strong> regroupe les articles lorsque l’emplacement ressemble à <strong>BOX1</strong>, <strong>BOX 1</strong> ou variantes (« box », « caja » + nombre ; espace après BOX facultatif). Plusieurs caisses peuvent figurer dans le même champ, <strong>séparées par des virgules</strong> (ex. « BOX1, caja 2 »). Dans la fenêtre, <strong>cliquez une ligne</strong> pour voir les articles du groupe. Si un article contient plusieurs caisses dans l’emplacement, il est compté dans <strong>chaque caisse détectée</strong>. En plus, via <strong>Gestion du stock par caisse</strong>, vous pouvez <strong>ajouter, modifier, supprimer et répartir</strong> du stock entre <strong>caisses</strong> et les colonnes <strong>Stock production</strong> / <strong>Stock transformation</strong> ; vous pouvez aussi transférer d’une <strong>caisse vers un emplacement direct (sans caisse)</strong>. Cette action déduit la caisse d’origine, ajoute l’emplacement au texte de l’article (sans doublon) et enregistre une quantité par emplacement (pastilles comme <code>E2R: 12</code>) dans la cellule Emplacement. Vous pouvez aussi <strong>exporter</strong> tout le stock par caisse (même mise en page que le modèle) pour sauvegarde ou modification puis le <strong>réimporter</strong>, télécharger un modèle vide si besoin, et importer des quantités par caisse. La première ligne officielle est <strong>Codigo, Caja, UbicacionCaja, CantidadCaja, CantidadCajas, Vacia</strong> (feuille <strong>Datos</strong>, celle produite par G-NEEX). Dans <strong>Vacia</strong>, utilisez <code>1/true/oui</code> pour marquer la caisse comme vide (force quantité 0). Pour les mouvements de sortie/consommation, la caisse est optionnelle : si elle est choisie, la quantité est déduite de la caisse et du stock principal ; sinon, elle est déduite uniquement du stock principal. Lorsque vous <strong>enregistrez</strong> un changement de <strong>quantité par caisse</strong> avec article lié, l’application crée aussi un mouvement d’<strong>ajustement (AJUSTE)</strong> dans l’historique (motif facultatif), en plus de la mise à jour du stock.</p>
@@ -319,7 +344,7 @@
 <h2>2.4 Mouvements</h2>
 <p>Onglet <strong>Mouvements</strong> (➕) : grille de types ; formulaire en fenêtre superposée. L’onglet <strong>Réceptions</strong> (🧱) ouvre le registre des réceptions dans Configuration ; le type « Réception de matériel » dans la grille utilise la même icône <strong>🧱</strong> dans l’application. Les <strong>18 types</strong> s’affichent toujours dans une <strong>grille de 6 colonnes × 3 lignes</strong> ; sur un écran étroit la zone de la grille permet un <strong>défilement horizontal</strong> pour conserver l’alignement.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-movimientos.png?v=1778809043" alt="Onglet Mouvements" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-movimientos.png?v=1778904083" alt="Onglet Mouvements" loading="lazy" decoding="async">
   <figcaption>Onglet Mouvements</figcaption>
 </figure>
 
@@ -333,6 +358,7 @@
   <li>Vérifier et ajuster les <strong>quantités</strong> dans la liste avant de traiter</li>
   <li>Cliquer sur <strong>Traiter le mouvement</strong>. Pour <strong>M.É. chantier</strong>, une question demande le <strong>total de caisses</strong> pour cet envoi (pas par article) ; elles sont réparties entre les lignes selon les quantités pour le stock M.É. chantier</li>
 </ol>
+<p><strong>Calculatrice de quantité (🧮) :</strong> à côté du champ de quantité de chaque ligne, <strong>🧮</strong> ouvre une <strong>fenêtre modale</strong> avec calculatrice : nombres, <strong>+ − × ÷</strong>, parenthèses, mémoire (<strong>Mr</strong>, <strong>Mr−</strong>, <strong>Mr+</strong>), racine carrée et <strong>%</strong> (ajoute <code>/100</code> à l’expression affichée). Utilisez <strong>Utiliser comme quantité</strong> pour appliquer le résultat à cette ligne ; <strong>Échap</strong> ou <strong>Annuler</strong> ferme sans modification.</p>
 <p>Si <strong>toutes</strong> les quantités sont <strong>0</strong>, l’application <strong>refuse</strong> de traiter le mouvement (aucun changement de stock).</p>
 <blockquote>Utilisez <strong>Créer</strong> et <strong>Traiter le mouvement</strong> lorsqu’ils sont affichés ; s’ils restent inactifs, le formulaire ou l’action n’est pas habilité pour l’état en cours.</blockquote>
 
@@ -422,7 +448,7 @@
 <h2>2.5 Commandes fournisseur (lignes de commande)</h2>
 <p><strong>Chemin :</strong> onglet <strong>Commandes</strong> (icône 📋 dans la barre supérieure).</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-pedidos.png?v=1778809043" alt="Onglet Commandes" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-pedidos.png?v=1778904083" alt="Onglet Commandes" loading="lazy" decoding="async">
   <figcaption>Commandes fournisseur</figcaption>
 </figure>
 <p>Planifier des lignes liées à l'inventaire (code, description, fournisseur, quantité). Le <strong>numéro de BC/PO</strong> est enregistré à la <strong>réception</strong> dans Achat de stock (bon de livraison), pas à la création du brouillon.</p>
@@ -465,7 +491,7 @@
 
 <h2>2.6 Historique</h2>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-historial.png?v=1778809043" alt="Onglet Historique" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-historial.png?v=1778904083" alt="Onglet Historique" loading="lazy" decoding="async">
   <figcaption>Onglet Historique</figcaption>
 </figure>
 
@@ -521,7 +547,7 @@
 <h2>2.7 Transport</h2>
 <p>Bouton <strong>Transport</strong> (🚚) dans la barre : l’onglet affiche le tableau et les actions (créer, expédier, supprimer, etc.) selon ce qui apparaît actif.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-transporte.png?v=1778809043" alt="Onglet Transport" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-transporte.png?v=1778904083" alt="Onglet Transport" loading="lazy" decoding="async">
   <figcaption>Onglet Transport</figcaption>
 </figure>
 
@@ -619,7 +645,7 @@
 <h2>2.13 Rappels</h2>
 <p><strong>Chemin :</strong> bouton de rappels dans la barre, onglet <strong>Rappels</strong> lorsqu’il est accessible.</p>
 <figure class="manual-shot">
-  <img src="./app-screenshots/capture-fr-recordatorios.png?v=1778809043" alt="Onglet Rappels" loading="lazy" decoding="async">
+  <img src="./app-screenshots/capture-fr-recordatorios.png?v=1778904083" alt="Onglet Rappels" loading="lazy" decoding="async">
   <figcaption>Onglet Rappels</figcaption>
 </figure>
 <p>Depuis cet écran, on crée et gère les rappels opérationnels avec date cible et priorité, lorsque le module est visible dans votre environnement.</p>

@@ -68,7 +68,7 @@ Gestiona todo el ciclo de vida del material:
 | **Alertas automáticas** | Stock bajo, negativo, sobrestock y expiración próxima |
 | **Modal detalle stock bajo** | Columnas: ignorar alerta, **Acciones** (🛒 lista de compra), **Código**, resto de campos |
 | **Modo a fecha** | Consulta el inventario exactamente como estaba en una fecha seleccionada |
-| **Código de colores** | Filas coloreadas según el estado del artículo para identificación visual inmediata |
+| **Código de colores** | El **stock principal** usa una **pastilla** (rojo negativo, violeta sobre-máximo, naranja caducado, próximo ámbar, OK verde, cero remarcado). **Barras naranja / morada** en la fila: cantidad en ventana de alerta de caducidad vs datos de caducidad aún incompletos. **Contorno turquesa**: faltan campos clave del editor para cálculos (**pasar el ratón por la fila**). Pulso rojo en código/descripción = nota de problemas. Marca de consumible en la primera celda. **Resaltado violeta en toda la fila**: selección con teclado (↑/↓). Encima del carrusel, un recuadro fijo muestra el **consejo del día** (366 textos por año civil, hora local, idioma activo). El **carrusel del panel** muestra resumen, actividad, transporte, pendientes, pedidos, caducidad y cajas en cero. |
 | **Exportar e imprimir** | XLSX descargable (tabla con estilo) y vista de impresión formateada |
 
 ---
@@ -96,6 +96,8 @@ En la pestaña **Movimientos**, al pulsar un tipo se abre el formulario en una *
 En los tipos que **restan inventario**, la columna **Origen stock** permite elegir **de qué depósito** sale la cantidad: **principal** (Almacén general), **cajas**, **ubicaciones** (solo etiqueta en la lista), **stock de producción** y **stock de transformación** (con cantidad cuando aplica); la misma referencia puede ir en **varias líneas** con orígenes distintos. Si el formulario incluye columna **Destino** además del origen, el **origen** define el descuento físico y el **destino** puede ser distinto. **Venta directa** y **Expedición de stock** solo permiten **principal, cajas o ubicaciones** (no producción ni transformación); la venta exige **SO** (`SO` + 4–6 dígitos); la expedición exige **proyecto** y **PR** (`PR` + 4–6 dígitos). Referencias de movimiento: prefijos **VDT** y **EXP** + 6 dígitos por tipo.
 
 **M.E. obra:** las **cantidades** en cada línea son de inventario; al **Procesar movimiento** se introduce el **total de cajas** del envío (se distribuyen entre líneas según las cantidades).
+
+**Calculadora de cantidad (🧮):** junto a la cantidad de cada línea abre un **modal** para operar con números y operadores (+ − × ÷, paréntesis, memoria); **Usar en cantidad** aplica el resultado a esa línea.
 
 Cada movimiento registra automáticamente:
 - **Quién** lo realizó

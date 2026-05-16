@@ -192,7 +192,7 @@
     <p>It manages the entire material lifecycle:</p>
     <p class="flow"><strong>Intake</strong> → <strong>Warehouse</strong> → <strong>Dispatch</strong> → <strong>Transport</strong> → <strong>Job Site</strong></p>
     <figure style="text-align:center;margin:1.1rem 0 0.35rem 0">
-        <img class="pres-shot" style="max-height:40vh" src="./app-screenshots/capture-en-01-login.png?v=1778809043" alt="Login" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:40vh" src="./app-screenshots/capture-en-01-login.png?v=1778904083" alt="Login" loading="lazy" decoding="async">
         <figcaption style="font-size:0.95em;color:#666;margin-top:0.5rem">Login screen</figcaption>
     </figure>
     <div class="watermark">G-NEEX</div>
@@ -202,7 +202,7 @@
 <div class="slide">
     <h2>Real-Time Inventory</h2>
     <figure style="text-align:center;margin:0 0 12px 0">
-        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-inventario.png?v=1778809043" alt="Inventory tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-inventario.png?v=1778904083" alt="Inventory tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Inventory</strong> tab (top bar)</figcaption>
     </figure>
     <table>
@@ -220,7 +220,7 @@
             <tr><td><strong>Automatic alerts</strong></td><td>Low stock, negative stock, overstock, and upcoming expirations</td></tr>
             <tr><td><strong>Low-stock detail modal</strong></td><td>Columns: ignore alert, <strong>Actions</strong> (🛒 add to purchase list), <strong>Code</strong>, then the rest of the item fields</td></tr>
             <tr><td><strong>As-of date mode</strong></td><td>View inventory exactly as it was on a selected date</td></tr>
-            <tr><td><strong>Color coding</strong></td><td>Rows colored by item status for immediate visual identification</td></tr>
+            <tr><td><strong>Color coding</strong></td><td>Main stock uses a <strong>pill</strong> (negative red, over-max violet, expired orange, soon amber, OK green, zero emphasized). <strong>Orange / purple inset bars</strong> on the row: expiring inside the alert window vs expiry data still incomplete. <strong>Turquoise outline</strong>: missing key editor fields for calculations (<strong>hover the row</strong>). Red pulse on code/description = item problems note. Consumable marker on first cell. <strong>Violet / indigo row wash</strong>: keyboard selection (↑/↓). A <strong>fixed box above the carousel</strong> shows <strong>Tip of the day</strong> (366 calendar-day tips, local time, active language). The <strong>dashboard carousel</strong> shows overview, today’s activity, transport, pending flows, orders, expiry, and zero-qty boxes.</td></tr>
             <tr><td><strong>Export &amp; print</strong></td><td>Downloadable XLSX (themed table styling) and formatted print view</td></tr>
         </tbody>
     </table>
@@ -231,7 +231,7 @@
 <div class="slide">
     <h2>18 Movement Types</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:28vh" src="./app-screenshots/capture-en-movimientos.png?v=1778809043" alt="Movements tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="./app-screenshots/capture-en-movimientos.png?v=1778904083" alt="Movements tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Movements</strong> tab — type grid</figcaption>
     </figure>
     <p>G-NEEX supports <strong>18 movement types</strong> covering all operations in an industrial warehouse:</p>
@@ -253,6 +253,7 @@
     <p>On the <strong>Movements</strong> tab, choosing a type opens the form in an <strong>in-app overlay window</strong> (the type grid stays visible behind it).</p>
     <p>For types that <strong>subtract stock</strong>, <strong>Stock source</strong> lets you choose <strong>which depot</strong> the quantity comes from: <strong>main</strong> (General warehouse), <strong>boxes</strong>, <strong>locations</strong> (labels only in the list), <strong>production stock</strong>, and <strong>transformation stock</strong> (quantity shown when applicable); the same SKU can appear on <strong>multiple lines</strong> with different sources. When both <strong>Destination</strong> and source appear, <strong>source</strong> drives the physical deduction and <strong>destination</strong> may differ. <strong>Direct sale</strong> and <strong>Stock dispatch</strong> allow <strong>main, boxes, or locations only</strong> (not production or transformation); direct sale requires <strong>SO</strong> (<code>SO</code> + 4–6 digits); dispatch requires <strong>project</strong> and <strong>PR</strong> (<code>PR</code> + 4–6 digits). Movement refs: <strong>VDT</strong> and <strong>EXP</strong> prefixes + 6 digits per type.</p>
     <p><strong>Site E.M.:</strong> line <strong>quantities</strong> are inventory; <strong>Process movement</strong> asks for <strong>total boxes</strong> for the shipment (allocated across lines by quantity).</p>
+    <p><strong>Quantity calculator (🧮):</strong> next to each line’s quantity opens a <strong>modal</strong> for numbers and operators (+ − × ÷, parentheses, memory); <strong>Use as quantity</strong> applies the result to that line.</p>
     <p>Each movement automatically records:</p>
     <ul>
         <li><strong>Who</strong> performed it</li>
@@ -283,7 +284,7 @@
 <div class="slide">
     <h2>Supplier orders</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-pedidos.png?v=1778809043" alt="Orders tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-pedidos.png?v=1778904083" alt="Orders tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Orders</strong> tab</figcaption>
     </figure>
     <p><strong>Orders</strong> tab: lines tied to inventory (supplier, quantity); <strong>PO/OC</strong> is captured on <strong>receipt</strong> in Stock purchase.</p>
@@ -304,7 +305,7 @@
 <div class="slide">
     <h2>List layouts</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:30vh" src="./app-screenshots/capture-en-historial.png?v=1778809043" alt="History tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:30vh" src="./app-screenshots/capture-en-historial.png?v=1778904083" alt="History tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>History</strong> tab (tiles / table / carousel)</figcaption>
     </figure>
     <p><strong>History</strong>, <strong>Transport</strong>, and <strong>Orders</strong> include a <strong>View</strong> control for <strong>tiles</strong>, a compact <strong>list</strong>, and (where relevant) a <strong>detailed table</strong>; in <strong>History</strong>, a <strong>Chronological carousel</strong> is also available for horizontal card browsing. Minimized cards also show the <strong>Project ID</strong> when relevant.</p>
@@ -322,7 +323,7 @@
 <div class="slide">
     <h2>Smart Transport</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-transporte.png?v=1778809043" alt="Transport tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-transporte.png?v=1778904083" alt="Transport tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Transport</strong> tab</figcaption>
     </figure>
     <p>The transport module automates shipment logistics to job sites:</p>
@@ -343,7 +344,7 @@
 <div class="slide">
     <h2>Dashboard — Instant Overview</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-panel.png?v=1778809043" alt="Main dashboard" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-panel.png?v=1778904083" alt="Main dashboard" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Main screen after login (<strong>Summary</strong> tab)</figcaption>
     </figure>
     <p>Upon login, a panel displays the current operational status:</p>
@@ -363,7 +364,7 @@
 <div class="slide">
     <h2>Reminders</h2>
     <figure style="text-align:center;margin:0 0 10px 0">
-        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-recordatorios.png?v=1778809043" alt="Reminders tab" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:32vh" src="./app-screenshots/capture-en-recordatorios.png?v=1778904083" alt="Reminders tab" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem"><strong>Reminders</strong> tab</figcaption>
     </figure>
     <ul>
@@ -379,7 +380,7 @@
 <div class="slide">
     <h2>The app in use (on-screen)</h2>
     <figure style="text-align:center;margin:0 0 8px 0">
-        <img class="pres-shot" style="max-height:28vh" src="./app-screenshots/capture-en-panel.png?v=1778809043" alt="G-NEEX dashboard" loading="lazy" decoding="async">
+        <img class="pres-shot" style="max-height:28vh" src="./app-screenshots/capture-en-panel.png?v=1778904083" alt="G-NEEX dashboard" loading="lazy" decoding="async">
         <figcaption style="font-size:0.9em;color:#666;margin-top:0.4rem">Dashboard: navigation to the main modules</figcaption>
     </figure>
     <ul>

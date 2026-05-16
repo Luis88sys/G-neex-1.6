@@ -180,6 +180,14 @@ Après connexion, vous accédez au panneau (voir **§2.2**).
 
 Cliquer sur **Masquer** / **Afficher** pour réduire/développer le panneau.
 
+### Carrousel d’en-tête et conseil du jour
+
+**Au-dessus du carrousel**, un encadré fixe **Conseil du jour** propose un texte rotatif plus détaillé : **366** variantes alignées sur le **jour civil** en **heure locale** (y compris le **29 février** les années bissextiles), dans la **langue sélectionnée** (ES / EN / FR).
+
+Le **carrousel** sous le titre du tableau de bord (flèches ; défilement automatique ; **pause au survol**) enchaîne les cartes : synthèse, activité du jour, aperçus transport, Stand-by / consommation, commandes fournisseur, péremption et caisses à quantité 0 — **sans** dupliquer le conseil dans une diapositive.
+
+Le **logo** de la barre supérieure lance **Mettre à jour l’inventaire** (normalisation, stock principal, lots, petites caisses).
+
 ---
 
 ## 2.3 Inventaire
@@ -221,7 +229,30 @@ Colonnes : Code, Description, Catégorie, Prix par défaut, Stock Principal, Sto
 
 Dans la colonne **Description**, l’icône **📝** (plus discrète si l’article n’a pas encore de notes) ouvre, lorsqu’elle est active, une fenêtre pour **voir et modifier les notes** ; **Enregistrer** enregistre les changements. Si l’édition n’est pas proposée mais l’article **a** des notes, la même fenêtre s’ouvre souvent en **lecture seule** ; sans notes, la cellule reste du texte simple.
 
-Les couleurs des lignes et des cellules indiquent l'état de l'article (rouge = négatif, jaune = bas, orange = bientôt expiré, vert = correct, etc.). En outre : un **léger surlignage violet/indigo avec contour sur toute la ligne** correspond à la ligne **sélectionnée au clavier** (flèches haut/bas dans le tableau). Une **barre verticale violette** sur la **première cellule (code)** seule indique un article **consommable d'inventaire**. Dans la cellule **stock principal**, un **encadré violet** peut signifier un **surstock** (au-dessus du maximum configuré).
+Les couleurs se superposent **par couches** ; plusieurs indices peuvent s’appliquer à la même ligne.
+
+### Couleurs et repères du tableau d’inventaire
+
+**Pastille « stock principal »** (nombre dans la colonne)
+
+- **Rouge marqué** : stock total **négatif**.
+- **Violet** : **surstock** (au-dessus du maximum configuré).
+- **Orange** : lot / date perçu comme **périmé**.
+- **Ambre / jaune** : **bientôt périmé** (fenêtre d’alerte), stock **bas** ou zone **intermédiaire** entre le minimum et un palier ; se fier à la teinte et au contexte, ou ouvrir le modal d’alertes.
+- **Vert** : niveau confortable.
+- **Zéro en rouge** : quantité **exactement nulle** (style distinct du négatif).
+
+**Barres et contour sur toute la ligne**
+
+- **Bandeau orange** à gauche : quantité dans la **fenêtre d’alerte de péremption** (proche).
+- **Bandeau violet** à gauche : suivi de péremption **activé** mais **pas encore de date affichable**, ou stock avec suivi **sans aucune donnée** (durée de vie, dates, lots).
+- **Contour turquoise** : **champs importants manquants** dans l’article pour les calculs (ex. quantité par caisse avec du stock en caisse, max caisse noire en mode inquantifiable, lots avec date d’expédition sans mois de durée de vie). **Survoler la ligne** pour lire l’infobulle combinée.
+
+**Autres repères**
+
+- **Accent sur la seule cellule code** : article **consommable d’inventaire**.
+- **Pastille rouge pulsante** sur le code ou la description : note **« problèmes avec l’article »** dans l’éditeur.
+- **Surbrillance violet / indigo sur toute la ligne** (léger contour ou fond) : **sélection clavier** (↑/↓ dans le tableau) ; ce n’est pas à elle seule une alerte de stock.
 
 Si la fenêtre est étroite, faites **défiler le tableau horizontalement** pour voir toutes les colonnes sans comprimer les en-têtes.
 
@@ -266,6 +297,8 @@ Onglet **Mouvements** (➕) : la grille de types et, après choix, le formulaire
 5. **Origine du stock** (types qui **soustrent** du stock) : si la colonne **Origine stock** apparaît, choisissez **depuis quel dépôt** la quantité est prélevée : **Entrepôt général** (stock principal, quantité affichée) ; chaque **caisse** (même quantité que dans **Gestion du stock par caisse**) ; **emplacements** du stock détaillé par emplacement (**étiquette seule** dans la liste) ; et le cas échéant **stock de production** ou **stock de transformation** (quantité affichée). Vous pouvez **ajouter plusieurs lignes** du même article pour répartir les quantités. Pour les types qui affichent aussi une colonne **Destination** (p. ex. Quincaillerie, M.É. Production, M.É. Chantier), l’**origine** est le dépôt physique débité ; la **destination** classe le mouvement et peut différer de l’origine. Pour la **Vente directe** et l’**Expédition de stock**, seuls le **principal**, les **caisses** ou les **emplacements** sont autorisés (pas la production ni la transformation).
 6. Vérifier et ajuster les **quantités** dans la liste avant de traiter
 7. Cliquer sur **Traiter le mouvement**. Pour **M.É. chantier**, une question demande le **total de caisses** pour cet envoi (pas par article) ; elles sont réparties entre les lignes selon les quantités pour le stock M.É. chantier
+
+**Calculatrice de quantité (🧮) :** à côté du champ de quantité de chaque ligne, **🧮** ouvre une **fenêtre modale** avec calculatrice : nombres, **+ − × ÷**, parenthèses, mémoire (**Mr**, **Mr−**, **Mr+**), racine carrée et **%** (ajoute `/100` à l’expression affichée). Utilisez **Utiliser comme quantité** pour appliquer le résultat à cette ligne ; **Échap** ou **Annuler** ferme sans modification.
 
 Si **toutes** les quantités sont **0**, l’application **refuse** de traiter le mouvement (aucun changement de stock).
 

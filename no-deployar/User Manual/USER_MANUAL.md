@@ -180,6 +180,14 @@ Upon entering the application, a panel is displayed with today's information. Th
 
 Click **Hide** / **Show** to collapse/expand the panel.
 
+### Hero carousel and tip of the day
+
+**Above the carousel**, a fixed **Tip of the day** box shows a longer rotating hint: **366** variants tied to the **civil calendar day** in **local time** (including **29 February** in leap years), in the **selected language** (ES / EN / FR).
+
+The dashboard **header carousel** (side arrows; auto-advances a few seconds; **pauses while the mouse is over it**) cycles through cards: overview, today’s activity, transport previews when relevant, pending Stand-by / daily consumption, supplier order lines, soon-to-expire stock, and zero-quantity box rows — **without** duplicating the tip on a slide.
+
+The **logo** in the top bar can run **Update inventory** (normalise locations, reconcile main stock, lot dates, per-box counts) — see inventory tools and README.
+
 ---
 
 ## 2.3 Inventory
@@ -221,7 +229,30 @@ Columns: Code, Description, Category, Default price, Main Stock, Production Stoc
 
 In the **Description** column, the **📝** control (faded more when the item has no notes yet) opens a dialog to **view and edit** notes when it is active; **Save** persists changes. If editing is not offered but the item **has** notes, you can often open the same dialog in **read-only** mode; if there are no notes, the cell is plain text.
 
-Row and cell colors indicate the article's status (red = negative, yellow = low, orange = expiring, green = OK, etc.). Additionally: a **soft violet/indigo highlight with outline on the whole row** means the row is **keyboard-selected** (Up/Down in the table). A **vertical violet bar** on the **first cell (code)** only marks **inventory consumable** items. In the **main stock** cell, a **violet badge** can mean **overstock** (above the configured maximum).
+Row and cell colours use **several layers**; more than one can apply. See **§ Inventory row colours (meanings)** below.
+
+### Inventory row colours (meanings)
+
+**Main stock pill** (the value in the Main Stock column)
+
+- **Strong red**: **negative** total stock (the rule uses the depots counted for that row).
+- **Violet / purple**: **over max** — total stock above the configured maximum.
+- **Orange**: **expired** insight for the article (lots / dates).
+- **Amber / yellow**: **expiring soon** (inside your alert window), **low** stock, or a **mid** band between minimum and a midpoint — use hue and context, or open the alerts modal for certainty.
+- **Green**: comfortable level.
+- **Emphasised red “zero”**: stock is **exactly zero** (distinct from negative styling).
+
+**Row-level bars and outline**
+
+- **Orange left inset bar** on the row: some quantity is **within the expiry alert window** (soon).
+- **Purple left inset bar**: **expiry tracking is enabled** but no **display expiry** can be computed yet, **or** there is **stock with tracking on** and **no expiry-related data** (shelf life, dates, lots) filled yet.
+- **Turquoise outline** around the row: **important article-editor fields are missing** for calculations or rules (for example units-per-box while there is box stock, black-box max when uncountable mode is on, lots with expedition date but no shelf-life months). **Hover the row** for a tooltip that lists the gaps.
+
+**Other markers**
+
+- **Vertical accent on the code cell only**: **inventory consumable** item.
+- **Red pulsing pill** on code and/or description: **“Problems with this item”** note is set in the article editor.
+- **Violet / indigo wash on the whole row** (thin outline or background): the row is **keyboard-selected** (↑/↓ in the table); by itself it is not a stock fault.
 
 If the window is narrow, **scroll the table horizontally** to see all columns without squashing the headers.
 
@@ -266,6 +297,8 @@ Print windows across the app use **A4 portrait** (standard margins); tables **do
 5. **Stock source** (types that **subtract** stock): if the **Stock source** column appears, choose **which depot** the quantity comes from: **General warehouse** (main stock, quantity shown); each **box** (same quantity as in **Box stock management**); **locations** from per-location stock (label only in the list); and when available, **production stock** or **transformation stock** (quantity shown). You can **add several lines** for the same item to split quantities across sources. For types that also show a **Destination** column (e.g. Hardware, E.M. Production, E.M. Site), **source** is the physical depot deducted; **destination** classifies the movement and may differ from the source. For **Direct sale** and **Stock dispatch**, you may only take stock from **main**, **boxes**, or **locations** (not production or transformation).
 6. Review and adjust **quantities** in the list before processing
 7. Click **Process movement**. For **Site E.M.**, you are asked for the **total boxes** for that shipment (not per item); boxes are allocated across lines by line quantity for Site E.M. stock
+
+**Quantity calculator (🧮):** next to each line’s quantity field, **🧮** opens a **modal** calculator: numbers, **+ − × ÷**, parentheses, memory (**Mr**, **Mr−**, **Mr+**), square root, and **%** (appends `/100` to the expression). Tap **Use as quantity** to apply the result to that line; **Esc** or **Cancel** closes without changes.
 
 If **all** quantities are **0**, the app **blocks** processing (no stock change).
 

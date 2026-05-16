@@ -87,6 +87,7 @@ const App = {
       if (typeof EmployeeManager !== "undefined") EmployeeManager.init();
       if (typeof SupplierManager !== "undefined") SupplierManager.init();
       if (typeof ConsumableManager !== "undefined") ConsumableManager.init();
+      if (typeof TransformationCompaniesManager !== "undefined") TransformationCompaniesManager.init();
       if (typeof MeasureUnitsManager !== "undefined") MeasureUnitsManager.init();
       MovementManager.init();
       try {

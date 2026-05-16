@@ -68,7 +68,7 @@ Elle gère tout le cycle de vie du matériel :
 | **Alertes automatiques** | Stock bas, négatif, surstock et expiration prochaine |
 | **Modal détail stock bas** | Colonnes : ignorer l’alerte, **Actions** (🛒 liste d’achat), **Code**, puis les autres champs |
 | **Mode à date** | Consulte l'inventaire exactement tel qu'il était à une date sélectionnée |
-| **Code couleur** | Lignes colorées selon l'état de l'article pour identification visuelle immédiate |
+| **Code couleur** | Le stock principal utilise une **pastille** (rouge négatif, violet sur-max, orange périmé, bientôt ambre, OK vert, zéro mis en avant). **Barres orange / violet** sur la ligne : péremption dans la fenêtre d’alerte vs données de péremption encore incomplètes. **Contour turquoise** : champs éditeur clés manquants pour les calculs (**survoler la ligne**). Pulsation rouge sur code/description = note « problèmes ». Marqueur consommable sur la première cellule. **Lavis violet sur toute la ligne** : sélection clavier (↑/↓). Au-dessus du carrousel, un encadré fixe affiche le **conseil du jour** (366 textes selon le jour civil, heure locale, langue active). Le **carrousel** affiche le résumé, l’activité du jour, le transport, les attentes, les commandes, la péremption et les caisses à zéro. |
 | **Exporter et imprimer** | XLSX téléchargeable (tableau mis en forme) et vue d'impression formatée |
 
 ---
@@ -96,6 +96,8 @@ Dans l'onglet **Mouvements**, le choix d'un type ouvre le formulaire dans une **
 Pour les types qui **soustrent du stock**, la colonne **Origine stock** permet de choisir **depuis quel dépôt** la quantité est prélevée : **principal** (Entrepôt général), **caisses**, **emplacements** (étiquette seule dans la liste), **stock de production** et **stock de transformation** (quantité affichée si applicable) ; la même référence peut figurer sur **plusieurs lignes**. Lorsqu’une colonne **Destination** s’ajoute à l’origine, l’**origine** correspond au prélèvement physique et la **destination** peut différer. **Vente directe** et **Expédition de stock** : uniquement **principal, caisses ou emplacements** (pas production ni transformation) ; la vente exige un **SO** (`SO` + 4 à 6 chiffres) ; l’expédition exige **projet** et **PR** (`PR` + 4 à 6 chiffres). Références : préfixes **VDT** et **EXP** + 6 chiffres par type.
 
 **M.É. chantier :** les **quantités** par ligne sont du stock ; au **Traiter le mouvement**, on saisit le **total de caisses** pour l'envoi (réparti entre les lignes selon les quantités).
+
+**Calculatrice de quantité (🧮) :** à côté de la quantité de chaque ligne, ouvre une **fenêtre modale** pour calculer (+ − × ÷, parenthèses, mémoire) ; **Utiliser comme quantité** applique le résultat.
 
 Chaque mouvement enregistre automatiquement :
 - **Qui** l'a effectué

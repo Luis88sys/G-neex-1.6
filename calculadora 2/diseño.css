@@ -1,0 +1,125 @@
+*{
+  margin:0;
+  padding:0;
+  box-sizing: border-box;
+}
+
+body{
+  
+  margin-top:30px;
+  width: 100vw;
+  height:300vw;
+  background:linear-gradient(135deg, grey,black 30% 99%, grey);
+  align-items: center;
+  justify-items: center;
+  
+}
+
+.caja1{
+ padding:10px;
+  width: 300px;
+  height: 600px;
+  background:linear-gradient(270deg, rgb(38, 34, 34),rgb(51, 50, 50) 10% 90%, grey);
+  align-items: center;
+  justify-items: center;
+  border-radius:40px;
+  border-color: black;
+  border:none;
+  box-shadow:rgb(16, 17, 16) 12px 0 40px 2px;
+
+}
+.botones{
+  padding: 10px;
+  display: grid;
+  margin-top:20px;
+  grid-template-columns: repeat(4, 1fr);
+  gap:10px;
+  
+
+  
+
+
+
+}
+
+button{
+ 
+  min-width: 60px;
+  min-height: 60px;
+  border-radius: 15px;
+  font-size: x-large;
+ box-shadow:rgb(16, 17, 16) 12px 0 40px 2px;
+ background:bisque;
+ top:50px
+}
+.displaytotal{
+  padding: 2px;
+  display:flex;
+ 
+  margin-top: 10px;
+  width:270px;
+  height: 40px;
+  background: rgb(144, 185, 185);
+  font-size: 20px;
+  border-radius: 15px ;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+
+  color: rgb(4, 54, 4);
+  font-family: "Orbitron", sans-serif;
+  font-style: normal;
+  align-items: top;
+  justify-content: right;
+  overflow:hidden;
+
+}
+button.AMA{
+background: rgb(202, 202, 92);
+}
+button.PINTADO{
+  background: brown;
+}
+button.OPR{
+  background-color: rgb(43, 103, 232);
+}
+.segunda{
+  display:flex;
+  padding: 2px;
+  background: rgb(144, 185, 185);
+  width:270px;
+  height: 45px;
+  font-size: 30px;
+  color: rgb(4, 54, 4);
+  font-family: "Orbitron", sans-serif;
+  font-style: normal;
+  overflow:hidden;
+  margin:0;
+  justify-content: right;
+  border-bottom-left-radius: 15px;
+  border-bottom-right-radius: 15px;
+  
+}.mr{
+  display:flex;
+  padding: 2px;
+  background: rgb(144, 185, 185);
+  width:270px;
+  height: 15px;
+  font-size: 10px;
+  color: rgb(4, 54, 4);
+  font-family: "Orbitron", sans-serif;
+  font-style: normal;
+  overflow:hidden;
+  margin:0;
+  justify-content: left;
+  
+
+}
+#BOTONmr{
+  background: greenyellow;
+}
+#BOTONmrl{
+  background: greenyellow;
+}
+#BOTONmrp{
+  background: greenyellow;
+}

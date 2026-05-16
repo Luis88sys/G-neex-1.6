@@ -385,68 +385,41 @@
         <header class="dashboard-hero" data-auth-act="dashHero" data-auth-act-level="view">
           <h1 class="dashboard-hero-title" data-i18n="dashboard.pageTitle">Panel de control</h1>
 
-          <section class="dashboard-block dashboard-transport-preview-block" aria-labelledby="dash-transport-preview-h">
-            <h2 id="dash-transport-preview-h" class="dashboard-block-title" data-i18n="dashboard.transportPendingPreviewTitle">Alertas de transporte</h2>
-            <div id="dashboard-transport-preview-body" class="dashboard-transport-preview-body"></div>
-            <button type="button" class="btn btn-sm btn-secondary" data-dash-action="transport" id="dashboard-goto-transport-hero" data-open-tab="transport" data-i18n="dashboard.transportOpenTab">Abrir transporte</button>
+          <div class="dashboard-daily-tip-strip" role="region" aria-labelledby="dash-inline-daily-tip-h">
+            <h2 id="dash-inline-daily-tip-h" class="dashboard-daily-tip-strip-title" data-i18n="dashboard.dailyTipLabel">Consejo del día</h2>
+            <p id="dash-inline-daily-tip-body" class="dashboard-daily-tip-strip-body" aria-live="polite"></p>
+          </div>
+
+          <div class="dashboard-hero-carousel" id="dashboard-hero-carousel">
+            <div class="dashboard-carousel-topbar">
+              <button type="button" class="dashboard-carousel-nav dashboard-carousel-nav--prev" id="dashboard-carousel-prev" data-i18n-aria-label="dashboard.carouselPrevAria" aria-label="Anterior">‹</button>
+              <button type="button" class="dashboard-carousel-nav dashboard-carousel-nav--next" id="dashboard-carousel-next" data-i18n-aria-label="dashboard.carouselNextAria" aria-label="Siguiente">›</button>
+            </div>
+            <div class="dashboard-carousel-viewport">
+              <div class="dashboard-carousel-track" id="dashboard-carousel-track">
+                <div class="dashboard-carousel-slide" data-carousel-slide="overview">
+          <section class="dashboard-block inv-full-insights-only" aria-labelledby="dash-overview-heading" data-auth-act="dashOverview" data-auth-act-level="view">
+            <h2 id="dash-overview-heading" class="dashboard-block-title" data-i18n="dashboard.sectionOverview">Resumen general</h2>
+            <div class="dashboard-grid dashboard-grid--overview">
+              <div class="dash-card dash-card--static">
+                <div class="dash-card-icon">📚</div>
+                <div class="dash-card-value" id="dash-total-articles">0</div>
+                <div class="dash-card-label" data-i18n="dashboard.cardCatalog">Artículos en catálogo</div>
+              </div>
+              <div class="dash-card dash-card--static">
+                <div class="dash-card-icon">📆</div>
+                <div class="dash-card-value" id="dash-movements-week">0</div>
+                <div class="dash-card-label" data-i18n="dashboard.cardMovementsWeek">Movimientos (7 días)</div>
+              </div>
+              <div class="dash-card dash-card--static">
+                <div class="dash-card-icon">📋</div>
+                <div class="dash-card-value" id="dash-order-lines-open">0</div>
+                <div class="dash-card-label" data-i18n="dashboard.cardOrderLinesOpen">Líneas de pedido activas</div>
+              </div>
+            </div>
           </section>
-
-          <div id="dashboard-pending-movements" class="dashboard-pending-movements" style="display:none;" role="region" aria-labelledby="dashboard-pending-movements-h">
-            <h2 id="dashboard-pending-movements-h" class="dashboard-pending-movements-title" data-i18n="dashboard.pendingMovementsTitle">Pendientes de movimientos</h2>
-            <div id="dashboard-pending-standby" class="dashboard-pending-row dashboard-pending-row--standby" style="display:none;">
-              <span class="dashboard-pending-icon" aria-hidden="true">⏸</span>
-              <span id="dashboard-pending-standby-text" class="dashboard-pending-text"></span>
-              <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-standby" data-open-tab="movements" data-i18n="dashboard.pendingGoMovements">Abrir</button>
-            </div>
-            <div id="dashboard-pending-consumo" class="dashboard-pending-row dashboard-pending-row--consumo" style="display:none;">
-              <span class="dashboard-pending-icon" aria-hidden="true">📅</span>
-              <span id="dashboard-pending-consumo-text" class="dashboard-pending-text"></span>
-              <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-consumo" data-open-tab="movements" data-i18n="dashboard.pendingGoMovements">Abrir</button>
-            </div>
-          </div>
-
-          <div id="dashboard-transport-expedition-urgent" class="dashboard-transport-expedition-urgent" style="display:none;" role="alert" aria-live="polite" aria-labelledby="dashboard-transport-expedition-urgent-h">
-            <h2 id="dashboard-transport-expedition-urgent-h" class="dashboard-transport-expedition-urgent-title" data-i18n="dashboard.transportExpeditionUrgentTitle">Urgente: expediciones atrasadas</h2>
-            <p id="dashboard-transport-expedition-urgent-text" class="dashboard-transport-expedition-urgent-text"></p>
-            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-transport-urgent" data-open-tab="transport" data-i18n="dashboard.transportExpeditionUrgentOpen">Abrir transporte</button>
-          </div>
-
-          <div id="dashboard-transport-readiness" class="dashboard-transport-readiness" style="display:none;" role="region" aria-labelledby="dashboard-transport-readiness-h">
-            <h2 id="dashboard-transport-readiness-h" class="dashboard-transport-readiness-title" data-i18n="dashboard.transportReadinessTitle">Transporte: qué falta para estar listo</h2>
-            <p id="dashboard-transport-readiness-intro" class="dashboard-transport-readiness-intro muted" data-i18n="dashboard.transportReadinessIntro"></p>
-            <div id="dashboard-transport-readiness-body" class="dashboard-transport-readiness-body"></div>
-            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-transport-readiness" data-open-tab="transport" data-i18n="dashboard.transportExpeditionUrgentOpen">Abrir transporte</button>
-          </div>
-
-          <section class="dashboard-block dashboard-reminders-preview requires-reminders-perm" aria-labelledby="dash-reminders-preview-h">
-            <h2 id="dash-reminders-preview-h" class="dashboard-block-title" data-i18n="reminders.dashboardPreviewTitle">Recordatorios pendientes</h2>
-            <ul id="dashboard-reminders-summary" class="dashboard-reminders-summary" data-i18n-aria-label="reminders.dashboardPreviewTitle"></ul>
-            <p id="dashboard-reminders-preview-empty" class="reminders-dashboard-empty muted" style="display:none;" data-i18n="reminders.dashboardEmpty">No hay recordatorios pendientes.</p>
-            <button type="button" id="dashboard-open-reminders-btn" class="btn btn-sm btn-secondary dashboard-open-reminders" data-open-tab="reminders" data-i18n="reminders.openTab">Abrir recordatorios</button>
-          </section>
-        </header>
-
-        <section class="dashboard-block inv-full-insights-only" aria-labelledby="dash-overview-heading" data-auth-act="dashOverview" data-auth-act-level="view">
-          <h2 id="dash-overview-heading" class="dashboard-block-title" data-i18n="dashboard.sectionOverview">Resumen general</h2>
-          <div class="dashboard-grid dashboard-grid--overview">
-            <div class="dash-card dash-card--static">
-              <div class="dash-card-icon">📚</div>
-              <div class="dash-card-value" id="dash-total-articles">0</div>
-              <div class="dash-card-label" data-i18n="dashboard.cardCatalog">Artículos en catálogo</div>
-            </div>
-            <div class="dash-card dash-card--static">
-              <div class="dash-card-icon">📆</div>
-              <div class="dash-card-value" id="dash-movements-week">0</div>
-              <div class="dash-card-label" data-i18n="dashboard.cardMovementsWeek">Movimientos (7 días)</div>
-            </div>
-            <div class="dash-card dash-card--static">
-              <div class="dash-card-icon">📋</div>
-              <div class="dash-card-value" id="dash-order-lines-open">0</div>
-              <div class="dash-card-label" data-i18n="dashboard.cardOrderLinesOpen">Líneas de pedido activas</div>
-            </div>
-          </div>
-        </section>
-
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="today">
         <div id="dashboard-panel" class="dashboard-panel" data-auth-act="dashToday" data-auth-act-level="view">
           <div class="dashboard-header">
             <h2 data-i18n="dashboard.sectionToday">Actividad de hoy</h2>
@@ -481,6 +454,81 @@
             </div>
           </div>
         </div>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="transport-preview">
+          <section class="dashboard-block dashboard-transport-preview-block" aria-labelledby="dash-transport-preview-h">
+            <h2 id="dash-transport-preview-h" class="dashboard-block-title" data-i18n="dashboard.transportPendingPreviewTitle">Alertas de transporte</h2>
+            <div id="dashboard-transport-preview-body" class="dashboard-transport-preview-body"></div>
+            <button type="button" class="btn btn-sm btn-secondary" data-dash-action="transport" id="dashboard-goto-transport-hero" data-open-tab="transport" data-i18n="dashboard.transportOpenTab">Abrir transporte</button>
+          </section>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="pending">
+          <div id="dashboard-pending-movements" class="dashboard-pending-movements" style="display:none;" role="region" aria-labelledby="dashboard-pending-movements-h">
+            <h2 id="dashboard-pending-movements-h" class="dashboard-pending-movements-title" data-i18n="dashboard.pendingMovementsTitle">Pendientes de movimientos</h2>
+            <div id="dashboard-pending-standby" class="dashboard-pending-row dashboard-pending-row--standby" style="display:none;">
+              <span class="dashboard-pending-icon" aria-hidden="true">⏸</span>
+              <span id="dashboard-pending-standby-text" class="dashboard-pending-text"></span>
+              <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-standby" data-open-tab="movements" data-i18n="dashboard.pendingGoMovements">Abrir</button>
+            </div>
+            <div id="dashboard-pending-consumo" class="dashboard-pending-row dashboard-pending-row--consumo" style="display:none;">
+              <span class="dashboard-pending-icon" aria-hidden="true">📅</span>
+              <span id="dashboard-pending-consumo-text" class="dashboard-pending-text"></span>
+              <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-consumo" data-open-tab="movements" data-i18n="dashboard.pendingGoMovements">Abrir</button>
+            </div>
+          </div>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="urgent">
+          <div id="dashboard-transport-expedition-urgent" class="dashboard-transport-expedition-urgent" style="display:none;" role="alert" aria-live="polite" aria-labelledby="dashboard-transport-expedition-urgent-h">
+            <h2 id="dashboard-transport-expedition-urgent-h" class="dashboard-transport-expedition-urgent-title" data-i18n="dashboard.transportExpeditionUrgentTitle">Urgente: expediciones atrasadas</h2>
+            <p id="dashboard-transport-expedition-urgent-text" class="dashboard-transport-expedition-urgent-text"></p>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-transport-urgent" data-open-tab="transport" data-i18n="dashboard.transportExpeditionUrgentOpen">Abrir transporte</button>
+          </div>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="readiness">
+          <div id="dashboard-transport-readiness" class="dashboard-transport-readiness" style="display:none;" role="region" aria-labelledby="dashboard-transport-readiness-h">
+            <h2 id="dashboard-transport-readiness-h" class="dashboard-transport-readiness-title" data-i18n="dashboard.transportReadinessTitle">Transporte: qué falta para estar listo</h2>
+            <p id="dashboard-transport-readiness-intro" class="dashboard-transport-readiness-intro muted" data-i18n="dashboard.transportReadinessIntro"></p>
+            <div id="dashboard-transport-readiness-body" class="dashboard-transport-readiness-body"></div>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-goto-transport-readiness" data-open-tab="transport" data-i18n="dashboard.transportExpeditionUrgentOpen">Abrir transporte</button>
+          </div>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="reminders">
+          <section class="dashboard-block dashboard-reminders-preview requires-reminders-perm" aria-labelledby="dash-reminders-preview-h">
+            <h2 id="dash-reminders-preview-h" class="dashboard-block-title" data-i18n="reminders.dashboardPreviewTitle">Recordatorios pendientes</h2>
+            <ul id="dashboard-reminders-summary" class="dashboard-reminders-summary" data-i18n-aria-label="reminders.dashboardPreviewTitle"></ul>
+            <p id="dashboard-reminders-preview-empty" class="reminders-dashboard-empty muted" style="display:none;" data-i18n="reminders.dashboardEmpty">No hay recordatorios pendientes.</p>
+            <button type="button" id="dashboard-open-reminders-btn" class="btn btn-sm btn-secondary dashboard-open-reminders" data-open-tab="reminders" data-i18n="reminders.openTab">Abrir recordatorios</button>
+          </section>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="orders-pending">
+          <section class="dashboard-block dashboard-reminders-preview" aria-labelledby="dash-carousel-orders-h">
+            <h2 id="dash-carousel-orders-h" class="dashboard-block-title" data-i18n="dashboard.carouselOrdersTitle">Pedidos pendientes</h2>
+            <p id="dash-carousel-orders-summary" class="muted dashboard-carousel-slide-summary" aria-live="polite"></p>
+            <ul id="dash-carousel-orders-list" class="dashboard-reminders-summary"></ul>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-carousel-goto-orders" data-open-tab="orderlines" data-i18n="dashboard.carouselOrdersOpen">Abrir pedidos a proveedor</button>
+          </section>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="expiring">
+          <section class="dashboard-block dashboard-reminders-preview" aria-labelledby="dash-carousel-expiring-h">
+            <h2 id="dash-carousel-expiring-h" class="dashboard-block-title" data-i18n="dashboard.carouselExpiringTitle">Caducidad próxima o vencida</h2>
+            <p id="dash-carousel-expiring-summary" class="muted dashboard-carousel-slide-summary" aria-live="polite"></p>
+            <ul id="dash-carousel-expiring-list" class="dashboard-reminders-summary"></ul>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-carousel-goto-expiring" data-i18n="dashboard.carouselExpiringOpen">Ver en inventario</button>
+          </section>
+                </div>
+                <div class="dashboard-carousel-slide" data-carousel-slide="empty-boxes">
+          <section class="dashboard-block dashboard-reminders-preview" aria-labelledby="dash-carousel-empty-boxes-h">
+            <h2 id="dash-carousel-empty-boxes-h" class="dashboard-block-title" data-i18n="dashboard.carouselEmptyBoxesTitle">Cajas con fila en cantidad 0</h2>
+            <p id="dash-carousel-empty-boxes-summary" class="muted dashboard-carousel-slide-summary" aria-live="polite"></p>
+            <ul id="dash-carousel-empty-boxes-list" class="dashboard-reminders-summary"></ul>
+            <button type="button" class="btn btn-sm btn-secondary" id="dashboard-carousel-goto-empty-boxes" data-i18n="dashboard.carouselEmptyBoxesOpen">Abrir listado</button>
+          </section>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
       </div>
     </section>
 
@@ -554,6 +602,10 @@
                       <span class="inventory-header-tools-menu-ico" aria-hidden="true">🗃</span>
                       <span data-i18n="inventory.toolsItemBoxManager">Gestionar stock por caja</span>
                     </button>
+                    <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-black-box-capacity-btn" data-auth-act="invBrowse" data-auth-act-level="view">
+                      <span class="inventory-header-tools-menu-ico" aria-hidden="true">⬛</span>
+                      <span data-i18n="inventory.toolsItemBlackBoxCapacity">Capacidad cajas negras</span>
+                    </button>
                     <button type="button" role="menuitem" class="inventory-header-tools-menu-item" data-inv-tool-trigger="inventory-refresh-data-btn" data-auth-act="invTools" data-auth-act-level="edit">
                       <span class="inventory-header-tools-menu-ico" aria-hidden="true">↺</span>
                       <span data-i18n="inventory.toolsItemRefreshData">Actualizar inventario (normalizar + stock + caducidad)</span>
@@ -608,6 +660,7 @@
                   <button type="button" id="inventory-box-summary-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxSummaryBtnTitle" data-i18n-aria-label="inventory.boxSummaryBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧰</span></button>
                   <button type="button" id="inventory-box-zero-total-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-i18n-title="inventory.boxZeroTotalBtnTitle" data-i18n-aria-label="inventory.boxZeroTotalBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">📭</span></button>
                   <button type="button" id="inventory-box-manager-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.boxManagerBtnTitle" data-i18n-aria-label="inventory.boxManagerBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🗃</span></button>
+                  <button type="button" id="inventory-black-box-capacity-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invBrowse" data-auth-act-level="view" data-i18n-title="inventory.blackBoxCapacityBtnTitle" data-i18n-aria-label="inventory.blackBoxCapacityBtnTitle"><span class="inventory-box-summary-btn-icon" aria-hidden="true">⬛</span></button>
                   <button type="button" id="inventory-refresh-data-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.toolsItemRefreshData" data-i18n-aria-label="inventory.toolsItemRefreshData"><span class="inventory-box-summary-btn-icon" aria-hidden="true">↺</span></button>
                   <button type="button" id="inventory-export-stock-template-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="view" data-i18n-title="inventory.toolsItemExportStockTemplate" data-i18n-aria-label="inventory.toolsItemExportStockTemplate"><span class="inventory-box-summary-btn-icon" aria-hidden="true">🧾</span></button>
                   <button type="button" id="inventory-import-stock-update-btn" class="btn inventory-asof-icon-btn" tabindex="-1" data-auth-act="invTools" data-auth-act-level="edit" data-i18n-title="inventory.toolsItemImportStockUpdate" data-i18n-aria-label="inventory.toolsItemImportStockUpdate"><span class="inventory-box-summary-btn-icon" aria-hidden="true">♻</span></button>
@@ -870,6 +923,11 @@
       <div class="transport-tab-actions" data-auth-act="trnToolbar" data-auth-act-level="view">
         <button type="button" id="transport-create-btn" class="btn btn-primary btn-sm" data-auth-act="trnToolbar" data-auth-act-level="edit" data-i18n="transport.createManual">+ Nuevo transporte</button>
       </div>
+    </div>
+    <div class="transport-board-search-row" data-auth-act="trnMain" data-auth-act-level="view">
+      <input type="search" id="transport-board-search" class="search-input transport-board-search-input" autocomplete="off"
+        data-i18n-placeholder="transport.searchPlaceholder" placeholder="Buscar por proyecto, fecha, referencias, notas…">
+      <button type="button" id="transport-board-search-reset" class="search-btn" data-i18n-title="transport.searchResetTitle" data-i18n-aria-label="transport.searchResetTitle" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">🔄</button>
     </div>
     <div id="transport-board" class="transport-board" data-auth-act="trnMain" data-auth-act-level="view"></div>
   </section>
@@ -1136,6 +1194,7 @@
         <button type="button" class="config-tab-btn admin-only" id="config-tab-employees-btn" data-auth-act="cfgTabEmployees" data-auth-act-level="view" data-config-tab="employees" data-i18n="config.tab.employees">Empleados</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-suppliers-btn" data-auth-act="cfgTabSuppliers" data-auth-act-level="view" data-config-tab="suppliers" data-i18n="config.tab.suppliers">Proveedores</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-consumables-btn" data-auth-act="cfgTabConsumables" data-auth-act-level="view" data-config-tab="consumables" data-i18n="config.tab.consumables">Consumibles</button>
+        <button type="button" class="config-tab-btn admin-only" id="config-tab-transcompanies-btn" data-auth-act="cfgTabTransCompanies" data-auth-act-level="view" data-config-tab="transcompanies" data-i18n="config.tab.transCompanies">Empresas transformación</button>
         <button type="button" class="config-tab-btn admin-only" id="config-tab-measureunits-btn" data-auth-act="cfgTabMeasureUnits" data-auth-act-level="view" data-config-tab="measureunits" data-i18n="config.tab.measureUnits">Unidades</button>
         <button type="button" class="config-tab-btn admin-only" data-config-tab="itemedit" data-auth-act="cfgTabItemEdit" data-auth-act-level="view" data-i18n="config.tab.itemEdit">Edición de artículo</button>
         <button type="button" class="config-tab-btn super-admin-only" data-config-tab="users" data-auth-act="cfgTabUsers" data-auth-act-level="view" data-i18n="config.tab.users" style="display:none;">Usuarios</button>
@@ -1325,6 +1384,19 @@
             <div class="form-group">
               <label data-i18n="table.numBoxes">Número de cajas</label>
               <input id="edit-num-boxes" type="number" step="0.0001" readonly>
+            </div>
+          </div>
+          <div class="form-group item-edit-black-box-uncountable-block">
+            <label class="checkbox-label item-edit-checkbox-label">
+              <input type="checkbox" id="edit-black-box-uncountable" />
+              <span data-i18n="config.blackBoxUncountableToggle">Incontable en caja negra</span>
+            </label>
+            <p class="muted form-hint" data-i18n="config.blackBoxUncountableHint"></p>
+          </div>
+          <div class="form-row" id="edit-black-box-max-units-wrap" hidden>
+            <div class="form-group">
+              <label for="edit-black-box-max-units" data-i18n="config.blackBoxUncountableMaxLabel">Máx. cantidad por caja negra</label>
+              <input id="edit-black-box-max-units" class="form-input" type="number" min="0.0001" step="any" disabled>
             </div>
           </div>
           <div class="form-row">
@@ -1552,6 +1624,21 @@
             <button type="button" id="consumables-add-btn" class="btn btn-primary" data-i18n="consumables.addBtn">Añadir</button>
           </div>
           <ul id="consumables-config-list" class="employees-config-list" aria-live="polite"></ul>
+        </div>
+      </div>
+
+      <div id="config-transcompanies" class="config-content admin-only">
+        <div class="config-section">
+          <h3 data-i18n="transCompanies.title">Empresas de transformación</h3>
+          <p class="muted form-hint" data-i18n="transCompanies.configIntro"></p>
+          <div class="employees-add-row form-row">
+            <div class="form-group employees-add-group">
+              <label for="trans-companies-add-name" data-i18n="transCompanies.addLabel">Nombre</label>
+              <input type="text" id="trans-companies-add-name" class="form-input" maxlength="140" autocomplete="organization" />
+            </div>
+            <button type="button" id="trans-companies-add-btn" class="btn btn-primary" data-i18n="transCompanies.addBtn">Añadir</button>
+          </div>
+          <ul id="trans-companies-config-list" class="employees-config-list" aria-live="polite"></ul>
         </div>
       </div>
 
@@ -1843,6 +1930,7 @@
                                         <tr>
                                             <th data-i18n="table.code">Código</th>
                                             <th data-i18n="table.description">Descripción</th>
+                                            <th data-i18n="movements.transformationStockCompanyCol">Empresa / taller</th>
                                             <th data-i18n="table.transStock">Cant.</th>
                                         </tr>
                                     </thead>
@@ -1902,7 +1990,8 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label data-i18n="movements.transformationVendor">Empresa / taller de transformación</label>
-                            <input id="mov-transformacion-vendor" type="text" class="form-input" autocomplete="organization">
+                            <input id="mov-transformacion-vendor" type="text" class="form-input" list="mov-tf-vendor-datalist" autocomplete="organization">
+                            <datalist id="mov-tf-vendor-datalist"></datalist>
                         </div>
                     </div>
                     <h4 class="mov-tf-section-title" data-i18n="movements.transformationSectionResultado"></h4>
@@ -2087,6 +2176,16 @@
   </div>
 </div>
 
+<div id="inventory-black-box-capacity-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-black-box-capacity-heading">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="inventory-black-box-capacity-heading" data-i18n="inventory.blackBoxCapacityTitle">Capacidad cajas negras</h2>
+      <button type="button" id="close-inventory-black-box-capacity" class="modal-close" data-i18n-aria-label="buttons.close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body" id="inventory-black-box-capacity-body"></div>
+  </div>
+</div>
+
 <div id="inventory-box-manager-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="inventory-box-manager-heading">
   <div class="modal-content inventory-box-manager-content">
     <div class="modal-header">
@@ -2136,6 +2235,7 @@
         <div class="form-group">
           <label for="inventory-box-qty-boxes" data-i18n="inventory.boxColQtyBoxes">Cajas</label>
           <input id="inventory-box-qty-boxes" class="form-input" type="number" min="0" step="1" value="0">
+          <span class="muted form-hint inventory-box-qty-boxes-hint" data-i18n="inventory.boxMgrQtyBoxesFormHint"></span>
         </div>
         <div class="form-group">
           <label for="inventory-box-location" data-i18n="inventory.boxMgrCatalogSlotLabel" data-i18n-title="inventory.boxMgrCatalogSlotTitle" title="">Ranura catálogo (opcional)</label>
@@ -2143,6 +2243,7 @@
           <datalist id="inventory-box-location-datalist"></datalist>
         </div>
       </div>
+      <p class="muted form-hint inventory-box-capacity-hint" data-i18n="inventory.boxMgrCapacityRuleHint"></p>
       <div class="form-row">
         <div class="form-group">
           <label for="inventory-box-notes" data-i18n="movements.notes">Notas</label>
@@ -2292,6 +2393,57 @@
 </div>
 
 <!-- Entrada de texto / fecha (sustituye window.prompt) -->
+<!-- Calculadora de cantidad (movimientos) — basada en calculadora 2/ -->
+<div id="qty-calculator-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="qty-calc-title">
+  <div class="modal-content modal-small qty-calc-modal-content">
+    <div class="modal-header">
+      <h2 id="qty-calc-title" data-i18n="movements.qtyCalcModalTitle">Calculadora</h2>
+      <button type="button" id="qty-calc-close" class="modal-close" data-i18n-aria-label="movements.qtyCalcCloseAria">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted qty-calc-hint" data-i18n="movements.qtyCalcModalHint"></p>
+      <div class="qty-calc-shell">
+        <div id="qty-calc-display-main" class="qty-calc-display qty-calc-display--expr">0</div>
+        <div id="qty-calc-display-result" class="qty-calc-display qty-calc-display--result">0</div>
+        <div class="qty-calc-display qty-calc-display--mem">
+          <span data-i18n="movements.qtyCalcMemLabel"></span>
+          <span id="qty-calc-mem-val">0</span>
+        </div>
+        <div id="qty-calc-keys" class="qty-calc-keys">
+          <button type="button" class="qty-calc-btn qty-calc-clear" data-qty-act="ce">CE</button>
+          <button type="button" class="qty-calc-btn qty-calc-clear" data-qty-act="c">C</button>
+          <button type="button" class="qty-calc-btn qty-calc-clear" data-qty-act="del">DEL</button>
+          <button type="button" class="qty-calc-btn qty-calc-op" data-qty-act="percent">%</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="7">7</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="8">8</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="9">9</button>
+          <button type="button" class="qty-calc-btn qty-calc-op" data-qty-act="op" data-qty-v="/">÷</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="4">4</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="5">5</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="6">6</button>
+          <button type="button" class="qty-calc-btn qty-calc-op" data-qty-act="op" data-qty-v="*">×</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="1">1</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="2">2</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="3">3</button>
+          <button type="button" class="qty-calc-btn qty-calc-op" data-qty-act="op" data-qty-v="-">−</button>
+          <button type="button" class="qty-calc-btn qty-calc-mem" data-qty-act="mr">Mr</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v="0">0</button>
+          <button type="button" class="qty-calc-btn" data-qty-act="digit" data-qty-v=".">.</button>
+          <button type="button" class="qty-calc-btn qty-calc-op" data-qty-act="op" data-qty-v="+">+</button>
+          <button type="button" class="qty-calc-btn qty-calc-mem" data-qty-act="mrl">Mr−</button>
+          <button type="button" class="qty-calc-btn qty-calc-mem" data-qty-act="mrp">Mr+</button>
+          <button type="button" class="qty-calc-btn qty-calc-op" data-qty-act="sqrt">√</button>
+          <button type="button" class="qty-calc-btn qty-calc-eq" data-qty-act="eq">=</button>
+        </div>
+      </div>
+      <div class="modal-actions qty-calc-actions">
+        <button type="button" id="qty-calc-cancel" class="btn btn-secondary" data-i18n="buttons.cancel">Cancelar</button>
+        <button type="button" id="qty-calc-apply" class="btn btn-primary" data-i18n="movements.qtyCalcApply">Usar en cantidad</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="app-prompt-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="app-prompt-title">
   <div class="modal-content modal-small">
     <div class="modal-header">
@@ -2434,7 +2586,9 @@
 <script defer src="js/employees.js"></script>
 <script defer src="js/suppliers.js"></script>
 <script defer src="js/consumables.js"></script>
+<script defer src="js/transformationCompanies.js"></script>
 <script defer src="js/movements.js"></script>
+<script defer src="js/qty-calculator.js"></script>
 <script defer src="js/history.js"></script>
 <script defer src="js/transport.js"></script>
 <script defer src="js/meLegacyPending.js"></script>
@@ -2442,6 +2596,7 @@
 <script defer src="js/config.js"></script>
 <script defer src="js/reports.js"></script>
 <script defer src="js/reminders.js"></script>
+<script defer src="js/dashboard-daily-tips-data.js"></script>
 <script defer src="js/dashboard.js"></script>
 <script defer src="js/orderLines.js"></script>
 <script defer src="js/float-fab-drag.js"></script>
